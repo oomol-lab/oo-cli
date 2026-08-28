@@ -246,8 +246,8 @@ const commandTelemetryDecisions = {
     },
     "file.upload": {
         kind: "properties",
-        properties: ["bytes_total_bucket", "rejected_too_large"],
-        reason: "Records upload size bucket and rejection state without path or filename.",
+        properties: ["bytes_total_bucket", "identity_source", "rejected_too_large"],
+        reason: "Records upload size bucket, rejection state, and the identity source (personal/flag/env_id/env_name/account) without path, filename, or team name/id.",
     },
     "flow": {
         kind: "generic",

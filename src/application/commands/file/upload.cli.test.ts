@@ -7,8 +7,10 @@ import { describe, expect, test } from "bun:test";
 import {
     createCliSandbox,
     createCliSnapshot,
+    expectTelemetryFreeOfTeamIdentity,
     toRequest,
     writeAuthFile,
+    writeAuthFileWithDefaultTeam,
 } from "../../../../__tests__/helpers.ts";
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
@@ -524,6 +526,197 @@ describe("file upload CLI", () => {
         }
     });
 });
+
+describe("file upload team identity", () => {
+    test("sends the account default team headers to the file service only", async () => {
+        const sandbox = await createCliSandbox();
+        const localFilePath = join(sandbox.env.HOME!, "sample.txt");
+
+        try {
+            await writeAuthFileWithDefaultTeam(sandbox, "alice-team", {
+                teamId: "team-system-1",
+            });
+            await Bun.write(localFilePath, "hello world");
+
+            const { requests, result } = await runRecordedUpload(sandbox, [
+                "file",
+                "upload",
+                localFilePath,
+            ]);
+            const telemetryPayload = readUploadTelemetryPayload(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(readTeamHeaders(fileServiceRequests(requests))).toEqual([
+                ["alice-team", "team-system-1"],
+                ["alice-team", "team-system-1"],
+                ["alice-team", "team-system-1"],
+            ]);
+            // The presigned part upload goes straight to storage and must not
+            // leak the team selection outside the OOMOL gateway.
+            expect(readTeamHeaders(storageRequests(requests))).toEqual([
+                [null, null],
+            ]);
+            expect(telemetryPayload?.properties).toMatchObject({
+                identity_source: "account",
+            });
+            expectTelemetryFreeOfTeamIdentity(telemetryPayload?.properties, [
+                "alice-team",
+                "team-system-1",
+            ]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("uploads under the team given by --team instead of the account default", async () => {
+        const sandbox = await createCliSandbox();
+        const localFilePath = join(sandbox.env.HOME!, "sample.txt");
+
+        try {
+            await writeAuthFileWithDefaultTeam(sandbox, "alice-team", {
+                teamId: "team-system-1",
+            });
+            await Bun.write(localFilePath, "hello world");
+
+            const { requests, result } = await runRecordedUpload(sandbox, [
+                "file",
+                "upload",
+                localFilePath,
+                "--team",
+                "acme",
+            ]);
+            const telemetryPayload = readUploadTelemetryPayload(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(readTeamHeaders(fileServiceRequests(requests))).toEqual([
+                ["acme", null],
+                ["acme", null],
+                ["acme", null],
+            ]);
+            expect(telemetryPayload?.properties).toMatchObject({
+                identity_source: "flag",
+            });
+            expectTelemetryFreeOfTeamIdentity(telemetryPayload?.properties, [
+                "acme",
+                "alice-team",
+            ]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("sends no team headers with --personal", async () => {
+        const sandbox = await createCliSandbox();
+        const localFilePath = join(sandbox.env.HOME!, "sample.txt");
+
+        try {
+            await writeAuthFileWithDefaultTeam(sandbox, "alice-team", {
+                teamId: "team-system-1",
+            });
+            await Bun.write(localFilePath, "hello world");
+
+            const { requests, result } = await runRecordedUpload(sandbox, [
+                "file",
+                "upload",
+                localFilePath,
+                "--personal",
+            ]);
+            const telemetryPayload = readUploadTelemetryPayload(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(readTeamHeaders(fileServiceRequests(requests))).toEqual([
+                [null, null],
+                [null, null],
+                [null, null],
+            ]);
+            expect(telemetryPayload?.properties).toMatchObject({
+                identity_source: "personal",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects --team combined with --personal before any request", async () => {
+        const sandbox = await createCliSandbox();
+        const localFilePath = join(sandbox.env.HOME!, "sample.txt");
+
+        try {
+            await writeAuthFile(sandbox);
+            await Bun.write(localFilePath, "hello world");
+
+            const { requests, result } = await runRecordedUpload(sandbox, [
+                "file",
+                "upload",
+                localFilePath,
+                "--team",
+                "acme",
+                "--personal",
+            ]);
+
+            expect(result.exitCode).toBe(2);
+            expect(requests).toHaveLength(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+});
+
+async function runRecordedUpload(
+    sandbox: Awaited<ReturnType<typeof createCliSandbox>>,
+    argv: readonly string[],
+): Promise<{
+    requests: Request[];
+    result: Awaited<ReturnType<typeof sandbox.run>>;
+}> {
+    const requests: Request[] = [];
+    const fetcher = createSinglePartUploadFetcher({
+        downloadURL: "https://download.example.com/file-1?signature=abc",
+        key: "file-upload/user-1/file-1/sample.txt",
+    });
+    const result = await sandbox.run([...argv], {
+        fetcher: async (input, init) => {
+            const request = toRequest(input, init);
+
+            requests.push(request);
+
+            return await fetcher(request);
+        },
+    });
+
+    return { requests, result };
+}
+
+function fileServiceRequests(requests: readonly Request[]): Request[] {
+    return requests.filter(request => request.url.startsWith("https://fusion-api.oomol.com/"));
+}
+
+function storageRequests(requests: readonly Request[]): Request[] {
+    return requests.filter(request => request.url.startsWith("https://storage.example.com/"));
+}
+
+function readTeamHeaders(
+    requests: readonly Request[],
+): Array<[string | null, string | null]> {
+    return requests.map(request => [
+        request.headers.get("x-oo-team-name"),
+        request.headers.get("x-oo-team-id"),
+    ]);
+}
+
+function readUploadTelemetryPayload(
+    sandbox: Awaited<ReturnType<typeof createCliSandbox>>,
+) {
+    return parseTelemetryRowPayload(
+        readTelemetryRowsForTest(
+            join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+        )[0]!,
+    );
+}
 
 function createSinglePartUploadFetcher(options: {
     readonly downloadURL: string;
