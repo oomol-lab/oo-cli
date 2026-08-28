@@ -119,10 +119,8 @@ requiring network access.
 - `oo flow --help` and `oo flow --version` are therefore Open Flow commands.
   Use `oo help flow` to show the host-side command description without loading
   Open Flow.
-- Root help and generated shell completions list `flow` when
-  `OO_ENDPOINT=oomol.dev` or `OO_OPEN_FLOW_URL` selects a self-hosted Server.
-  Other Hosted endpoints hide it without disabling direct `oo flow` or
-  `oo help flow` invocations.
+- Root help and generated shell completions always list `flow` for both Hosted
+  and self-hosted deployments.
 - Main `oo` global options such as `--lang` and `--debug` must appear before
   `flow`. Options after `flow` belong to Open Flow.
 - Open Flow uses the current process's working directory, standard streams,
@@ -201,11 +199,12 @@ requiring network access.
   `oo flow run`.
 - `oo flow open [flow]` opens the selected deployment's Workbench in the system
   browser and also prints its URL. `oo flow workbench [flow]` prints the same
-  URL without launching a browser, for scripts and agent-hosted previews. The
-  Hosted URL carries a short-lived, one-time browser sign-in code for the
-  effective CLI account and requires a Team. A self-hosted URL points directly
-  to the Server Workbench; the browser establishes its own operator session,
-  and the operator token is never placed in the URL.
+  URL without launching a browser, for scripts and agent-hosted previews.
+  Omitting `flow` opens the Flow catalog; providing it opens that Flow's design
+  page. The Hosted URL carries a short-lived, one-time browser sign-in code for
+  the effective CLI account and requires a Team. A self-hosted URL points
+  directly to the Server Workbench; the browser establishes its own operator
+  session, and the operator token is never placed in the URL.
 - Host telemetry records this delegation only as top-level command `flow`, its
   success or failure, and duration. It records no delegated subcommand, flags,
   Project/Flow ID, free-form argument, or command output.

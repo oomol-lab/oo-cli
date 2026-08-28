@@ -97,9 +97,7 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   Open Flow 自己拥有并随版本发布对应的命令翻译文案。
 - 因此 `oo flow --help` 和 `oo flow --version` 都属于 Open Flow 命令。
   如需在不加载 Open Flow 的情况下查看宿主侧命令说明，请使用 `oo help flow`。
-- 设置 `OO_ENDPOINT=oomol.dev` 或用 `OO_OPEN_FLOW_URL` 选择自部署 Server 时，
-  根帮助和生成的 shell 补全会列出 `flow`。其他 Hosted endpoint 只会隐藏该命令，
-  不会禁用直接调用 `oo flow` 或 `oo help flow`。
+- 根帮助和生成的 shell 补全始终会列出 `flow`，Hosted 与自部署模式一致。
 - `--lang`、`--debug` 等 `oo` 全局选项必须放在 `flow` 前面；
   `flow` 后的选项归 Open Flow 所有。
 - Open Flow 使用当前进程的工作目录、标准输入输出、环境变量和信号；
@@ -162,9 +160,10 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   真实副作用只会由显式 `oo flow run` 检查。
 - `oo flow open [flow]` 会在系统浏览器打开所选部署的 Workbench，并同时输出 URL；
   `oo flow workbench [flow]` 只输出相同 URL，不打开浏览器，适用于脚本和 Agent
-  内置预览。Hosted URL 会携带当前 CLI 账号的短期一次性网页登录 code，并要求已
-  选择 Team。自部署 URL 直接指向 Server Workbench，由浏览器自行建立 operator
-  session；operator token 不会写入 URL。
+  内置预览。省略 `flow` 时打开 Flow 列表，提供 `flow` 时打开对应 Flow 的设计页。
+  Hosted URL 会携带当前 CLI 账号的短期一次性网页登录 code，并要求已选择 Team。
+  自部署 URL 直接指向 Server Workbench，由浏览器自行建立 operator session；
+  operator token 不会写入 URL。
 - 宿主 telemetry 只把本次委托记录为顶层命令 `flow`，并记录成功/失败和耗时；
   不记录委托的子命令、flags、Project/Flow ID、自由文本参数或命令输出。
 

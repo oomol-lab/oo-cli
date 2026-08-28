@@ -59,18 +59,12 @@ describe("StaticCompletionRenderer", () => {
         expect(output).toContain("en zh");
     });
 
-    test("shows flow completion only for the online dev endpoint", () => {
-        const hiddenFixture = createCompletionRendererFixture("en");
-        const devFixture = createCompletionRendererFixture("en", "oomol.dev");
-        const hiddenOutput = hiddenFixture.renderer.render(
-            "fish",
-            hiddenFixture.catalog,
-        );
-        const devOutput = devFixture.renderer.render("fish", devFixture.catalog);
+    test("shows flow completion", () => {
+        const { catalog, renderer } = createCompletionRendererFixture("en");
+        const output = renderer.render("fish", catalog);
         const flowCompletion = `complete -c ${APP_NAME} -n '__fish_use_subcommand' -a 'flow'`;
 
-        expect(hiddenOutput).not.toContain(flowCompletion);
-        expect(devOutput).toContain(flowCompletion);
+        expect(output).toContain(flowCompletion);
     });
 
     test("renders dynamic team name completion for every shell", () => {
@@ -96,12 +90,9 @@ describe("StaticCompletionRenderer", () => {
     });
 });
 
-function createCompletionRendererFixture(
-    locale: "en" | "zh",
-    endpoint?: string,
-) {
+function createCompletionRendererFixture(locale: "en" | "zh") {
     return {
-        catalog: createCliCatalog(endpoint),
+        catalog: createCliCatalog(),
         renderer: new StaticCompletionRenderer(createTranslator(locale)),
     };
 }
