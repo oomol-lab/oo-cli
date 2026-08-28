@@ -568,7 +568,7 @@ Alias for `oo auth logout`.
 
 ## Teams
 
-Team identity selects which team team-aware commands act for: the connector
+Team identity selects the team that team-aware commands act for: the connector
 commands (`oo connector run`, `oo connector proxy`, `oo connector apps`), the
 variables commands (`oo variables list/get/create/delete`), whose data is
 team-owned in the first place, and `oo file upload`, whose upload is billed and
@@ -622,6 +622,8 @@ read-only.
 Show the team identity used by team-aware commands (connector, variables, file
 upload) when no `--team` flag is given: the `OO_TEAM_ID` / `OO_TEAM_NAME`
 environment override when set, otherwise the active account's default team.
+When neither is set, the commands send no team selection and the server
+applies its own default team.
 
 - Sends one request only when `OO_TEAM_ID` or `OO_TEAM_NAME` supplies the
   identity, to complete and validate the missing half: an id resolves to its

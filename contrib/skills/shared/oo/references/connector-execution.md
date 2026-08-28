@@ -194,9 +194,12 @@ oo connector proxy "<serviceName>" \
   --json
 ```
 
-- There is no personal run: every run is attributed to a team, and with no
-  flag the server applies the account's default team. To run as a different
-  team than the default, name it with `--team`.
+- There is no personal run against the OOMOL connector: every run is
+  attributed to a team. With no flag, the team comes from `OO_TEAM_ID` /
+  `OO_TEAM_NAME`, then the saved account default, and otherwise the server
+  applies the account's default team. `--team` overrides all of those for one
+  run. A self-hosted connector has no team concept: it rejects `--team` and
+  ignores the env variables and the saved default.
 
 Facts:
 

@@ -192,7 +192,7 @@ export const enMessages = {
     "commands.logout.summary":
         "Log out the current account (alias for auth logout)",
     "commands.team.description":
-        "List the teams your account can access and manage the default team identity used by team-aware commands (connector, variables).",
+        "List the teams your account can access and manage the default team identity used by team-aware commands (connector, variables, file upload).",
     "commands.team.summary": "Manage team identity",
     "commands.team.list.description":
         "List the teams the active account can authenticate as, marking the current default.",
@@ -201,7 +201,7 @@ export const enMessages = {
         "Show the default team identity used by team-aware commands (connector, variables, file upload) when no --team flag is given.",
     "commands.team.current.summary": "Show the default team identity",
     "commands.team.use.description":
-        "Set the default team identity used by team-aware commands (connector, variables), after checking the account can access it.",
+        "Set the default team identity used by team-aware commands (connector, variables, file upload), after checking the account can access it.",
     "commands.team.use.summary": "Set the default team identity",
     "commands.search.description":
         "Search connector actions with one free-form query.",
@@ -1566,7 +1566,7 @@ export const zhMessages = {
     "commands.logout.description": "从持久化认证数据中移除当前账号。是 auth logout 的别名。",
     "commands.logout.summary": "登出当前账号（auth logout 的别名）",
     "commands.team.description":
-        "列出当前账号可访问的团队，并管理团队相关命令（connector、variables）使用的默认团队身份。",
+        "列出当前账号可访问的团队，并管理团队相关命令（connector、variables、file upload）使用的默认团队身份。",
     "commands.team.summary": "管理团队身份",
     "commands.team.list.description":
         "列出当前活动账号可认证的团队，并标出当前默认团队。",
@@ -1575,7 +1575,7 @@ export const zhMessages = {
         "显示未传 --team 时团队相关命令（connector、variables、file upload）使用的默认团队身份。",
     "commands.team.current.summary": "显示默认团队身份",
     "commands.team.use.description":
-        "在确认账号可访问后，设置团队相关命令（connector、variables）使用的默认团队身份。",
+        "在确认账号可访问后，设置团队相关命令（connector、variables、file upload）使用的默认团队身份。",
     "commands.team.use.summary": "设置默认团队身份",
     "commands.search.description":
         "使用一个自由文本查询搜索 connector action。",

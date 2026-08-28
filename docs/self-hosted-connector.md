@@ -178,7 +178,8 @@ A self-hosted runtime exposes a smaller surface than the OOMOL service. The CLI
 adapts as follows:
 
 - **Team identity is not supported.** `--team` is rejected with exit code `2` on
-  `oo connector run`, `oo connector proxy`, and `oo connector apps`, and any
+  `oo connector run`, `oo connector proxy`, `oo connector apps`, and
+  `oo connector search` / `oo search`, and any
   saved account default team and the `OO_TEAM_ID` / `OO_TEAM_NAME`
   environment variables are ignored.
 - **Async lifecycle waiting is unavailable.** `--wait` and `--wait-result` fail
