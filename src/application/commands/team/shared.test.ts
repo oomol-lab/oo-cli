@@ -5,11 +5,17 @@ import pino from "pino";
 
 import {
     createFailedToOpenSocketError,
+    defaultLoginDefaultTeamResponse,
     expectCliUserError,
     toRequest,
 } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
-import { fetchTeamById, fetchTeamByName, listMemberTeams } from "./shared.ts";
+import {
+    fetchDefaultTeam,
+    fetchTeamById,
+    fetchTeamByName,
+    listMemberTeams,
+} from "./shared.ts";
 
 const testAccount = {
     apiKey: "api-secret-1",
@@ -278,6 +284,86 @@ describe("fetchTeamById", () => {
             "team-1",
             createRequestContext({
                 fetcher: async () => new Response(JSON.stringify({ id: "team-1" })),
+            }),
+        );
+
+        expect(result).toEqual({ status: "request_failed" });
+    });
+});
+
+describe("fetchDefaultTeam", () => {
+    test("requests the default-team route with the account api key and maps the bare team", async () => {
+        const requests: Request[] = [];
+        const result = await fetchDefaultTeam(
+            testAccount,
+            createRequestContext({
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+
+                    return new Response(JSON.stringify({
+                        ...defaultLoginDefaultTeamResponse,
+                        created_at: "2026-01-01T00:00:00Z",
+                        updated_at: "2026-01-01T00:00:00Z",
+                    }));
+                },
+            }),
+        );
+
+        expect(requests).toHaveLength(1);
+        expect(requests[0]?.url).toBe(
+            "https://relation-control.oomol.com/v1/me/default-team",
+        );
+        expect(requests[0]?.headers.get("authorization")).toBe("api-secret-1");
+        expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
+        expect(result).toEqual({
+            status: "valid",
+            team: { id: "team-system-1", name: "alice-team" },
+        });
+    });
+
+    test("reports an account that created no team as none", async () => {
+        const result = await fetchDefaultTeam(
+            testAccount,
+            createRequestContext({
+                fetcher: async () => new Response(
+                    JSON.stringify({ error: "not found" }),
+                    { status: 404 },
+                ),
+            }),
+        );
+
+        expect(result).toEqual({ status: "none" });
+    });
+
+    test("reports any other non-success status as a failed lookup rather than throwing", async () => {
+        const result = await fetchDefaultTeam(
+            testAccount,
+            createRequestContext({
+                fetcher: async () => new Response("", { status: 500 }),
+            }),
+        );
+
+        expect(result).toEqual({ status: "request_failed" });
+    });
+
+    test("reports a sandbox-blocked request separately from a plain failure", async () => {
+        const result = await fetchDefaultTeam(
+            testAccount,
+            createRequestContext({
+                fetcher: async () => {
+                    throw createFailedToOpenSocketError("network is restricted");
+                },
+            }),
+        );
+
+        expect(result).toEqual({ status: "request_failed_sandbox" });
+    });
+
+    test("treats a malformed success body as a failed lookup rather than throwing", async () => {
+        const result = await fetchDefaultTeam(
+            testAccount,
+            createRequestContext({
+                fetcher: async () => new Response(JSON.stringify({ id: "team-system-1" })),
             }),
         );
 

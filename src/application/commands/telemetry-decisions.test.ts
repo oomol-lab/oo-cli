@@ -106,7 +106,7 @@ const commandTelemetryDecisions = {
             "team_source",
             "team_status",
         ],
-        reason: "Records bounded saved-account count, which credential source is in effect, which mechanism selects the default team (enum only), and how the team name lookup ended (valid/not_a_member/not_found/deleted/request_failed/request_failed_sandbox/no_credential/none), without account or team identity.",
+        reason: "Records bounded saved-account count, which credential source is in effect, which mechanism selects the default team (env_id/env_name/account/backend_default/none, enum only), and how the team name lookup ended (valid/not_a_member/not_found/deleted/request_failed/request_failed_sandbox/no_credential/none), without account or team identity.",
     },
     "auth.switch": {
         kind: "properties",
@@ -319,7 +319,7 @@ const commandTelemetryDecisions = {
     "team.current": {
         kind: "properties",
         properties: ["has_configured_team", "team_source", "team_status"],
-        reason: "Records whether the account has a saved default team, which mechanism selects the effective team (env_id/env_name/account/none), and how the team name lookup ended (valid/not_a_member/not_found/deleted/request_failed/request_failed_sandbox/no_credential/none), without the team name or id.",
+        reason: "Records whether the account has a saved default team, which mechanism selects the effective team (env_id/env_name/account/backend_default/none), and how the team name lookup ended (valid/not_a_member/not_found/deleted/request_failed/request_failed_sandbox/no_credential/none), without the team name or id.",
     },
     "team.use": {
         kind: "properties",

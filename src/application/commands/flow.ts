@@ -205,10 +205,16 @@ export async function runOpenFlowCommand(
         });
     }
 
+    // Resolved once per invocation and shared by both host methods, so the
+    // control requests and the Workbench deep link act for the same team.
     let sessionPromise: Promise<OpenFlowSession> | undefined;
+    const resolveHostSession = (): Promise<OpenFlowSession> =>
+        (sessionPromise ??= resolveOpenFlowSession(context).catch((error: unknown) => {
+            throw translateHostError(error, context);
+        }));
     const host: OpenFlowCommandHost = {
         async cloudRequest(path, init = {}) {
-            const session = await (sessionPromise ??= resolveOpenFlowSession(context));
+            const session = await resolveHostSession();
             const url = new URL(path, session.origin);
 
             if (
@@ -245,7 +251,7 @@ export async function runOpenFlowCommand(
             return await context.fetcher(url, { ...init, headers });
         },
         async getWorkbenchUrl(flowId) {
-            const session = await (sessionPromise ??= resolveOpenFlowSession(context));
+            const session = await resolveHostSession();
 
             if (session.kind === "server") {
                 const pathname
@@ -256,8 +262,13 @@ export async function runOpenFlowCommand(
                 return new URL(pathname, session.origin).href;
             }
 
+            // Reached only when the backend reported no default team either
+            // (the account has created none) or that lookup failed.
             if (session.teamName === undefined) {
-                throw new TypeError("Select a Team before opening the Open Flow Workbench.");
+                throw translateHostError(
+                    new CliUserError("errors.flow.teamRequired", 1),
+                    context,
+                );
             }
 
             const flowPath = `/team/${encodeURIComponent(session.teamName)}/flows`;
@@ -290,6 +301,23 @@ export async function runOpenFlowCommand(
     }
 
     return exitCode;
+}
+
+// The command artifact reports any error a host method throws as
+// `flow.unexpected: <message>` and exits 1 — it cannot translate a CLI error
+// key — so a CLI user error crossing the host boundary carries its translated
+// text in the message. It stays a CliUserError: when nothing wraps it (a
+// host-side failure before delegation), the CLI's own handler still keys off
+// `key` and `exitCode`.
+function translateHostError(
+    error: unknown,
+    context: Pick<CliExecutionContext, "translator">,
+): unknown {
+    if (error instanceof CliUserError) {
+        error.message = context.translator.t(error.key, error.params);
+    }
+
+    return error;
 }
 
 async function resolveOpenFlowSession(
@@ -347,12 +375,20 @@ async function resolveOpenFlowSession(
             : account.team === undefined
                 ? undefined
                 : { id: account.teamId ?? null, name: account.team };
+    // The Workbench deep link is team-scoped by the team's current name, so
+    // the session asks the backend for it: a saved default is refreshed by
+    // id (the saved name goes stale on rename), and with nothing saved the
+    // backend reports which team it applies anyway. Resolved once per
+    // invocation, the same identity backs both the control requests and the
+    // deep link, so a Flow created through this session always opens in the
+    // team it was created in.
     const identity = requireValidTeamIdentity(
         await resolveTeamIdentity(
             {
                 account,
                 defaultTeam,
                 resolveAgainstBackend: true,
+                resolveCurrentName: true,
             },
             context,
         ),

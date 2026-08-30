@@ -135,6 +135,8 @@ export interface PrintedAuthLoginOptions {
     stdoutHasColors?: boolean;
     teamsResponse?: unknown;
     teamsStatus?: number;
+    defaultTeamResponse?: unknown;
+    defaultTeamStatus?: number;
 }
 
 // Default membership answered by the login-flow teams request: the backend
@@ -149,6 +151,18 @@ export const defaultLoginTeamsResponse = {
             system_created: true,
         },
     ],
+} as const;
+
+// Default answer of `GET /v1/me/default-team`: the bare team object the
+// backend reports as the account's server-side default team, matching the
+// `system_created` membership above.
+export const defaultLoginDefaultTeamResponse = {
+    id: "team-system-1",
+    name: "alice-team",
+    avatar: "",
+    creator_user_id: "user-1",
+    system_created: true,
+    deleted: false,
 } as const;
 
 export const defaultAuthEndpoint = "oomol.com";
@@ -607,6 +621,19 @@ export async function runPrintedAuthLogin(
                         options.teamsResponse ?? defaultLoginTeamsResponse,
                     ),
                     { status: options.teamsStatus ?? 200 },
+                );
+            }
+
+            if (
+                request.method === "GET"
+                && requestUrl.host === `relation-control.${accountEndpoint}`
+                && requestUrl.pathname === "/v1/me/default-team"
+            ) {
+                return new Response(
+                    JSON.stringify(
+                        options.defaultTeamResponse ?? defaultLoginDefaultTeamResponse,
+                    ),
+                    { status: options.defaultTeamStatus ?? 200 },
                 );
             }
 

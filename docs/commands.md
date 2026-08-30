@@ -94,9 +94,14 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
   `OO_TEAM_ID` is set, and ignored by connector commands when the connector
   target is self-hosted; variables commands always honor it.
 - Team-aware commands resolve their team identity with this precedence:
-  `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` > the active account's default team.
-  With nothing selected they send no team selection and the server applies its
-  own default team; there is no private, per-user scope.
+  `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` > the active account's default team
+  > the server-side default team. Commands that need the team by name
+  (`oo flow`, `oo team current`, `oo auth status`) never trust the saved name:
+  they refresh the saved default through its team id (so a renamed team keeps
+  working) and ask the backend which team it applies when nothing is saved.
+  Every other command sends the saved selection as is and the server resolves
+  it by id, applying that same default team when nothing is selected. There
+  is no private, per-user scope.
 - `OO_SKILLS_SYNC_DISABLED`: A truthy value disables the startup managed-skill
   synchronization, so the CLI writes no skill files into agent home directories
   such as `~/.agents` or `~/.claude`.
@@ -202,7 +207,14 @@ requiring network access.
   URL without launching a browser, for scripts and agent-hosted previews.
   Omitting `flow` opens the Flow catalog; providing it opens that Flow's design
   page. The Hosted URL carries a short-lived, one-time browser sign-in code for
-  the effective CLI account and requires a Team. A self-hosted URL points
+  the effective CLI account and is scoped to the effective team under its
+  current name: the account's default team, refreshed through its team id so
+  a renamed team still opens, or the server-side default team the backend
+  reports when none is saved (the same team that invocation's Cloud requests
+  act for). When the saved default team no longer exists or is no longer
+  accessible, the command exits `1` and says so; when nothing is saved and the
+  backend reports no default team, it fails and points to `oo login` /
+  `oo team use <name>`. A self-hosted URL points
   directly to the Server Workbench; the browser establishes its own operator
   session, and the operator token is never placed in the URL.
 - Host telemetry records this delegation only as top-level command `flow`, its
@@ -301,16 +313,17 @@ with an existing API key, then save the authenticated account.
   memberships and persists a default team identity on the saved account.
   Without `--team`, a stored default that is still one of the memberships is
   kept (and gains its team id);
-  otherwise the backend-provisioned default team (`system_created`) is
-  adopted. When neither exists — the membership list carries no
-  `system_created` team (an older backend) or is empty — nothing is persisted,
-  no default-team line is printed, and login still exits `0`. Otherwise the
+  otherwise the server-side default team is adopted as the backend reports
+  it (the team a request without a team selection acts for). When the backend
+  reports none — the account has created no team — nothing is persisted, no
+  default-team line is printed, and login still exits `0`. Otherwise the
   success output prints the resulting default
   (`Default team identity: <name>`), and when the account belongs to more than
   one team it also prints how many teams the account has (naming at most five,
   truncating the rest with an ellipsis) and that `oo team use <name>` switches
-  the default. When the membership request fails and no `--team` was given,
-  login still exits `0` and prints that the default team is unchanged. When
+  the default. When the membership request or the default-team lookup fails
+  and no `--team` was given, login still exits `0` and prints that the default
+  team is unchanged. When
   `OO_TEAM_ID` / `OO_TEAM_NAME` is set, the default is still saved but a hint
   notes that the env override keeps outranking it.
 - Notes: when a self-hosted connector is configured (`oo connector login`), it
@@ -418,12 +431,14 @@ Show every saved auth account and validate the API key of the active one.
 
 - When a default team identity is in effect, the `oo auth status --json` output
   — specifically its `logged-in` shape above — carries an optional top-level
-  `team` field. `source` says which mechanism selected it (`env_id`, `env_name`
-  or `account`), and `status` reports the team lookup:
+  `team` field. `source` says which mechanism selected it (`env_id`,
+  `env_name`, `account`, or `backend_default` for the server-side default team
+  the backend reported because no default team is saved), and `status` reports
+  the team lookup:
 
   ```json
   {
-    "team": { "name": "acme", "id": null, "source": "account", "status": null }
+    "team": { "name": "acme", "id": "team-7", "source": "account", "status": "valid" }
   }
   ```
 
@@ -438,7 +453,10 @@ Show every saved auth account and validate the API key of the active one.
   }
   ```
 
-  `status` is `null` whenever no lookup was attempted (the `account` source).
+  `status` is `valid` for `backend_default`, and for the `account` source it
+  reports whether the saved default could be confirmed through its id
+  (`valid`, or the reason it could not); the name shown is the team's current
+  name, not the one saved at login. `null` means no lookup was attempted.
   For an env-selected identity it is one of `valid`, `not_a_member`,
   `not_found`, `deleted`, `request_failed`, `request_failed_sandbox`, or
   `no_credential`. The looked-up half is filled only when `status` is `valid`
@@ -594,8 +612,8 @@ one up.
 
 `oo auth login` (and its `oo login` alias) persists the default automatically:
 it keeps the account's still-valid stored default, otherwise adopts the
-backend-provisioned `system_created` team (when one exists), and accepts
-`--team <name>` to pick one explicitly.
+server-side default team the backend reports (when it reports one), and
+accepts `--team <name>` to pick one explicitly.
 
 ### `oo team list`
 
@@ -636,13 +654,20 @@ applies its own default team.
   own.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: JSON is `{ "team": <name|null>, "teamId": <id|null>, "source":
-  <"env_id"|"env_name"|"account"|null>, "status": <status|null> }`. `source`
-  says which mechanism selects the team, and is `null` when no default team is
-  saved (commands then use the server-side default team). `status` reports the
-  team lookup: `null`
-  whenever none was attempted (the `account` source, or `--dry-run`-style
-  offline paths), otherwise one of `valid`, `not_a_member`, `not_found`,
-  `deleted`, `request_failed`, `request_failed_sandbox`, or `no_credential`.
+  <"env_id"|"env_name"|"account"|"backend_default"|null>, "status":
+  <status|null> }`. `source` says which mechanism selects the team:
+  `backend_default` when no default team is saved and the backend reported the
+  server-side default team it applies, `null` when it reported none (the
+  account has created no team) or that lookup failed. `team` is the team's
+  current name: a saved default is refreshed through its id (a name-only
+  default through the memberships), so a renamed team is reported under its
+  new name while the saved values stay as they are. `status` reports the
+  team lookup: `null` whenever none was attempted (`--dry-run`-style offline
+  paths), `valid` for `backend_default`, otherwise one of `valid`,
+  `not_a_member`, `not_found`, `deleted`, `request_failed`,
+  `request_failed_sandbox`, or `no_credential`; for the `account` source a
+  non-`valid` status keeps the saved name and id in the output, and the text
+  output appends the reason.
 - Output: under `OO_TEAM_ID` / `OO_TEAM_NAME` text output shows `<name> (<id>)`
   once both halves are known. If the lookup does not succeed the env-supplied
   value is still shown and the reason is appended; the command still exits `0`.

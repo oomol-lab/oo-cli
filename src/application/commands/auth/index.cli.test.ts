@@ -12,6 +12,7 @@ import {
     createConnectionRefusedError,
     createFailedToOpenSocketError,
     defaultAuthEndpoint,
+    defaultLoginDefaultTeamResponse,
     defaultLoginTeamsResponse,
     expectTelemetryFreeOfTeamIdentity,
     findLoginUrl,
@@ -324,6 +325,10 @@ describe("auth CLI", () => {
                             );
                         }
 
+                        if (isDefaultTeamRequest(request, defaultAuthEndpoint)) {
+                            return new Response(JSON.stringify(defaultLoginDefaultTeamResponse));
+                        }
+
                         throw new Error(`Unexpected auth fast login request: ${request.method} ${requestUrl}`);
                     },
                 },
@@ -332,7 +337,7 @@ describe("auth CLI", () => {
             const content = await readLatestLogContent(sandbox);
 
             expect(result.exitCode).toBe(0);
-            expect(requests).toHaveLength(2);
+            expect(requests).toHaveLength(3);
             expect(result.stdout).not.toContain("Open this login URL");
             expect(result.stdout).not.toContain("Enter this code");
             expect(result.stdout).not.toContain("Waiting for the device login");
@@ -401,6 +406,10 @@ describe("auth CLI", () => {
                             );
                         }
 
+                        if (isDefaultTeamRequest(request, defaultAuthEndpoint)) {
+                            return new Response(JSON.stringify(defaultLoginDefaultTeamResponse));
+                        }
+
                         throw new Error(`Unexpected auth api key login request: ${request.method} ${requestUrl}`);
                     },
                 },
@@ -409,7 +418,7 @@ describe("auth CLI", () => {
             const content = await readLatestLogContent(sandbox);
 
             expect(result.exitCode).toBe(0);
-            expect(requests).toHaveLength(2);
+            expect(requests).toHaveLength(3);
             expect(result.stdout).not.toContain("Open this login URL");
             expect(result.stdout).not.toContain("Waiting for the device login");
             expect(createCliSnapshot(result)).toEqual({
@@ -481,6 +490,10 @@ describe("auth CLI", () => {
                             );
                         }
 
+                        if (isDefaultTeamRequest(request, endpoint)) {
+                            return new Response(JSON.stringify(defaultLoginDefaultTeamResponse));
+                        }
+
                         throw new Error(`Unexpected auth api key login request: ${request.method} ${requestUrl}`);
                     },
                 },
@@ -488,7 +501,7 @@ describe("auth CLI", () => {
             const authFileContent = await readFile(authFilePath, "utf8");
 
             expect(result.exitCode).toBe(0);
-            expect(requests).toHaveLength(2);
+            expect(requests).toHaveLength(3);
             expect(result.stdout).toContain("Logged in to oomol.dev");
             expect(authFileContent).toContain("endpoint = \"oomol.dev\"");
         }
@@ -717,19 +730,17 @@ describe("auth CLI", () => {
                 },
             );
 
+            // The server-default team lookup finds no team here (unparseable
+            // body or 401), so the status output keeps the bare server default.
             expect(validStatus.exitCode).toBe(0);
-            expect(validRequests).toHaveLength(1);
-            expect(validRequests[0]?.url).toBe("https://api.oomol.com/v1/users/profile");
-            expect(validRequests[0]?.headers.get("Authorization")).toBe("secret-1");
+            expectStatusRequests(validRequests, { endpoint: "oomol.com", apiKey: "secret-1" });
 
             expect(invalidStatus.exitCode).toBe(0);
             expect({
                 invalidStatus: createCliSnapshot(invalidStatus),
                 validStatus: createCliSnapshot(validStatus),
             }).toMatchSnapshot();
-            expect(invalidRequests).toHaveLength(1);
-            expect(invalidRequests[0]?.url).toBe("https://api.oomol.com/v1/users/profile");
-            expect(invalidRequests[0]?.headers.get("Authorization")).toBe("secret-1");
+            expectStatusRequests(invalidRequests, { endpoint: "oomol.com", apiKey: "secret-1" });
             expect(await readFile(authFilePath, "utf8")).toContain("api_key = \"secret-1\"");
         }
         finally {
@@ -854,9 +865,9 @@ describe("auth CLI", () => {
             expect(result.stdout).toContain("[active]");
             // Only Alice (the active account) gets the [active] marker.
             expect(result.stdout).not.toContain("Bob [active]");
-            // Only the active account is validated.
-            expect(requests).toHaveLength(1);
-            expect(requests[0]?.headers.get("Authorization")).toBe("secret-1");
+            // Only the active account is validated, and only its credential
+            // asks for the server-default team.
+            expectStatusRequests(requests, { endpoint: "oomol.com", apiKey: "secret-1" });
             // API key values must never leak to stdout.
             expect(result.stdout).not.toContain("secret-1");
             expect(result.stdout).not.toContain("secret-2");
@@ -1777,10 +1788,9 @@ describe("auth CLI OO_API_KEY override", () => {
             );
 
             expect(result.exitCode).toBe(0);
-            expect(requests).toHaveLength(1);
-            // The saved account's key and host must not be used for validation.
-            expect(requests[0]!.url).toBe("https://api.oomol.dev/v1/users/profile");
-            expect(requests[0]!.headers.get("Authorization")).toBe("env-key-1");
+            // The saved account's key and host must not be used for validation
+            // or for the server-default team lookup.
+            expectStatusRequests(requests, { endpoint: "oomol.dev", apiKey: "env-key-1" });
         }
         finally {
             await sandbox.cleanup();
@@ -2117,9 +2127,7 @@ describe("auth CLI OO_ENDPOINT override", () => {
             // A bare OO_ENDPOINT redirects every other command, so status must
             // not keep reporting (and validating against) the saved endpoint.
             expect(result.stdout).toContain("Logged in to oomol.dev account Alice");
-            expect(requests).toHaveLength(1);
-            expect(requests[0]!.url).toBe("https://api.oomol.dev/v1/users/profile");
-            expect(requests[0]!.headers.get("Authorization")).toBe("secret-1");
+            expectStatusRequests(requests, { endpoint: "oomol.dev", apiKey: "secret-1" });
         }
         finally {
             await sandbox.cleanup();
@@ -2509,7 +2517,7 @@ describe("auth CLI login default team", () => {
         }
     });
 
-    test("changes nothing when no system-created team matches", async () => {
+    test("changes nothing when the backend reports no default team", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -2519,11 +2527,13 @@ describe("auth CLI login default team", () => {
                 teamsResponse: {
                     teams: [{ id: "team-2", name: "beta", role: "member", system_created: false }],
                 },
+                defaultTeamStatus: 404,
             });
             const authContent = await readAuthContent(sandbox);
 
-            // No membership carries system_created, so the stale stored
-            // default is left alone instead of being replaced or cleared.
+            // The account created no team, so the backend has no default to
+            // adopt and the stale stored default is left alone instead of
+            // being replaced or cleared.
             expect(result.exitCode).toBe(0);
             expect(result.stdout).not.toContain("Default team identity:");
             expect(authContent).toContain("team = \"ghost\"");
@@ -2541,6 +2551,7 @@ describe("auth CLI login default team", () => {
         try {
             const result = await runPrintedAuthLogin(sandbox, "secret-1", {
                 teamsResponse: { teams: [] },
+                defaultTeamStatus: 404,
             });
 
             expect(result.exitCode).toBe(0);
@@ -2551,6 +2562,32 @@ describe("auth CLI login default team", () => {
                 .toMatchObject({
                     team_count_bucket: "0",
                     team_selection: "none",
+                });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("keeps login successful when the default team lookup cannot be parsed", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await runPrintedAuthLogin(sandbox, "secret-1", {
+                defaultTeamResponse: "boom",
+            });
+
+            // The memberships loaded but the backend's default could not be
+            // read, so nothing is persisted and the reader is told which
+            // command sets a default by hand.
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("Could not determine your default team");
+            expect(result.stdout).not.toContain("Default team identity:");
+            expect(await readAuthContent(sandbox)).not.toContain("\nteam = ");
+            expect(readCommandTelemetryProperties(sandbox, "auth.login"))
+                .toMatchObject({
+                    team_count_bucket: "1-5",
+                    team_selection: "unresolved",
                 });
         }
         finally {
@@ -2747,23 +2784,22 @@ describe("auth CLI status default team", () => {
         try {
             await writeAuthFileWithDefaultTeam(sandbox, "acme");
 
-            const fetcher = async (): Promise<Response> =>
-                new Response(null, { status: 200 });
+            const fetcher = createAuthStatusFetcher([]);
             const textResult = await sandbox.run(["auth", "status"], { fetcher });
             const jsonResult = await sandbox.run(
                 ["auth", "info", "--json"],
                 { fetcher },
             );
             expect(textResult.exitCode).toBe(0);
-            expect(textResult.stdout).toContain("- Default team: acme");
+            expect(textResult.stdout).toContain("- Default team: acme (team-7)");
             expect(jsonResult.exitCode).toBe(0);
-            // The account default already carries its name, so no lookup runs
-            // and there is no status to report.
+            // A name-only default (migrated from the legacy setting) is
+            // completed through the memberships, which also confirms it.
             expect(parseAuthStatusTeam(jsonResult.stdout)).toEqual({
                 name: "acme",
-                id: null,
+                id: "team-7",
                 source: "account",
-                status: null,
+                status: "valid",
             });
 
             // Only the source enum reaches telemetry, never the team name.
@@ -2773,9 +2809,75 @@ describe("auth CLI status default team", () => {
             );
             expect(telemetryProperties).toMatchObject({
                 team_source: "account",
-                team_status: "none",
+                team_status: "valid",
             });
-            expectTelemetryFreeOfTeamIdentity(telemetryProperties, ["acme"]);
+            expectTelemetryFreeOfTeamIdentity(telemetryProperties, ["acme", "team-7"]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    // The saved name is only the name the team had at login: the row shows
+    // the current one, looked up by the saved id.
+    test("reports a renamed default team under its current name", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFileWithDefaultTeam(sandbox, "old-name", { teamId: "team-42" });
+
+            const requests: Request[] = [];
+            const fetcher = createAuthStatusFetcher(requests);
+            const textResult = await sandbox.run(["auth", "status"], { fetcher });
+            const jsonResult = await sandbox.run(["auth", "status", "--json"], { fetcher });
+
+            expect(textResult.exitCode).toBe(0);
+            expect(textResult.stdout).toContain("- Default team: platform (team-42)");
+            expect(textResult.stdout).not.toContain("old-name");
+            expect(parseAuthStatusTeam(jsonResult.stdout)).toEqual({
+                name: "platform",
+                id: "team-42",
+                source: "account",
+                status: "valid",
+            });
+            expect(requests.map(request => new URL(request.url).pathname).sort()).toEqual([
+                "/v1/teams/team-42",
+                "/v1/teams/team-42",
+                "/v1/users/profile",
+                "/v1/users/profile",
+            ]);
+            // The current name is reported, never written back: the saved
+            // default is refreshed by `oo login` and `oo team use` only.
+            expect(await readFile(join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "auth.toml"), "utf8"))
+                .toContain("team = \"old-name\"");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports why a saved default team could not be confirmed", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFileWithDefaultTeam(sandbox, "acme", { teamId: "team-42" });
+
+            const fetcher = createAuthStatusFetcher([], { teamHttpStatus: 410 });
+            const textResult = await sandbox.run(["auth", "status"], { fetcher });
+            const jsonResult = await sandbox.run(["auth", "status", "--json"], { fetcher });
+
+            // Reporting never fails the command; the saved values stay
+            // visible with the reason appended.
+            expect(textResult.exitCode).toBe(0);
+            expect(textResult.stdout).toContain(
+                "- Default team: acme (team-42) — this team has been deleted",
+            );
+            expect(parseAuthStatusTeam(jsonResult.stdout)).toEqual({
+                name: "acme",
+                id: "team-42",
+                source: "account",
+                status: "deleted",
+            });
         }
         finally {
             await sandbox.cleanup();
@@ -3191,18 +3293,29 @@ describe("auth web CLI", () => {
     });
 });
 
-// Answers every request `auth status` can make: the API key check and the
-// team lookup in either direction. Recording every request is what lets a test
-// assert the command's request count, which is part of its documented
-// contract.
+// Answers every request `auth status` can make: the API key check, the team
+// lookup in either direction, and the server-default team lookup. Recording
+// every request is what lets a test assert the command's request count, which
+// is part of its documented contract.
 function createAuthStatusFetcher(
     requests: Request[],
-    options: { teamHttpStatus?: number } = {},
+    options: { teamHttpStatus?: number; defaultTeamHttpStatus?: number } = {},
 ): Fetcher {
     return async (input, init) => {
         const request = toRequest(input, init);
         requests.push(request);
         const pathname = new URL(request.url).pathname;
+
+        if (pathname === "/v1/me/default-team") {
+            const defaultTeamHttpStatus = options.defaultTeamHttpStatus ?? 200;
+
+            return new Response(
+                defaultTeamHttpStatus === 200
+                    ? JSON.stringify(defaultLoginDefaultTeamResponse)
+                    : "",
+                { status: defaultTeamHttpStatus },
+            );
+        }
 
         if (pathname === "/v1/me/teams") {
             return new Response(JSON.stringify({
@@ -3237,6 +3350,58 @@ function createAuthStatusFetcher(
     };
 }
 
+describe("auth status server-side default team", () => {
+    test("reports the team the backend applies when no default team is saved", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const authFilePath = await writeAuthFile(sandbox);
+
+            const fetcher = createAuthStatusFetcher([]);
+            const jsonResult = await sandbox.run(["auth", "status", "--json"], { fetcher });
+            const textResult = await sandbox.run(["auth", "status"], { fetcher });
+
+            expect(jsonResult.exitCode).toBe(0);
+            expect(parseAuthStatusTeam(jsonResult.stdout)).toEqual({
+                name: "alice-team",
+                id: "team-system-1",
+                source: "backend_default",
+                status: "valid",
+            });
+            expect(textResult.exitCode).toBe(0);
+            expect(textResult.stdout).toContain(
+                "alice-team (team-system-1) (server default, no saved team)",
+            );
+            // Reporting the backend's answer never saves it: only `oo login`
+            // and `oo team use` persist a default team.
+            expect(await readFile(authFilePath, "utf8")).not.toContain("\nteam = ");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("keeps the bare server default when the backend reports no default team", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const fetcher = createAuthStatusFetcher([], { defaultTeamHttpStatus: 404 });
+            const jsonResult = await sandbox.run(["auth", "status", "--json"], { fetcher });
+            const textResult = await sandbox.run(["auth", "status"], { fetcher });
+
+            expect(jsonResult.exitCode).toBe(0);
+            expect(parseAuthStatusTeam(jsonResult.stdout)).toBeUndefined();
+            expect(textResult.stdout).toContain("server default (no saved team)");
+            expect(textResult.stdout).not.toContain("alice-team");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+});
+
 function parseAuthStatusTeam(stdout: string): unknown {
     return (JSON.parse(stdout) as { team?: unknown }).team;
 }
@@ -3250,4 +3415,30 @@ async function createAuthenticatedCliSandbox(): Promise<CliSandbox> {
     await writeAuthFile(sandbox);
 
     return sandbox;
+}
+
+// `auth status` makes exactly two requests, both with the active credential:
+// the key validation and the server-default team lookup. Sorted, because they
+// go out concurrently and their order is not part of the contract.
+function expectStatusRequests(
+    requests: readonly Request[],
+    expected: { endpoint: string; apiKey: string },
+): void {
+    expect(requests.map(request => request.url).sort()).toEqual([
+        `https://api.${expected.endpoint}/v1/users/profile`,
+        `https://relation-control.${expected.endpoint}/v1/me/default-team`,
+    ]);
+
+    for (const request of requests) {
+        expect(request.headers.get("Authorization")).toBe(expected.apiKey);
+    }
+}
+
+// The server-default team lookup every login makes after the memberships.
+function isDefaultTeamRequest(request: Request, endpoint: string): boolean {
+    const requestUrl = new URL(request.url);
+
+    return request.method === "GET"
+        && requestUrl.host === `relation-control.${endpoint}`
+        && requestUrl.pathname === "/v1/me/default-team";
 }
