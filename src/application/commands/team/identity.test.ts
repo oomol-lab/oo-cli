@@ -6,6 +6,7 @@ import pino from "pino";
 
 import {
     createFailedToOpenSocketError,
+    defaultLoginDefaultTeamResponse,
     expectCliUserError,
     toRequest,
 } from "../../../../__tests__/helpers.ts";
@@ -183,8 +184,231 @@ describe("resolveTeamIdentity precedence", () => {
     });
 });
 
+describe("resolveTeamIdentity server-side default tier", () => {
+    test("asks the backend for the server-side default team when nothing local selects one", async () => {
+        const requests: Request[] = [];
+
+        expect(await resolveTeamIdentity(
+            {
+                account: testAccount,
+                defaultTeam: undefined,
+                resolveAgainstBackend: true,
+                resolveCurrentName: true,
+            },
+            createContext({}, async (input, init) => {
+                requests.push(toRequest(input, init));
+
+                return new Response(JSON.stringify(defaultLoginDefaultTeamResponse));
+            }),
+        )).toEqual({
+            name: "alice-team",
+            id: "team-system-1",
+            source: "backend_default",
+            status: "valid",
+        });
+        expect(requests.map(request => request.url)).toEqual([
+            "https://relation-control.oomol.com/v1/me/default-team",
+        ]);
+        expect(requests[0]?.headers.get("authorization")).toBe("api-secret-1");
+    });
+
+    // The lookup is opt-in and last: header-only execution paths get the same
+    // server-side default from the gateway without spending a request, and
+    // anything above it in the ladder wins without one.
+    test.each([
+        {
+            case: "the caller does not opt in",
+            input: { account: testAccount, resolveAgainstBackend: true },
+            expected: undefined,
+        },
+        {
+            case: "the resolution is offline",
+            input: {
+                account: testAccount,
+                resolveAgainstBackend: false,
+                resolveCurrentName: true,
+            },
+            expected: undefined,
+        },
+        {
+            case: "no account can authenticate it",
+            input: {
+                account: undefined,
+                resolveAgainstBackend: true,
+                resolveCurrentName: true,
+            },
+            expected: undefined,
+        },
+    ])("skips the lookup when $case", async ({ input, expected }) => {
+        let requested = false;
+
+        expect(await resolveTeamIdentity(
+            { defaultTeam: undefined, ...input },
+            createContext({}, async () => {
+                requested = true;
+
+                return new Response(JSON.stringify(defaultLoginDefaultTeamResponse));
+            }),
+        )).toEqual(expected);
+        expect(requested).toBe(false);
+    });
+
+    // Neither answer may fail the run: the header-less request worked before
+    // this tier existed and keeps working through the gateway's own default.
+    test.each([
+        {
+            case: "the backend reports no default team",
+            fetcher: (async () => new Response("", { status: 404 })) satisfies Fetcher,
+        },
+        {
+            case: "the lookup fails",
+            fetcher: (async () => {
+                throw new Error("connection reset");
+            }) satisfies Fetcher,
+        },
+    ])("resolves to no team identity when $case", async ({ fetcher }) => {
+        expect(await resolveTeamIdentity(
+            {
+                account: testAccount,
+                defaultTeam: undefined,
+                resolveAgainstBackend: true,
+                resolveCurrentName: true,
+            },
+            createContext({}, fetcher),
+        )).toBeUndefined();
+    });
+});
+
 // Both env directions get the same policy: complete the missing dimension,
 // validate through the backend, record the outcome as a status.
+// The saved name is only the name the team had when it was saved; callers
+// that need the current one refresh it through the saved id.
+describe("resolveTeamIdentity current-name refresh", () => {
+    const savedDefault = { id: "team-1", name: "old-name" };
+
+    test("refreshes a saved default through its id", async () => {
+        const requests: Request[] = [];
+
+        expect(await resolveTeamIdentity(
+            {
+                account: testAccount,
+                defaultTeam: savedDefault,
+                resolveAgainstBackend: true,
+                resolveCurrentName: true,
+            },
+            createContext({}, async (input, init) => {
+                requests.push(toRequest(input, init));
+
+                return new Response(JSON.stringify({
+                    id: "team-1",
+                    name: "acme",
+                    role: "creator",
+                    system_created: false,
+                }));
+            }),
+        )).toEqual({
+            name: "acme",
+            id: "team-1",
+            source: "account",
+            status: "valid",
+        });
+        expect(requests.map(request => request.url)).toEqual([
+            "https://relation-control.oomol.com/v1/teams/team-1",
+        ]);
+        expect(requests[0]?.headers.get("authorization")).toBe("api-secret-1");
+    });
+
+    // The saved values stay in the identity so a report can still show them;
+    // the status carries what the backend said instead.
+    test.each([
+        {
+            case: "the refresh is refused",
+            fetcher: (async () => new Response("{}", { status: 410 })) satisfies Fetcher,
+            status: "deleted",
+        },
+        {
+            case: "the refresh fails",
+            fetcher: (async () => {
+                throw new Error("connection reset");
+            }) satisfies Fetcher,
+            status: "request_failed",
+        },
+    ])("keeps the saved values with the reason when $case", async ({ fetcher, status }) => {
+        expect(await resolveTeamIdentity(
+            {
+                account: testAccount,
+                defaultTeam: savedDefault,
+                resolveAgainstBackend: true,
+                resolveCurrentName: true,
+            },
+            createContext({}, fetcher),
+        )).toEqual({
+            name: "old-name",
+            id: "team-1",
+            source: "account",
+            status,
+        });
+    });
+
+    // A default migrated from the legacy setting has no id to refresh by, so
+    // the memberships complete it — and answer whether the name is still
+    // one of the account's teams.
+    test.each([
+        {
+            case: "completes a name-only default through the memberships",
+            name: "acme",
+            expected: { name: "acme", id: "team-1", source: "account", status: "valid" },
+        },
+        {
+            case: "reports a name-only default that is no longer among the memberships",
+            name: "renamed-away",
+            expected: { name: "renamed-away", id: null, source: "account", status: "not_a_member" },
+        },
+    ])("$case", async ({ name, expected }) => {
+        const requests: Request[] = [];
+
+        expect(await resolveTeamIdentity(
+            {
+                account: testAccount,
+                defaultTeam: { id: null, name },
+                resolveAgainstBackend: true,
+                resolveCurrentName: true,
+            },
+            createContext({}, async (input, init) => {
+                requests.push(toRequest(input, init));
+
+                return new Response(JSON.stringify(teamsResponse));
+            }),
+        )).toEqual(expected);
+        expect(requests.map(request => request.url)).toEqual([
+            "https://relation-control.oomol.com/v1/me/teams",
+        ]);
+    });
+
+    test("reports the saved default as is when the caller does not need the current name", async () => {
+        let requested = false;
+
+        expect(await resolveTeamIdentity(
+            {
+                account: testAccount,
+                defaultTeam: savedDefault,
+                resolveAgainstBackend: true,
+            },
+            createContext({}, async () => {
+                requested = true;
+
+                return new Response("{}");
+            }),
+        )).toEqual({
+            name: "old-name",
+            id: "team-1",
+            source: "account",
+            status: null,
+        });
+        expect(requested).toBe(false);
+    });
+});
+
 describe("resolveTeamIdentity env validation", () => {
     test("resolves OO_TEAM_ID to its team name through the singular team route", async () => {
         const requests: Request[] = [];
@@ -509,6 +733,25 @@ describe("requireValidTeamIdentity", () => {
         expect(error.exitCode).toBe(1);
     });
 
+    test("rejects a saved default the refresh could not confirm with the account remedy", () => {
+        const error = expectCliUserError(() => requireValidTeamIdentity(
+            {
+                name: "acme",
+                id: "team-1",
+                source: "account",
+                status: "deleted",
+            },
+            createGateContext(),
+        ));
+
+        expect(error.key).toBe("errors.team.accountDefaultNotAccessible");
+        expect(error.exitCode).toBe(1);
+        expect(error.params).toEqual({
+            reason: "this team has been deleted",
+            team: "acme",
+        });
+    });
+
     test("rejects an env name that is not accessible", () => {
         const error = expectCliUserError(() => requireValidTeamIdentity(
             {
@@ -689,6 +932,16 @@ describe("teamSourceForTelemetry", () => {
             case: "an account default",
             expected: "account",
             identity: { id: null, name: "acme", source: "account", status: null } as const,
+        },
+        {
+            case: "the backend's default team",
+            expected: "backend_default",
+            identity: {
+                id: "team-system-1",
+                name: "alice-team",
+                source: "backend_default",
+                status: "valid",
+            } as const,
         },
     ])("reports $expected for $case", ({ expected, identity }) => {
         expect(teamSourceForTelemetry(identity)).toBe(expected);

@@ -16,12 +16,15 @@ import {
 } from "./identity.ts";
 
 // `source` says which mechanism selects the team: the OO_TEAM_ID /
-// OO_TEAM_NAME env override, the account's saved default, or none (the
-// server-side default team). `team` carries the name and `teamId` the id.
+// OO_TEAM_NAME env override, the account's saved default, the server-side
+// default team the backend reported (`backend_default`), or none when the
+// backend had no default to report. `team` carries the name and `teamId` the
+// id.
 //
 // `status` reports how the backend lookup ended and is `null` whenever none
 // was attempted — env-selected identities are looked up in whichever
-// direction they are missing, a saved default never is.
+// direction they are missing, the backend default is always looked up, a
+// saved default never is.
 interface TeamCurrentJsonPayload {
     team: string | null;
     teamId: string | null;
@@ -31,15 +34,18 @@ interface TeamCurrentJsonPayload {
 
 // Reports the team identity that team-aware commands use when no `--team`
 // flag is given: the OO_TEAM_ID / OO_TEAM_NAME env override when
-// set, otherwise the active account's saved default team.
+// set, otherwise the active account's saved default team, otherwise the
+// server-side default team the backend reports.
 //
 // An env-selected identity starts out with only the dimension the variable
 // supplies, which tells a reader nothing about the most common
 // misconfiguration there is — a team the account cannot actually use. Those
-// identities, and only those, spend one request to complete and validate the
-// other dimension. The account default stays offline, as does an
-// unauthenticated run: having no account skips the lookup rather than failing
-// the command, so reading the local default never requires a login.
+// identities spend one request to complete and validate the other dimension,
+// a saved default spends one to come back under its current name (the saved
+// name goes stale on rename), and an account with no saved default spends one
+// to learn which team the gateway applies. An unauthenticated run stays
+// offline: having no account skips the lookup rather than failing the
+// command, so reading the local default never requires a login.
 export const teamCurrentCommand: CliCommandDefinition = {
     name: "current",
     summaryKey: "commands.team.current.summary",
@@ -52,7 +58,12 @@ export const teamCurrentCommand: CliCommandDefinition = {
             resolveIdentity(context),
         ]);
         const identity = await resolveTeamIdentity(
-            { account, defaultTeam, resolveAgainstBackend: true },
+            {
+                account,
+                defaultTeam,
+                resolveAgainstBackend: true,
+                resolveCurrentName: true,
+            },
             context,
         );
 
@@ -83,7 +94,21 @@ export const teamCurrentCommand: CliCommandDefinition = {
             if (identity.source === "account") {
                 writeLine(
                     context.stdout,
-                    context.translator.t("team.current.text.accountDefault", {
+                    appendTeamIdentityStatus(
+                        context.translator.t("team.current.text.accountDefault", {
+                            team: teamValue,
+                        }),
+                        identity,
+                        context.translator,
+                    ),
+                );
+                return;
+            }
+
+            if (identity.source === "backend_default") {
+                writeLine(
+                    context.stdout,
+                    context.translator.t("team.current.text.backendDefault", {
                         team: teamValue,
                     }),
                 );

@@ -7,6 +7,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
     createCliSandbox,
+    defaultLoginDefaultTeamResponse,
     expectTelemetryFreeOfTeamIdentity,
     toRequest,
     writeAuthFile,
@@ -148,31 +149,138 @@ describe("teamCommand CLI", () => {
         try {
             await writeAuthFileWithDefaultTeam(sandbox, "acme");
 
-            const jsonResult = await sandbox.run(["team", "current", "--json"]);
-            const textResult = await sandbox.run(["team", "current"]);
+            // A name-only default is completed through the memberships.
+            const fetcher: Fetcher = async () => new Response(JSON.stringify(teamsResponse));
+            const jsonResult = await sandbox.run(["team", "current", "--json"], { fetcher });
+            const textResult = await sandbox.run(["team", "current"], { fetcher });
 
             expect(jsonResult.exitCode).toBe(0);
             expect(JSON.parse(jsonResult.stdout)).toEqual({
                 team: "acme",
-                teamId: null,
+                teamId: "team-1",
                 source: "account",
-                status: null,
+                status: "valid",
             });
-            expect(textResult.stdout).toContain("acme");
+            expect(textResult.stdout).toContain("Default team identity: acme (team-1)");
         }
         finally {
             await sandbox.cleanup();
         }
     });
 
-    test("reports the server-side default team via current when no default is configured", async () => {
+    test("shows a renamed default team under its current name via current", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFileWithDefaultTeam(sandbox, "old-name", { teamId: "team-1" });
+
+            const requests: Request[] = [];
+            const fetcher: Fetcher = async (input, init) => {
+                requests.push(toRequest(input, init));
+
+                return new Response(JSON.stringify({
+                    id: "team-1",
+                    name: "acme",
+                    role: "creator",
+                    system_created: false,
+                }));
+            };
+            const jsonResult = await sandbox.run(["team", "current", "--json"], { fetcher });
+            const textResult = await sandbox.run(["team", "current"], { fetcher });
+
+            expect(jsonResult.exitCode).toBe(0);
+            expect(JSON.parse(jsonResult.stdout)).toEqual({
+                team: "acme",
+                teamId: "team-1",
+                source: "account",
+                status: "valid",
+            });
+            expect(textResult.stdout).toContain("Default team identity: acme (team-1)");
+            expect(textResult.stdout).not.toContain("old-name");
+            expect(requests.map(request => request.url)).toEqual([
+                "https://relation-control.oomol.com/v1/teams/team-1",
+                "https://relation-control.oomol.com/v1/teams/team-1",
+            ]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("keeps reporting a saved default team the refresh could not confirm", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFileWithDefaultTeam(sandbox, "acme", { teamId: "team-1" });
+
+            const fetcher: Fetcher = async () => new Response("{}", { status: 404 });
+            const jsonResult = await sandbox.run(["team", "current", "--json"], { fetcher });
+            const textResult = await sandbox.run(["team", "current"], { fetcher });
+
+            expect(jsonResult.exitCode).toBe(0);
+            expect(JSON.parse(jsonResult.stdout)).toEqual({
+                team: "acme",
+                teamId: "team-1",
+                source: "account",
+                status: "not_found",
+            });
+            expect(textResult.stdout).toContain(
+                "Default team identity: acme (team-1) — no team exists with this id",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports the backend's default team via current when no default is configured", async () => {
         const sandbox = await createCliSandbox();
 
         try {
             await writeAuthFile(sandbox);
 
-            const jsonResult = await sandbox.run(["team", "current", "--json"]);
-            const textResult = await sandbox.run(["team", "current"]);
+            const requests: Request[] = [];
+            const fetcher: Fetcher = async (input, init) => {
+                requests.push(toRequest(input, init));
+
+                return new Response(JSON.stringify(defaultLoginDefaultTeamResponse));
+            };
+            const jsonResult = await sandbox.run(["team", "current", "--json"], { fetcher });
+            const textResult = await sandbox.run(["team", "current"], { fetcher });
+
+            expect(jsonResult.exitCode).toBe(0);
+            expect(JSON.parse(jsonResult.stdout)).toEqual({
+                team: "alice-team",
+                teamId: "team-system-1",
+                source: "backend_default",
+                status: "valid",
+            });
+            expect(textResult.stdout).toContain(
+                "team-aware commands use the server-side default team: alice-team (team-system-1)",
+            );
+            // One lookup per run, authenticated with the account key.
+            expect(requests.map(request => request.url)).toEqual([
+                "https://relation-control.oomol.com/v1/me/default-team",
+                "https://relation-control.oomol.com/v1/me/default-team",
+            ]);
+            expect(requests[0]?.headers.get("authorization")).toBe("secret-1");
+            // The reported default is never written back.
+            expect(await readAuthFileContent(sandbox)).not.toContain("\nteam = ");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports the bare server-side default team via current when the backend has none", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const fetcher: Fetcher = async () => new Response("", { status: 404 });
+            const jsonResult = await sandbox.run(["team", "current", "--json"], { fetcher });
+            const textResult = await sandbox.run(["team", "current"], { fetcher });
 
             expect(jsonResult.exitCode).toBe(0);
             expect(JSON.parse(jsonResult.stdout)).toEqual({
@@ -182,6 +290,7 @@ describe("teamCommand CLI", () => {
                 status: null,
             });
             expect(textResult.stdout).toContain("server-side default team");
+            expect(textResult.stdout).not.toContain("alice-team");
         }
         finally {
             await sandbox.cleanup();
@@ -202,17 +311,24 @@ describe("teamCommand CLI", () => {
                     return new Response(JSON.stringify(teamsResponse));
                 },
             });
-            const currentResult = await sandbox.run(["team", "current", "--json"]);
+            const currentResult = await sandbox.run(["team", "current", "--json"], {
+                fetcher: async () => new Response(JSON.stringify({
+                    id: "team-2",
+                    name: "beta",
+                    role: "member",
+                    system_created: false,
+                })),
+            });
 
             expect(useResult.exitCode).toBe(0);
             expect(requests).toHaveLength(1);
             // `oo team use` holds the membership listing, so the stored
-            // default carries the team id and `current` reports it offline.
+            // default carries the team id, which `current` refreshes by.
             expect(JSON.parse(currentResult.stdout)).toEqual({
                 team: "beta",
                 teamId: "team-2",
                 source: "account",
-                status: null,
+                status: "valid",
             });
         }
         finally {
@@ -552,18 +668,22 @@ describe("legacy default team migration", () => {
             // A command with nothing to do with identity still migrates,
             // because the migration runs in the bootstrap.
             const versionResult = await sandbox.run(["--version"]);
-            const currentResult = await sandbox.run(["team", "current", "--json"]);
+            const currentResult = await sandbox.run(["team", "current", "--json"], {
+                fetcher: async () => new Response(JSON.stringify(teamsResponse)),
+            });
 
             expect(versionResult.exitCode).toBe(0);
             expect(await readAuthFileContent(sandbox)).toContain("team = \"acme\"");
             expect(await readSettingsFileContent(sandbox)).not.toContain(
                 "\nteam = ",
             );
+            // The migrated default carries the name alone; `current` completes
+            // it through the memberships.
             expect(JSON.parse(currentResult.stdout)).toEqual({
                 team: "acme",
-                teamId: null,
+                teamId: "team-1",
                 source: "account",
-                status: null,
+                status: "valid",
             });
         }
         finally {

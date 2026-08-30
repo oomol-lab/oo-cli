@@ -77,9 +77,12 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   `OO_TEAM_ID` 时会被忽略；connector 目标为自部署服务时，只有 connector
   命令会忽略它，variables 命令始终遵循它。
 - 团队相关命令按以下优先级解析团队身份：
-  `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` > 当前账号保存的默认团队。
-  没有选中任何团队时不发送团队选择，由服务端套用它自己的默认团队；不存在
-  按用户私有的作用域。
+  `--team` > `OO_TEAM_ID` > `OO_TEAM_NAME` > 当前账号保存的默认团队 >
+  服务端默认团队。需要团队名称的命令 (`oo flow`、`oo team current`、
+  `oo auth status`) 不信任本地保存的名称：有保存的默认团队时按团队 id 向后端
+  刷新名称 (团队改名后仍可用)，没有保存时向后端询问它套用的默认团队；其他
+  命令原样发送保存的选择，由服务端按 id 解析，没有选择时套用同一个默认团队。
+  不存在按用户私有的作用域。
 - `OO_SKILLS_SYNC_DISABLED`：设为真值会禁用启动时的 managed skill 同步，
   使 CLI 不会向 `~/.agents`、`~/.claude` 等代理主目录写入任何 skill 文件。
 - `OO_NO_SELF_UPDATE`：设为真值会禁用 `oo update`、`oo install` 和
@@ -162,7 +165,11 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 - `oo flow open [flow]` 会在系统浏览器打开所选部署的 Workbench，并同时输出 URL；
   `oo flow workbench [flow]` 只输出相同 URL，不打开浏览器，适用于脚本和 Agent
   内置预览。省略 `flow` 时打开 Flow 列表，提供 `flow` 时打开对应 Flow 的设计页。
-  Hosted URL 会携带当前 CLI 账号的短期一次性网页登录 code，并要求已选择 Team。
+  Hosted URL 会携带当前 CLI 账号的短期一次性网页登录 code，并限定在生效团队的
+  当前名称下：账号保存的默认团队会按团队 id 刷新名称 (改名后仍可打开)，未保存时
+  为后端报告的服务端默认团队 (与本次调用的 Cloud 请求作用于同一个团队)。保存的
+  默认团队已不存在或已无权访问时命令以 `1` 退出并说明原因；未保存且后端未报告
+  默认团队时命令失败，并提示使用 `oo login` / `oo team use <name>`。
   自部署 URL 直接指向 Server Workbench，由浏览器自行建立 operator session；
   operator token 不会写入 URL。
 - 宿主 telemetry 只把本次委托记录为顶层命令 `flow`，并记录成功/失败和耗时；
@@ -245,14 +252,13 @@ oo flow
     与三种登录方式均可组合。
 - 默认团队：登录成功后，CLI 会获取账号的团队成员关系并把默认团队身份持久化到
   已保存的账号上。未传 `--team` 时，若账号已保存的默认团队仍在成员关系中则
-  保留（并补齐其团队 id）；否则采用
-  后端为每个账号创建的默认团队（`system_created`）。两者都不存在时——成员
-  关系中没有 `system_created` 团队（旧版后端）或列表为空——不会持久化任何
-  内容，也不打印默认团队行，登录仍以 `0` 退出。否则成功输出会打印生效的
+  保留（并补齐其团队 id）；否则采用后端报告的服务端默认团队 (即不带团队
+  选择的请求所作用的团队)。后端未报告默认团队时 (账号未创建过任何团队)，
+  不会持久化任何内容，也不打印默认团队行，登录仍以 `0` 退出。否则成功输出会打印生效的
   默认团队（`当前默认团队身份：<name>`）；当账号拥有多个团队时，还会打印团队
   数量（最多列出 5 个名称，其余以省略号截断）以及使用 `oo team use <name>`
-  切换的提示。未传 `--team` 且成员关系请求失败时，登录仍以 `0` 退出，并提示
-  默认团队保持不变。设置了 `OO_TEAM_ID` / `OO_TEAM_NAME` 时默认值仍会被保存，
+  切换的提示。未传 `--team` 且成员关系请求或默认团队查询失败时，登录仍以 `0`
+  退出，并提示默认团队保持不变。设置了 `OO_TEAM_ID` / `OO_TEAM_NAME` 时默认值仍会被保存，
   但会提示 env 覆盖的优先级依然更高。
 - 说明：如果已配置自部署 Connector（`oo connector login`），登录后 connector
   相关命令仍会继续使用它；成功输出会打印一行提示，说明可运行
@@ -298,9 +304,11 @@ oo flow
   `<名称>（<id>）`。查询未成功时仍会显示 env 提供的值，并附上原因：当前账号
   不是该团队的成员、不存在该 id 对应的团队、该团队已被删除、或无法完成查询。
   查询失败既不会改变退出码，也不会影响所报告的 `API key status`。
-  账号保存的默认团队本身就带名称，不会发起查询。
-- 因此 `oo auth status` 最多发送 2 次请求：API key 校验，以及 `OO_TEAM_ID` /
-  `OO_TEAM_NAME` 生效时的团队查询。两者相互独立，并发发出。
+  账号保存的默认团队同样会查询，因此该行显示的是团队当前名称，无法确认时附上
+  原因；未保存默认团队时则显示后端报告的服务端默认团队。
+- 因此 `oo auth status` 最多发送 2 次请求：API key 校验，以及有账号可用于查询
+  时的 1 次团队查询 (env 选定的团队、保存的默认团队或服务端默认团队)。两者相互
+  独立，并发发出。
 - 文本和 JSON 输出都永远不会包含 API key 实际内容。
 - 当配置了自部署 Connector（`oo connector login` 或 `OO_CONNECTOR_URL`）时，
   文本输出会额外显示一个自部署 Connector 区块，包含服务地址、是否已配置令牌
@@ -346,11 +354,12 @@ oo flow
 
 - 当存在默认团队身份时，`oo auth status --json` 的输出——即上面的 `logged-in`
   形态——会携带一个可选的顶层 `team` 字段。`source` 表示由哪种机制选中
-  （`env_id`、`env_name` 或 `account`），`status` 报告团队查询的结果：
+  (`env_id`、`env_name`、`account`，或 `backend_default`，即未保存默认团队时
+  后端报告的服务端默认团队)，`status` 报告团队查询的结果：
 
   ```json
   {
-    "team": { "name": "acme", "id": null, "source": "account", "status": null }
+    "team": { "name": "acme", "id": "team-7", "source": "account", "status": "valid" }
   }
   ```
 
@@ -365,7 +374,9 @@ oo flow
   }
   ```
 
-  未尝试查询时 `status` 为 `null`（`account` 来源）。env 选定的身份下取值为
+  `backend_default` 来源下 `status` 恒为 `valid`；`account` 来源下它报告按 id
+  刷新是否确认了保存的默认团队 (`valid`，或无法确认的原因)，显示的是团队当前
+  的名称而不是登录时保存的名称。未尝试查询时为 `null`。env 选定的身份下取值为
   `valid`、`not_a_member`、`not_found`、`deleted`、`request_failed`、
   `request_failed_sandbox` 或 `no_credential` 之一。只有 `status` 为 `valid`
   时查询补全的那一半才有值——`env_id` 下补全名称，`env_name` 下补全 id——
@@ -404,12 +415,12 @@ oo flow
     `OO_ENDPOINT`（不设 `OO_API_KEY`）会重定向文本输出与 API key 校验所用的
     endpoint，但不会改写该字段。
   - `team` 仅在 `logged-in` 形态且存在默认团队身份时出现。`source` 为
-    `account`（账号保存的默认值）、`env_id`（`OO_TEAM_ID`）或
-    `env_name`（`OO_TEAM_NAME`）。env 选定的身份会发送 1 次请求补全并校验
-    缺失的那一半，因此成功时同时携带 `name` 与 `id`；查询未成功时保留 env
-    提供的那一半，并由 `status` 说明原因。`account` 来源保持离线，其 `id` 在
-    某个已持有成员关系列表的命令（`oo team list`、`oo team use`、
-    `oo auth login`）补齐之前为 `null`。
+    `account`（账号保存的默认值）、`env_id`（`OO_TEAM_ID`）、
+    `env_name`（`OO_TEAM_NAME`）或 `backend_default` (未保存默认团队时后端
+    报告的服务端默认团队)。env 选定的身份会被查询补全缺失的那一半，因此成功时
+    同时携带 `name` 与 `id`；查询未成功时保留 env 提供的那一半，并由 `status`
+    说明原因。`account` 来源同样会被查询，因此 `name` 是团队当前名称，成功时
+    `id` 也会补齐；查询未成功时保留保存的值，并由 `status` 说明原因。
   - `missingAccountId` 仅在 auth file 记录的 active id 已不存在于
     `accounts[]` 时出现。
   - `connector` 仅在配置了自部署 Connector 时出现，报告已配置的自部署
@@ -492,8 +503,8 @@ oo flow
 本地状态，且只在有账号可用时才额外查询团队名称来丰富输出。
 
 `oo auth login`（及其别名 `oo login`）会自动持久化该默认值：账号上仍然有效的
-默认团队会被保留，否则采用后端创建的 `system_created` 默认团队
-（存在时）；也可通过 `--team <name>` 显式指定。
+默认团队会被保留，否则采用后端报告的服务端默认团队 (后端有报告时)；也可通过
+`--team <name>` 显式指定。
 
 ### `oo team list`
 
@@ -518,19 +529,24 @@ oo flow
 否则为当前账号保存的默认团队。两者都未设置时，命令不发送团队选择，由服务端
 套用它自己的默认团队。
 
-- 仅当身份来自 `OO_TEAM_ID` 或 `OO_TEAM_NAME` 时才发送 1 次请求，补全并校验
-  缺失的那一半：id 解析出团队名称，名称通过账号的团队成员关系解析出 id——这
-  与 connector 命令执行前的检查相同，因此该命令报告的身份就是实际运行会使用
-  的身份。账号保存的默认团队本身就带名称，保持离线。
+- 有 OOMOL 账号可用于查询时发送 1 次请求，以团队当前名称报告身份：env 选定的
+  身份补全缺失的那一半 (id 对应的名称，或名称对应的 id)，保存的默认团队刷新为
+  当前名称，未保存时由后端报告它套用的服务端默认团队。该命令报告的身份就是
+  实际运行会使用的身份。
 - 无 OOMOL 账号时同样可用：此时跳过查询而不是让命令失败，只单独展示 env
   提供的值。
 - 选项：`--format=json` 与 `--json` 输出 JSON 对象。
 - 输出：JSON 为 `{ "team": <name|null>, "teamId": <id|null>, "source":
-  <"env_id"|"env_name"|"account"|null>, "status": <status|null> }`。`source`
-  表示团队由哪种机制选定；未保存默认团队 (命令使用服务端默认团队) 时为 `null`。`status`
-  报告团队查询的结果：未尝试查询时为 `null`（account 来源，或 `--dry-run` 这类
-  离线路径），否则为 `valid`、`not_a_member`、`not_found`、`deleted`、
-  `request_failed`、`request_failed_sandbox` 或 `no_credential` 之一。
+  <"env_id"|"env_name"|"account"|"backend_default"|null>, "status":
+  <status|null> }`。`source` 表示团队由哪种机制选定：未保存默认团队且后端
+  报告了它套用的服务端默认团队时为 `backend_default`；后端未报告 (账号未创建
+  过任何团队) 或该查询失败时为 `null`。`team` 是团队当前的名称：有保存的默认
+  团队时按 id 刷新 (只有名称的默认团队则通过成员关系补全)，因此改名后的团队
+  会以新名称报告，本地保存的值保持不变。`status` 报告团队查询的结果：未尝试
+  查询时为 `null`（`--dry-run` 这类离线路径），`backend_default` 来源恒为
+  `valid`，否则为 `valid`、`not_a_member`、`not_found`、`deleted`、
+  `request_failed`、`request_failed_sandbox` 或 `no_credential` 之一；account
+  来源下非 `valid` 的状态会保留保存的名称与 id，文本输出末尾附上原因。
 - 输出：`OO_TEAM_ID` / `OO_TEAM_NAME` 生效且两项信息都已知时，文本输出显示
   `<名称>（<id>）`。查询未成功时仍会显示 env 提供的值并附上原因，命令依然以
   `0` 退出。

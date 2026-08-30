@@ -5,6 +5,7 @@ import { describe, expect, test } from "bun:test";
 import {
     createCliSandbox,
     createTemporaryDirectory,
+    defaultLoginDefaultTeamResponse,
     readLatestLogContent,
     toRequest,
     writeAuthFile,
@@ -106,19 +107,28 @@ describe("flow CLI", () => {
 
                     requests.push(request);
 
-                    return new Response(null, { status: 202 });
+                    return new URL(request.url).host === "relation-control.oomol.dev"
+                        ? new Response(JSON.stringify({
+                                id: "team-1",
+                                name: "platform",
+                                role: "member",
+                                system_created: false,
+                            }))
+                        : new Response(null, { status: 202 });
                 },
             });
 
             expect(result.exitCode).toBe(0);
-            expect(requests).toHaveLength(1);
-            expect(requests[0]?.url).toBe("https://open-flow.oomol.dev/v1/projects?limit=10");
-            expect(requests[0]?.method).toBe("POST");
-            expect(requests[0]?.headers.get("authorization")).toBe("dev-secret");
-            expect(requests[0]?.headers.get("x-oo-team-name")).toBe("platform");
-            expect(requests[0]?.headers.get("x-oo-team-id")).toBe("team-1");
-            expect(requests[0]?.headers.get("x-oomol-token")).toBeNull();
-            expect(await requests[0]?.text()).toBe("{\"name\":\"Example\"}");
+            expect(requests.map(request => request.url)).toEqual([
+                "https://relation-control.oomol.dev/v1/teams/team-1",
+                "https://open-flow.oomol.dev/v1/projects?limit=10",
+            ]);
+            expect(requests[1]?.method).toBe("POST");
+            expect(requests[1]?.headers.get("authorization")).toBe("dev-secret");
+            expect(requests[1]?.headers.get("x-oo-team-name")).toBe("platform");
+            expect(requests[1]?.headers.get("x-oo-team-id")).toBe("team-1");
+            expect(requests[1]?.headers.get("x-oomol-token")).toBeNull();
+            expect(await requests[1]?.text()).toBe("{\"name\":\"Example\"}");
         }
         finally {
             await Promise.all([
@@ -243,16 +253,31 @@ describe("flow CLI", () => {
             const requests: Request[] = [];
             const result = await sandbox.run(["flow", "project", "list"], {
                 fetcher: async (input, init) => {
-                    requests.push(toRequest(input, init));
-                    return new Response(null, { status: 204 });
+                    const request = toRequest(input, init);
+
+                    requests.push(request);
+
+                    return new URL(request.url).host === "relation-control.oomol.dev"
+                        ? new Response(JSON.stringify({
+                                id: "team-dev",
+                                name: "development",
+                                role: "member",
+                                system_created: false,
+                            }))
+                        : new Response(null, { status: 204 });
                 },
             });
 
             expect(result.exitCode).toBe(0);
-            expect(requests).toHaveLength(1);
-            expect(requests[0]?.url).toBe("https://open-flow.oomol.dev/v1/projects");
+            // The selected account's default team is refreshed with that
+            // account's credential and endpoint, then the request goes out.
+            expect(requests.map(request => request.url)).toEqual([
+                "https://relation-control.oomol.dev/v1/teams/team-dev",
+                "https://open-flow.oomol.dev/v1/projects",
+            ]);
             expect(requests[0]?.headers.get("authorization")).toBe("dev-secret");
-            expect(requests[0]?.headers.get("x-oo-team-id")).toBe("team-dev");
+            expect(requests[1]?.headers.get("authorization")).toBe("dev-secret");
+            expect(requests[1]?.headers.get("x-oo-team-id")).toBe("team-dev");
             expect(await Bun.file(authPath).text()).toStartWith("id = \"user-prod\"");
         }
         finally {
@@ -281,16 +306,20 @@ describe("flow CLI", () => {
             ]);
             sandbox.env.OO_OPEN_FLOW_COMMAND_DIR = commandDirectory;
 
-            let requestCount = 0;
+            const requests: Request[] = [];
             const result = await sandbox.run(["flow", "project", "list"], {
-                fetcher: async () => {
-                    requestCount += 1;
-                    return new Response(null, { status: 200 });
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+                    return new Response(null, { status: 404 });
                 },
             });
 
+            // Resolving the session asks for the server-default team (the
+            // account has none saved); the forged request itself never leaves.
             expect(result.exitCode).toBe(0);
-            expect(requestCount).toBe(0);
+            expect(requests.map(request => request.url)).toEqual([
+                "https://relation-control.oomol.com/v1/me/default-team",
+            ]);
             expect(Reflect.get(globalThis, captureKey)).toBe(
                 "Open Flow requests must target the configured /v1/ gateway.",
             );
@@ -332,13 +361,27 @@ describe("flow CLI", () => {
             sandbox.env.OO_OPEN_FLOW_COMMAND_DIR = commandDirectory;
 
             const requests: Request[] = [];
+            const signInRequests: Request[] = [];
             const result = await sandbox.run(["--debug", "flow", "workbench", "flow/1"], {
                 fetcher: async (input, init) => {
-                    requests.push(toRequest(input, init));
+                    const request = toRequest(input, init);
+
+                    requests.push(request);
+
+                    if (new URL(request.url).host === "relation-control.oomol.dev") {
+                        return new Response(JSON.stringify({
+                            id: "team-1",
+                            name: "platform/team",
+                            role: "member",
+                            system_created: false,
+                        }));
+                    }
+
+                    signInRequests.push(request);
 
                     return new Response(JSON.stringify({
                         expires_in: 300,
-                        session_code: `workbench-code-${requests.length}`,
+                        session_code: `workbench-code-${signInRequests.length}`,
                     }));
                 },
             });
@@ -348,11 +391,253 @@ describe("flow CLI", () => {
                 catalogUrl: "https://api.oomol.dev/v1/auth/session_code/exchange?redirect=https%3A%2F%2Fconsole.oomol.dev%2Fteam%2Fplatform%252Fteam%2Fflows&session_code=workbench-code-1",
                 flowUrl: "https://api.oomol.dev/v1/auth/session_code/exchange?redirect=https%3A%2F%2Fconsole.oomol.dev%2Fteam%2Fplatform%252Fteam%2Fflows%2Fflow%252F1%2Fdesign&session_code=workbench-code-2",
             });
-            expect(requests).toHaveLength(2);
-            expect(requests[0]?.method).toBe("POST");
-            expect(requests[0]?.url).toBe("https://api.oomol.dev/v1/auth/session_code");
-            expect(requests[0]?.headers.get("authorization")).toBe("Bearer dev-secret");
+            // One refresh of the saved default, then one sign-in code per link.
+            expect(requests.map(request => request.url)).toEqual([
+                "https://relation-control.oomol.dev/v1/teams/team-1",
+                "https://api.oomol.dev/v1/auth/session_code",
+                "https://api.oomol.dev/v1/auth/session_code",
+            ]);
+            expect(signInRequests[0]?.method).toBe("POST");
+            expect(signInRequests[0]?.headers.get("authorization")).toBe("Bearer dev-secret");
             expect(await readLatestLogContent(sandbox)).not.toContain("workbench-code");
+        }
+        finally {
+            Reflect.deleteProperty(globalThis, captureKey);
+            await Promise.all([
+                sandbox.cleanup(),
+                rm(commandDirectory, { force: true, recursive: true }),
+            ]);
+        }
+    });
+
+    // The regression guard for a Flow that could be created but not opened:
+    // with no saved team, both host paths must act for the one team the
+    // backend reports, resolved once per invocation.
+    test("acts for the server-side default team on Cloud requests and the Workbench deep link when no team is saved", async () => {
+        const sandbox = await createCliSandbox();
+        const commandDirectory = await createTemporaryDirectory("oo-open-flow-command");
+        const captureKey = `open-flow-default-team-${Bun.randomUUIDv7()}`;
+
+        try {
+            await writeAuthFile(sandbox);
+            await writeCommandEntry(commandDirectory, [
+                "const cloudResponse = await host.cloudRequest('/v1/projects', { method: 'GET' });",
+                "const flowUrl = await host.getWorkbenchUrl('flow/1');",
+                `Reflect.set(globalThis, ${JSON.stringify(captureKey)}, { flowUrl, status: cloudResponse.status });`,
+                "return 0;",
+            ]);
+            sandbox.env.OO_ENDPOINT = "oomol.dev";
+            sandbox.env.OO_OPEN_FLOW_COMMAND_DIR = commandDirectory;
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(["flow", "workbench", "flow/1"], {
+                fetcher: async (input, init) => {
+                    const request = toRequest(input, init);
+                    const requestUrl = new URL(request.url);
+
+                    requests.push(request);
+
+                    if (requestUrl.host === "relation-control.oomol.dev") {
+                        return new Response(JSON.stringify(defaultLoginDefaultTeamResponse));
+                    }
+
+                    if (requestUrl.host === "api.oomol.dev") {
+                        return new Response(JSON.stringify({
+                            expires_in: 300,
+                            session_code: "workbench-code-1",
+                        }));
+                    }
+
+                    return new Response(null, { status: 202 });
+                },
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(requests.map(request => request.url)).toEqual([
+                "https://relation-control.oomol.dev/v1/me/default-team",
+                "https://open-flow.oomol.dev/v1/projects",
+                "https://api.oomol.dev/v1/auth/session_code",
+            ]);
+            expect(requests[1]?.headers.get("x-oo-team-name")).toBe("alice-team");
+            expect(requests[1]?.headers.get("x-oo-team-id")).toBe("team-system-1");
+            expect(Reflect.get(globalThis, captureKey)).toEqual({
+                flowUrl: "https://api.oomol.dev/v1/auth/session_code/exchange?redirect=https%3A%2F%2Fconsole.oomol.dev%2Fteam%2Falice-team%2Fflows%2Fflow%252F1%2Fdesign&session_code=workbench-code-1",
+                status: 202,
+            });
+        }
+        finally {
+            Reflect.deleteProperty(globalThis, captureKey);
+            await Promise.all([
+                sandbox.cleanup(),
+                rm(commandDirectory, { force: true, recursive: true }),
+            ]);
+        }
+    });
+
+    // The saved name is refreshed by id before it reaches a header or the
+    // Workbench link: a rename keeps working, a deleted team is refused with
+    // the remedy already translated, because the command artifact can only
+    // print the message of whatever the host throws.
+    test("acts for a renamed default team under its current name", async () => {
+        const sandbox = await createCliSandbox();
+        const commandDirectory = await createTemporaryDirectory("oo-open-flow-command");
+        const captureKey = `open-flow-renamed-team-${Bun.randomUUIDv7()}`;
+
+        try {
+            await writeAuthFile(sandbox, {
+                accounts: [
+                    {
+                        id: "user-1",
+                        name: "Alice",
+                        apiKey: "dev-secret",
+                        endpoint: "oomol.com",
+                        team: "old-name",
+                        teamId: "team-1",
+                    },
+                ],
+            });
+            await writeCommandEntry(commandDirectory, [
+                "const cloudResponse = await host.cloudRequest('/v1/projects', { method: 'GET' });",
+                "const flowUrl = await host.getWorkbenchUrl('flow/1');",
+                `Reflect.set(globalThis, ${JSON.stringify(captureKey)}, { flowUrl, status: cloudResponse.status });`,
+                "return 0;",
+            ]);
+            sandbox.env.OO_OPEN_FLOW_COMMAND_DIR = commandDirectory;
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(["flow", "workbench", "flow/1"], {
+                fetcher: async (input, init) => {
+                    const request = toRequest(input, init);
+                    const requestUrl = new URL(request.url);
+
+                    requests.push(request);
+
+                    if (requestUrl.host === "relation-control.oomol.com") {
+                        return new Response(JSON.stringify({
+                            id: "team-1",
+                            name: "new-name",
+                            role: "creator",
+                            system_created: false,
+                        }));
+                    }
+
+                    if (requestUrl.host === "api.oomol.com") {
+                        return new Response(JSON.stringify({
+                            expires_in: 300,
+                            session_code: "workbench-code-1",
+                        }));
+                    }
+
+                    return new Response(null, { status: 202 });
+                },
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(requests.map(request => request.url)).toEqual([
+                "https://relation-control.oomol.com/v1/teams/team-1",
+                "https://open-flow.oomol.com/v1/projects",
+                "https://api.oomol.com/v1/auth/session_code",
+            ]);
+            expect(requests[1]?.headers.get("x-oo-team-name")).toBe("new-name");
+            expect(requests[1]?.headers.get("x-oo-team-id")).toBe("team-1");
+            expect(Reflect.get(globalThis, captureKey)).toEqual({
+                flowUrl: "https://api.oomol.com/v1/auth/session_code/exchange?redirect=https%3A%2F%2Fconsole.oomol.com%2Fteam%2Fnew-name%2Fflows%2Fflow%252F1%2Fdesign&session_code=workbench-code-1",
+                status: 202,
+            });
+        }
+        finally {
+            Reflect.deleteProperty(globalThis, captureKey);
+            await Promise.all([
+                sandbox.cleanup(),
+                rm(commandDirectory, { force: true, recursive: true }),
+            ]);
+        }
+    });
+
+    test("refuses a saved default team that no longer exists before any Cloud request", async () => {
+        const sandbox = await createCliSandbox();
+        const commandDirectory = await createTemporaryDirectory("oo-open-flow-command");
+        const captureKey = `open-flow-deleted-team-${Bun.randomUUIDv7()}`;
+
+        try {
+            await writeAuthFile(sandbox, {
+                accounts: [
+                    {
+                        id: "user-1",
+                        name: "Alice",
+                        apiKey: "dev-secret",
+                        endpoint: "oomol.com",
+                        team: "acme",
+                        teamId: "team-1",
+                    },
+                ],
+            });
+            await writeCommandEntry(commandDirectory, [
+                "try {",
+                "    await host.cloudRequest('/v1/projects');",
+                "    return 9;",
+                "} catch (error) {",
+                `    Reflect.set(globalThis, ${JSON.stringify(captureKey)}, { message: error.message, name: error.name });`,
+                "    return 0;",
+                "}",
+            ]);
+            sandbox.env.OO_OPEN_FLOW_COMMAND_DIR = commandDirectory;
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(["flow", "project", "list"], {
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+
+                    return new Response("{}", { status: 410 });
+                },
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(requests.map(request => request.url)).toEqual([
+                "https://relation-control.oomol.com/v1/teams/team-1",
+            ]);
+            // Translated at the host boundary, and still a CLI user error for
+            // the host's own handler.
+            expect(Reflect.get(globalThis, captureKey)).toEqual({
+                message: "The saved default team \"acme\" cannot be used: this team has been deleted. Run `oo team use <name>` to pick another team, or `oo login` to refresh the default.",
+                name: "CliUserError",
+            });
+        }
+        finally {
+            Reflect.deleteProperty(globalThis, captureKey);
+            await Promise.all([
+                sandbox.cleanup(),
+                rm(commandDirectory, { force: true, recursive: true }),
+            ]);
+        }
+    });
+
+    test("explains the missing team when the backend reports no default team", async () => {
+        const sandbox = await createCliSandbox();
+        const commandDirectory = await createTemporaryDirectory("oo-open-flow-command");
+        const captureKey = `open-flow-no-team-${Bun.randomUUIDv7()}`;
+
+        try {
+            await writeAuthFile(sandbox);
+            await writeCommandEntry(commandDirectory, [
+                "try {",
+                "    await host.getWorkbenchUrl();",
+                "    return 9;",
+                "} catch (error) {",
+                `    Reflect.set(globalThis, ${JSON.stringify(captureKey)}, error instanceof Error ? error.message : String(error));`,
+                "    return 0;",
+                "}",
+            ]);
+            sandbox.env.OO_OPEN_FLOW_COMMAND_DIR = commandDirectory;
+
+            const result = await sandbox.run(["flow", "workbench"], {
+                fetcher: async () => new Response("", { status: 404 }),
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(Reflect.get(globalThis, captureKey)).toBe(
+                "No team is available to open the Open Flow Workbench for this account. Run `oo login` again, or select one with `oo team use <name>`.",
+            );
         }
         finally {
             Reflect.deleteProperty(globalThis, captureKey);

@@ -171,6 +171,7 @@ export const authStatusCommand: CliCommandDefinition = {
                     account: identity?.account,
                     defaultTeam,
                     resolveAgainstBackend: true,
+                    resolveCurrentName: true,
                 },
                 context,
             ),
@@ -343,8 +344,10 @@ function writeSelfHostedConnectorText(
 }
 
 // Renders the default-team detail row. The value spells out the identity in
-// effect: the account default by name, an env override with the variable that
-// supplies it, or the server-side default when no default team is saved.
+// effect: the account default under its current name (with the reason when
+// the refresh could not confirm it), an env override with the variable that
+// supplies it, the server-side default by name when the backend reported one,
+// or the bare server-side default when it reported none.
 function formatStatusTeamDetail(
     context: CliExecutionContext,
     teamIdentity: TeamIdentity | undefined,
@@ -359,6 +362,15 @@ function formatStatusTeamDetail(
     }
 
     const teamValue = formatTeamIdentityValue(teamIdentity, context.translator);
+
+    if (teamIdentity.source === "backend_default") {
+        return {
+            label,
+            value: context.translator.t("auth.status.teamBackendDefault", {
+                team: teamValue,
+            }),
+        };
+    }
 
     return {
         label,

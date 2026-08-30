@@ -66,8 +66,11 @@ export type TeamLookupStatus
         | "not_a_member"
         | "not_found"
         | "deleted"
-        | "request_failed"
-        | "request_failed_sandbox";
+        | TeamLookupFailureStatus;
+
+// The two ways a lookup ends without the backend having answered: the shared
+// half of every lookup result type.
+type TeamLookupFailureStatus = "request_failed" | "request_failed_sandbox";
 
 export type TeamLookupResult
     = | { status: "valid"; team: TeamView }
@@ -150,18 +153,65 @@ export async function fetchTeamByName(
     );
 }
 
-// Shared interpretation skeleton of the two team lookups, on top of the probe
+// `GET /v1/me/default-team` answers with a bare team object (no `role`) and
+// `404` when the account has created no team. Only the identity is read: the
+// callers persist or act for the team by id and name.
+const defaultTeamResponseSchema = teamResponseItemSchema.pick({ id: true, name: true });
+
+// How the default-team lookup ended. `none` is a definite backend answer —
+// the account has created no team, so a request without a team selection runs
+// as personal — and is the one outcome callers act on differently from a
+// lookup that could not run.
+export type DefaultTeamLookupResult
+    = | { status: "valid"; team: Pick<TeamView, "id" | "name"> }
+        | { status: "none" | TeamLookupFailureStatus };
+
+// Resolves the team the gateway applies to a request that carries no team
+// selection. Backed by
+// `GET https://relation-control.{endpoint}/v1/me/default-team`, which
+// evaluates the same rule the gateway consults, so the CLI never has to
+// reconstruct that rule from the membership listing (where a naive "first
+// `system_created` team" pick can land on a team someone else created).
+//
+// Same never-throw contract as the other lookups: every failure is a status.
+export async function fetchDefaultTeam(
+    account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    context: Pick<CliExecutionContext, "fetcher" | "logger">,
+): Promise<DefaultTeamLookupResult> {
+    return lookupTeam(
+        account,
+        "default",
+        "/v1/me/default-team",
+        (bodyText, status) => {
+            if (status === 404) {
+                return { status: "none" };
+            }
+
+            if (status !== 200) {
+                return { status: "request_failed" };
+            }
+
+            return {
+                status: "valid",
+                team: defaultTeamResponseSchema.parse(parseLookupBody(bodyText)),
+            };
+        },
+        context,
+    );
+}
+
+// Shared interpretation skeleton of the team lookups, on top of the probe
 // seam. Any failure the interpreter does not classify — non-JSON bodies,
 // schema mismatches, an unreadable body — comes back as a request-failed
 // status instead of an error, which is what keeps the lookups' never-throw
 // contract honest.
-async function lookupTeam(
+async function lookupTeam<T extends { status: string }>(
     account: Pick<AuthAccount, "apiKey" | "endpoint">,
-    direction: "id" | "name",
+    direction: "default" | "id" | "name",
     path: string,
-    interpret: (bodyText: string | undefined, status: number) => TeamLookupResult,
+    interpret: (bodyText: string | undefined, status: number) => T,
     context: Pick<CliExecutionContext, "fetcher" | "logger">,
-): Promise<TeamLookupResult> {
+): Promise<T | { status: TeamLookupFailureStatus }> {
     const probe = await probeOo({
         authorization: account.apiKey,
         context,

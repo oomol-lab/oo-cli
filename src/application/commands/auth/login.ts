@@ -25,7 +25,7 @@ import { createWriterColors } from "../../terminal-colors.ts";
 import { writeLine } from "../shared/output.ts";
 import { resolveSelfHostedConnectorTolerantly } from "../shared/self-hosted-connector.ts";
 import { resolveTeamIdentity } from "../team/identity.ts";
-import { listMemberTeams } from "../team/shared.ts";
+import { fetchDefaultTeam, listMemberTeams } from "../team/shared.ts";
 import {
     formatAuthStrong,
     writeAuthBlock,
@@ -52,8 +52,9 @@ const authLoginCommandInputSchema = z.object({
 
 // Which mechanism decided the default team after login. `flag` is an explicit
 // `--team`, `kept_existing` preserves the account's still-valid default,
-// `system_default` adopts the backend-provisioned team, `none` found nothing
-// to adopt, and `unresolved` means the membership request failed.
+// `system_default` adopts the backend's server-side default team, `none`
+// found nothing to adopt (the account has created no team), and `unresolved`
+// means the membership or default-team request failed.
 type LoginTeamSelection
     = "flag" | "kept_existing" | "none" | "system_default" | "unresolved";
 
@@ -276,6 +277,7 @@ async function applyLoginTeamIdentity(
     }
 
     const selection = await resolveLoginTeamSelection(
+        account,
         storedTeam,
         requestedTeam,
         teams,
@@ -286,6 +288,13 @@ async function applyLoginTeamIdentity(
         team_count_bucket: bucketTelemetryCount(teams.length),
         team_selection: selection.kind,
     });
+
+    if (selection.kind === "unresolved") {
+        writeLine(
+            context.stdout,
+            context.translator.t("auth.login.teamDefaultUnresolved"),
+        );
+    }
 
     if (selection.team !== undefined) {
         writeLine(
@@ -335,10 +344,11 @@ async function applyLoginTeamIdentity(
 // Picks the default team and persists it when it changes. Precedence:
 // an explicit `--team` (must be a membership), then the account's still-valid
 // stored default (a re-login must not clobber a deliberate `oo team use`),
-// then the backend-provisioned `system_created` team. A stored default the
-// account can no longer use is replaced rather than kept; a renamed one is
-// not stale, which is why the match runs on the stored id.
+// then the server-side default team as the backend reports it. A stored
+// default the account can no longer use is replaced rather than kept; a
+// renamed one is not stale, which is why the match runs on the stored id.
 async function resolveLoginTeamSelection(
+    account: AuthAccount,
     storedTeam: AccountDefaultTeam | undefined,
     requestedTeam: string | undefined,
     teams: readonly TeamView[],
@@ -367,14 +377,26 @@ async function resolveLoginTeamSelection(
         return { kind: "kept_existing", team: keptTeam.name };
     }
 
-    const systemTeam = teams.find(team => team.systemCreated);
+    // Asked of the backend rather than picked from the listing, so the saved
+    // default equals the team a header-less request lands on (see
+    // fetchDefaultTeam for why the listing cannot answer this).
+    const lookup = await fetchDefaultTeam(account, context);
 
-    if (systemTeam === undefined) {
+    if (lookup.status === "none") {
         return { kind: "none" };
     }
 
-    await persistLoginTeamIdentity(systemTeam, context);
-    return { kind: "system_default", team: systemTeam.name };
+    if (lookup.status !== "valid") {
+        context.logger.warn(
+            { status: lookup.status },
+            "Login default team lookup failed; default team unchanged.",
+        );
+
+        return { kind: "unresolved" };
+    }
+
+    await persistLoginTeamIdentity(lookup.team, context);
+    return { kind: "system_default", team: lookup.team.name };
 }
 
 // The account's stored default, as the selection needs it. Reads the account
@@ -410,7 +432,7 @@ function findStoredTeam(
 }
 
 async function persistLoginTeamIdentity(
-    team: TeamView,
+    team: Pick<TeamView, "id" | "name">,
     context: CliExecutionContext,
 ): Promise<void> {
     await writeDefaultTeam(context, { id: team.id, name: team.name });

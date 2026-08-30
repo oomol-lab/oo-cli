@@ -19,6 +19,8 @@ export const enMessages = {
         "You belong to {count} teams: {teams}. Switch with `oo team use <name>`.",
     "auth.login.teamUnresolved":
         "Could not load your teams, so the default team identity is unchanged. Run `oo team list` to inspect them later.",
+    "auth.login.teamDefaultUnresolved":
+        "Could not determine your default team, so the default team identity is unchanged. Set one with `oo team use <name>`.",
     "auth.logout.envOverrideNoop":
         "Nothing was logged out: the active credential comes from OO_API_KEY, not from a saved account.",
     "auth.logout.success": "Logged out the current account.",
@@ -46,6 +48,7 @@ export const enMessages = {
     "auth.status.team": "Default team",
     "auth.status.teamEnvOverride": "{team} (via {envVar})",
     "auth.status.teamServerDefault": "server default (no saved team)",
+    "auth.status.teamBackendDefault": "{team} (server default, no saved team)",
     "auth.switch.envOverrideNoop":
         "Nothing was switched: the active credential comes from OO_API_KEY, not from a saved account.",
     "auth.switch.success": "Switched active account for {endpoint} to {name}",
@@ -161,6 +164,8 @@ export const enMessages = {
         "OO_OPEN_FLOW_URL and OO_OPEN_FLOW_TOKEN must be set together.",
     "errors.flow.serverOriginInvalid":
         "OO_OPEN_FLOW_URL must be an HTTP(S) origin without credentials, a path, query, or fragment.",
+    "errors.flow.teamRequired":
+        "No team is available to open the Open Flow Workbench for this account. Run `oo login` again, or select one with `oo team use <name>`.",
     "commands.info.description":
         "Print CLI environment details, persisted store paths, and detected skill agents.",
     "commands.info.summary": "Show CLI environment info",
@@ -400,6 +405,8 @@ export const enMessages = {
         "The team id \"{teamId}\" from OO_TEAM_ID cannot be used: {reason}. Run `oo team list` to see the teams you can use.",
     "errors.team.envNameNotAccessible":
         "The active account cannot access the team \"{team}\" from OO_TEAM_NAME. Run `oo team list` to see the teams you can use.",
+    "errors.team.accountDefaultNotAccessible":
+        "The saved default team \"{team}\" cannot be used: {reason}. Run `oo team use <name>` to pick another team, or `oo login` to refresh the default.",
     "errors.team.invalidResponse":
         "The team list response body is unsupported.",
     "errors.team.nameEmpty": "The team name must not be empty.",
@@ -1292,6 +1299,8 @@ export const enMessages = {
     "team.current.text.accountDefault": "Default team identity: {team}",
     "team.current.text.serverDefault":
         "No default team saved; team-aware commands use the server-side default team.",
+    "team.current.text.backendDefault":
+        "No default team saved; team-aware commands use the server-side default team: {team}",
     "team.current.text.envId":
         "Team identity comes from the OO_TEAM_ID environment variable: {team}",
     "team.current.text.envName":
@@ -1411,6 +1420,8 @@ export const zhMessages = {
         "你共有 {count} 个团队：{teams}。可使用 `oo team use <name>` 切换。",
     "auth.login.teamUnresolved":
         "无法获取团队列表，默认团队身份保持不变。可稍后运行 `oo team list` 查看。",
+    "auth.login.teamDefaultUnresolved":
+        "无法确定默认团队，默认团队身份保持不变。可使用 `oo team use <name>` 设置。",
     "auth.status.accountActive": "激活",
     "auth.status.accountId": "账号 ID",
     "auth.status.accountsLabel": "账号列表",
@@ -1433,6 +1444,7 @@ export const zhMessages = {
     "auth.status.team": "默认团队",
     "auth.status.teamEnvOverride": "{team}（来自 {envVar}）",
     "auth.status.teamServerDefault": "服务端默认团队（未保存默认团队）",
+    "auth.status.teamBackendDefault": "{team} (服务端默认团队，未保存默认团队)",
     "auth.switch.envOverrideNoop":
         "没有切换任何账号：当前生效的凭证来自 OO_API_KEY，而不是保存的账号。",
     "auth.switch.success": "已将 {endpoint} 的当前激活账号切换为 {name}",
@@ -1539,6 +1551,8 @@ export const zhMessages = {
         "必须同时设置 OO_OPEN_FLOW_URL 和 OO_OPEN_FLOW_TOKEN。",
     "errors.flow.serverOriginInvalid":
         "OO_OPEN_FLOW_URL 必须是不含凭据、路径、查询参数或片段的 HTTP(S) origin。",
+    "errors.flow.teamRequired":
+        "当前账号没有可用于打开 Open Flow Workbench 的团队。请重新运行 `oo login`，或使用 `oo team use <name>` 选择一个团队。",
     "commands.info.description":
         "打印 CLI 运行环境信息、本地存储路径以及检测到的 skill 代理。",
     "commands.info.summary": "显示 CLI 环境信息",
@@ -1751,6 +1765,8 @@ export const zhMessages = {
         "无法使用 OO_TEAM_ID 指定的团队 id “{teamId}”：{reason}。运行 `oo team list` 查看可用的团队。",
     "errors.team.envNameNotAccessible":
         "当前活动账号无法访问 OO_TEAM_NAME 指定的团队 “{team}”。运行 `oo team list` 查看可用的团队。",
+    "errors.team.accountDefaultNotAccessible":
+        "无法使用已保存的默认团队 “{team}”：{reason}。运行 `oo team use <name>` 选择其他团队，或重新运行 `oo login` 刷新默认团队。",
     "errors.team.invalidResponse":
         "团队列表返回了不受支持的响应内容。",
     "errors.team.nameEmpty": "团队名称不能为空。",
@@ -2635,6 +2651,8 @@ export const zhMessages = {
     "team.current.text.accountDefault": "默认团队身份：{team}",
     "team.current.text.serverDefault":
         "未保存默认团队；团队相关命令使用服务端默认团队。",
+    "team.current.text.backendDefault":
+        "未保存默认团队；团队相关命令使用服务端默认团队：{team}",
     "team.current.text.envId":
         "团队身份来自 OO_TEAM_ID 环境变量：{team}",
     "team.current.text.envName":

@@ -21,13 +21,15 @@ import { z } from "zod";
 import { readDefaultTeam } from "../../auth/default-team.ts";
 import { readTrimmedEnv } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
-import { fetchTeamById, fetchTeamByName } from "./shared.ts";
+import { fetchDefaultTeam, fetchTeamById, fetchTeamByName } from "./shared.ts";
 
 // Which mechanism selects the identity. `flag` is a per-run `--team`; `env_id`
 // and `env_name` name the variable that won; `account` is the default team
-// saved on the active account. Recorded as privacy-safe telemetry; it never
-// carries the team name or id itself.
-export type TeamIdentitySource = "account" | "env_id" | "env_name" | "flag";
+// saved on the active account; `backend_default` is the server-side default
+// team the backend reported because nothing local selected one. Recorded as
+// privacy-safe telemetry; it never carries the team name or id itself.
+export type TeamIdentitySource
+    = "account" | "backend_default" | "env_id" | "env_name" | "flag";
 
 // `no_credential` is the one status the backend cannot produce: it means the
 // lookup never ran because no account was available to authenticate it.
@@ -37,9 +39,10 @@ export interface TeamIdentity {
     name: string | null;
     id: string | null;
     source: TeamIdentitySource;
-    // How the backend lookup ended; `null` when no lookup was attempted.
-    // Only env-selected identities are ever looked up — a flag or a stored
-    // name is the gateway's to judge, so those stay `null` on every path.
+    // How the backend lookup ended; `null` when no lookup was attempted. A
+    // flag is the gateway's to judge and stays `null` on every path; an
+    // env-selected identity is always looked up; a saved default is looked up
+    // only for callers that need its current name (`resolveCurrentName`).
     status: TeamNameStatus | null;
     // The env variable supplying the override, for user-facing hints; absent
     // for the flag and account sources.
@@ -52,11 +55,12 @@ type ResolveTeamIdentityContext = Pick<
 >;
 
 /**
- * Resolves the team identity from the per-run flags, the env override, and
- * the account default — one ladder for every team-aware command:
- * `--team` > OO_TEAM_ID > OO_TEAM_NAME > the account default > none
- * (undefined, the server-side default team). A higher tier fully replaces the
- * lower ones, and a trimmed-empty flag or stored name counts as unset.
+ * Resolves the team identity from the per-run flags, the env override, the
+ * account default, and the backend's own default — one ladder for every
+ * team-aware command:
+ * `--team` > OO_TEAM_ID > OO_TEAM_NAME > the account default > the
+ * server-side default team > none (undefined). A higher tier fully replaces
+ * the lower ones, and a trimmed-empty flag or stored name counts as unset.
  *
  * With `resolveAgainstBackend: true`, an env-selected identity is completed
  * and validated through the lookup matching its direction (id-to-name via the
@@ -66,16 +70,26 @@ type ResolveTeamIdentityContext = Pick<
  * requireValidTeamIdentity. `account` may be undefined (reads must work
  * without a login), which downgrades the lookup to `no_credential`.
  *
+ * With `resolveCurrentName: true` as well, the caller needs the team's
+ * current name — a Workbench deep link, a report of which team is in effect
+ * — and spends one request to get it. A saved default is refreshed through
+ * its id, because the stored name is only the name the team had when it was
+ * saved and goes stale on rename; a name-only default (migrated from the
+ * legacy setting) is completed through the memberships instead; and with
+ * nothing saved the backend is asked for the server-side default team it
+ * applies to a header-less request. Execution paths that only send headers
+ * leave it off: the gateway resolves by id and applies the same default
+ * itself, so the lookup would buy them nothing and cost every run a request
+ * (retried on failure) against a service they do not otherwise depend on.
+ * The server-default lookup can only add an identity: with no answer (no
+ * team created, or a failed request) the resolver returns undefined and the
+ * gateway keeps applying its default.
+ *
  * With `resolveAgainstBackend: false` (`--dry-run`, offline reporting), the
  * resolution is fully offline and `status` stays null.
  */
 export async function resolveTeamIdentity(
-    input: {
-        account: Pick<AuthAccount, "apiKey" | "endpoint"> | undefined;
-        defaultTeam: AccountDefaultTeam | undefined;
-        teamFlag?: string;
-        resolveAgainstBackend: boolean;
-    },
+    input: ResolveTeamIdentityInput,
     context: ResolveTeamIdentityContext,
 ): Promise<TeamIdentity | undefined> {
     const teamFlag = normalizeTeamValue(input.teamFlag);
@@ -91,9 +105,10 @@ export async function resolveTeamIdentity(
     }
 
     const defaultTeamName = normalizeTeamValue(input.defaultTeam?.name);
+    const account = currentNameCredential(input);
 
     if (defaultTeamName !== undefined) {
-        return {
+        const stored: TeamIdentity = {
             name: defaultTeamName,
             // The stored id, when the default was saved by a command that had
             // the membership listing in hand. A default migrated from the
@@ -102,6 +117,87 @@ export async function resolveTeamIdentity(
             source: "account",
             status: null,
         };
+
+        return account === undefined
+            ? stored
+            : refreshAccountTeamIdentity(stored, account, context);
+    }
+
+    return account === undefined
+        ? undefined
+        : resolveBackendDefaultTeamIdentity(account, context);
+}
+
+interface ResolveTeamIdentityInput {
+    account: Pick<AuthAccount, "apiKey" | "endpoint"> | undefined;
+    defaultTeam: AccountDefaultTeam | undefined;
+    teamFlag?: string;
+    resolveAgainstBackend: boolean;
+    resolveCurrentName?: boolean;
+}
+
+// The credential the current-name lookups run with, or undefined when the
+// caller did not ask for the name, the resolution is offline, or no account
+// can authenticate a lookup — all three mean "report what is stored".
+function currentNameCredential(
+    input: ResolveTeamIdentityInput,
+): Pick<AuthAccount, "apiKey" | "endpoint"> | undefined {
+    return input.resolveAgainstBackend && input.resolveCurrentName === true
+        ? input.account
+        : undefined;
+}
+
+// Brings a saved default up to date. The id is the stable key, so the name
+// comes back current even after a rename, and a team that is gone or no
+// longer accessible surfaces as a status instead of a stale name that the
+// gateway or the console would reject. A name-only default has no id to
+// refresh by, so it is completed through the memberships, which also answers
+// whether that name still belongs to the account.
+async function refreshAccountTeamIdentity(
+    stored: TeamIdentity,
+    account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    context: ResolveTeamIdentityContext,
+): Promise<TeamIdentity> {
+    const lookup = stored.id === null
+        ? await fetchTeamByName(account, stored.name ?? "", context)
+        : await fetchTeamById(account, stored.id, context);
+
+    if (lookup.status !== "valid") {
+        return { ...stored, status: lookup.status };
+    }
+
+    return {
+        ...stored,
+        name: lookup.team.name,
+        id: lookup.team.id,
+        status: "valid",
+    };
+}
+
+// The bottom tier. Never persisted here — saving a default stays with
+// `oo login` and `oo team use`, so a read-only command does not write the
+// auth file and an `OO_API_KEY` identity (which has nowhere to persist) still
+// resolves.
+async function resolveBackendDefaultTeamIdentity(
+    account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    context: ResolveTeamIdentityContext,
+): Promise<TeamIdentity | undefined> {
+    const lookup = await fetchDefaultTeam(account, context);
+
+    if (lookup.status === "valid") {
+        return {
+            name: lookup.team.name,
+            id: lookup.team.id,
+            source: "backend_default",
+            status: "valid",
+        };
+    }
+
+    if (lookup.status !== "none") {
+        context.logger.warn(
+            { status: lookup.status },
+            "Default team lookup could not complete; proceeding without a team selection.",
+        );
     }
 
     return undefined;
@@ -145,6 +241,17 @@ export function requireValidTeamIdentity(
             if (identity.source === "env_name") {
                 throw new CliUserError("errors.team.envNameNotAccessible", 1, {
                     team: identity.name ?? "",
+                });
+            }
+
+            // A saved default that the refresh could not confirm: the fix is
+            // to pick another team or log in again, not to edit a variable.
+            if (identity.source === "account") {
+                throw new CliUserError("errors.team.accountDefaultNotAccessible", 1, {
+                    reason: context.translator.t(
+                        teamNameStatusTranslationKeys[identity.status],
+                    ),
+                    team: identity.name ?? identity.id ?? "",
                 });
             }
 
@@ -199,7 +306,8 @@ type ResolveAccountTeamIdentityContext = Pick<
  * the credential backing any env-team lookup.
  *
  * `undefined` means no team header is sent, which lets the gateway apply the
- * server-side default team; it is not a private, per-user scope.
+ * server-side default team; it is not a private, per-user scope. These
+ * commands only send headers, so they leave the server-default lookup off.
  *
  * `resolveAgainstBackend: false` (`--dry-run`) keeps the resolution fully
  * offline.
