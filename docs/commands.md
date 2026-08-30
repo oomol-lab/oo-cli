@@ -380,11 +380,14 @@ Show every saved auth account and validate the API key of the active one.
   the active account is not a member of the team, no team exists with that id,
   the team has been deleted, or the lookup could not be completed. A failed
   lookup never changes the exit code and never affects the reported `API key
-  status`. The account's default team already names its team and is never
-  looked up.
+  status`. The account's saved default team is looked up the same way, through
+  its saved id (a name-only default through the memberships), so the row shows
+  the team's current name and appends the reason when the saved default could
+  not be confirmed; with no default saved, the server-side default team the
+  backend reports is shown instead.
 - `oo auth status` therefore sends at most two requests: the API key check, plus
-  the team lookup when `OO_TEAM_ID` / `OO_TEAM_NAME` is in effect. The two are
-  independent and are sent concurrently.
+  one team lookup (the env-selected team, the saved default, or the server-side
+  default). The two are independent and are sent concurrently.
 - API key values are never written to stdout in text or JSON output.
 - When a self-hosted connector is configured (`oo connector login` or
   `OO_CONNECTOR_URL`), text output adds a self-hosted connector block showing
@@ -501,13 +504,16 @@ Show every saved auth account and validate the API key of the active one.
     output and API key validation, but does not rewrite this field.
   - `team` is present only on the `logged-in` shape and only when a default
     team identity is in effect. `source` is `account` (the saved default),
-    `env_id` (`OO_TEAM_ID`), or `env_name` (`OO_TEAM_NAME`). An env-selected
-    identity spends one request to complete and validate its missing half, so
-    on success it carries both `name` and `id`; when the lookup does not
-    succeed, the env-supplied half is kept and `status` says why. The `account`
-    source stays offline; its `id` is `null` until a command that already holds
-    the membership listing (`oo team list`, `oo team use`, `oo auth login`)
-    fills it in.
+    `env_id` (`OO_TEAM_ID`), `env_name` (`OO_TEAM_NAME`), or `backend_default`
+    (the server-side default team the backend reported because none is saved).
+    An env-selected identity spends one request to complete and validate its
+    missing half, so on success it carries both `name` and `id`; when the
+    lookup does not succeed, the env-supplied half is kept and `status` says
+    why. The `account` source spends one request as well, refreshing the saved
+    default through its id (or completing a name-only default through the
+    memberships), so `name` is the team's current name and `id` is filled in on
+    success; when that lookup does not succeed, the saved values are kept and
+    `status` says why.
   - `missingAccountId` appears only when the auth file records an active id
     that is no longer present in `accounts[]`.
   - `connector` is present only when a self-hosted connector is configured
@@ -643,12 +649,13 @@ environment override when set, otherwise the active account's default team.
 When neither is set, the commands send no team selection and the server
 applies its own default team.
 
-- Sends one request only when `OO_TEAM_ID` or `OO_TEAM_NAME` supplies the
-  identity, to complete and validate the missing half: an id resolves to its
-  team name, a name to its id through the account's team memberships — the
+- Sends one request to report the team by its current name: an env-selected
+  identity completes and validates its missing half (an id resolves to its
+  team name, a name to its id through the account's team memberships, the
   same check connector commands apply, so what this command reports is what a
-  run would use. The account's default already names its team and stays
-  offline.
+  run would use), a saved default is refreshed through its saved id (a
+  name-only default through the memberships), and with nothing saved the
+  backend reports the server-side default team it applies.
 - Works without an OOMOL account. When no account is configured the lookup is
   skipped rather than failing, and the env-supplied value is reported on its
   own.
