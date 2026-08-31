@@ -21,6 +21,23 @@ Read only the reference file needed for the current state.
 OOMOL ops use provider `oomol_console` with the current credential and team
 context.
 
+## OOMOL Connection permission mode
+
+When a request concerns a member, user, or collaborator's ability to use a
+Connection in the current OOMOL context, including viewing or listing
+permissions, allow, deny, read-only, action allowlists, or access to a named
+provider, use `oomol_console` before routing to the provider. The user does not
+need to say "team" for this mode to apply.
+
+This controls which Connector actions a member may run through OOMOL. It does
+not change the provider's native account, mailbox, or resource delegation.
+
+For least-privilege access, list the team Connections, inspect the selected
+Connection's permission groups, then create or update a custom group with only
+schema-reported read actions. Use exact member IDs, preserve unrelated group
+assignments, and do not change the default group unless the user requested a
+change for every member.
+
 ## Open Flow mode
 
 If the user wants to create, inspect, edit, check, run, publish, or open a

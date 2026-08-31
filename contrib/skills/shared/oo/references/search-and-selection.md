@@ -53,6 +53,10 @@ Guidance:
   name can map onto a different global product.
 - Avoid meta words such as `oo`, `CLI`, `search`, or `skill` unless the user
   actually asked about them.
+- When a request names a member, user, or collaborator and asks to view, list,
+  inspect, or change permission to use a connected provider, search for the
+  OOMOL Connection-permission outcome rather than the provider's native
+  account-permission outcome. The user does not need to say "team".
 - For a short multi-step workflow, search only the current unresolved external
   step, not the whole chain.
 
@@ -64,6 +68,8 @@ Examples:
 - `find a Google Drive file by name and download it`
 - `collect Gmail messages from yesterday`
 - `create a Notion page from prepared content`
+- `grant a specified team member read-only actions on the Outlook Connection in OOMOL`
+- `list member permissions for Outlook in OOMOL`
 
 ## Repair weak first queries
 
