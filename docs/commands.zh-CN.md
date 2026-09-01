@@ -1010,15 +1010,16 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 参数：`<serviceName>` 为服务名。
 - 选项：`-d, --data <data>` 接收完整 proxy request JSON object，或使用
   `@路径` 读取 JSON 文件。对象形状为
-  `{ endpoint, method, query?, headers?, body? }`。
+  `{ endpoint, method?, query?, headers?, body? }`。
 - 选项：`--input <data>` 是 `--data <data>` 的 alias。
-- 选项：未传 `--data` 时，使用 `--endpoint <endpoint>` 和
-  `--method <method>`，以及可选的 `--query <json>`、`--headers <json>`、
+- 选项：未传 `--data` 时，使用 `--endpoint <endpoint>`，以及可选的
+  `--method <method>`、`--query <json>`、`--headers <json>`、
   `--body <json>` 组装同样的 request object。`--data` 形式不能与这些拆分
   request 选项同时使用。
 - 选项：`--endpoint` 是相对于 provider proxy base URL 的 provider endpoint
   path，或允许的绝对 HTTPS URL。
 - 选项：`--method` 必须是 `GET`、`POST`、`PUT`、`PATCH` 或 `DELETE`，大小写不敏感。
+  与 `curl` 一样，省略时默认为 `GET`，拆分形式和 `--data` 对象均适用。
 - 选项：`--query` 必须是 JSON object，值只能是 string、number、boolean 或
   `null`。
 - 选项：`--headers` 必须是 string 值的 JSON object。认证 header 会由

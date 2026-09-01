@@ -41,7 +41,8 @@ const proxyRequestSchema = z.object({
     body: z.unknown().optional(),
     endpoint: z.string().trim().min(1),
     headers: z.record(z.string(), z.string()).optional(),
-    method: connectorProxyMethodSchema,
+    // Match curl: a request without an explicit method is a GET.
+    method: connectorProxyMethodSchema.default("GET"),
     query: z.record(z.string(), proxyQueryValueSchema).optional(),
 }).strict();
 
@@ -182,13 +183,9 @@ async function buildConnectorProxyRequest(
         throw new CliUserError("errors.connectorProxy.endpointRequired", 2);
     }
 
-    if (input.method === undefined) {
-        throw new CliUserError("errors.connectorProxy.methodRequired", 2);
-    }
-
     return parseProxyRequest({
         endpoint: input.endpoint,
-        method: input.method,
+        ...(input.method !== undefined ? { method: input.method } : {}),
         ...(input.query !== undefined
             ? { query: parseJsonOption(input.query, "errors.connectorProxy.invalidQueryJson") }
             : {}),

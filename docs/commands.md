@@ -1217,16 +1217,17 @@ Proxy a provider API request through a connected connector app.
 - Arguments: `<serviceName>` is the service name.
 - Options: `-d, --data <data>` accepts a complete proxy request JSON object or
   `@path` to a JSON file. The object shape is
-  `{ endpoint, method, query?, headers?, body? }`.
+  `{ endpoint, method?, query?, headers?, body? }`.
 - Options: `--input <data>` is an alias for `--data <data>`.
-- Options: without `--data`, use `--endpoint <endpoint>` and
-  `--method <method>` plus optional `--query <json>`, `--headers <json>`, and
+- Options: without `--data`, use `--endpoint <endpoint>` plus optional
+  `--method <method>`, `--query <json>`, `--headers <json>`, and
   `--body <json>` to build the same request object. The `--data` form cannot
   be combined with these split request options.
 - Options: `--endpoint` is a provider endpoint path relative to the provider
   proxy base URL, or an allowed absolute HTTPS URL.
 - Options: `--method` must be one of `GET`, `POST`, `PUT`, `PATCH`, or
-  `DELETE`. Values are case-insensitive.
+  `DELETE`. Values are case-insensitive. Like `curl`, the method defaults to
+  `GET` when omitted, in both the split form and the `--data` object.
 - Options: `--query` must be a JSON object whose values are strings, numbers,
   booleans, or `null`.
 - Options: `--headers` must be a JSON object with string values.
