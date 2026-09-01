@@ -491,8 +491,6 @@ export const enMessages = {
         "The --query value is not valid JSON: {message}",
     "errors.connectorProxy.invalidResponse":
         "The connector proxy response body is unsupported.",
-    "errors.connectorProxy.methodRequired":
-        "The --method option is required when --data is omitted.",
     "errors.connectorProxy.requestError":
         "The connector proxy request failed: {message}",
     "errors.connectorProxy.requestFailed":
@@ -1018,7 +1016,7 @@ export const enMessages = {
     "options.connectorProxyHeaders":
         "Specify non-authentication upstream headers as a JSON object",
     "options.connectorProxyMethod":
-        "Specify the upstream HTTP method",
+        "Specify the upstream HTTP method (default: GET)",
     "options.connectorProxyTeam":
         "Run the proxy request under the given team identity",
     "options.connectorProxyQuery":
@@ -1851,8 +1849,6 @@ export const zhMessages = {
         "--query 的值不是有效 JSON：{message}",
     "errors.connectorProxy.invalidResponse":
         "Connector proxy 响应内容不受支持。",
-    "errors.connectorProxy.methodRequired":
-        "省略 --data 时必须传入 --method。",
     "errors.connectorProxy.requestError":
         "Connector proxy 请求失败：{message}",
     "errors.connectorProxy.requestFailed":
@@ -2373,7 +2369,7 @@ export const zhMessages = {
     "options.connectorProxyHeaders":
         "以 JSON object 指定非认证上游请求头",
     "options.connectorProxyMethod":
-        "指定上游 HTTP method",
+        "指定上游 HTTP method (默认 GET)",
     "options.connectorProxyTeam":
         "以指定团队身份运行该 proxy 请求",
     "options.connectorProxyQuery":

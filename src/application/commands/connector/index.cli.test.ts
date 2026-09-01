@@ -836,6 +836,117 @@ describe("connectorCommand CLI", () => {
         }
     });
 
+    test("defaults the connector proxy method to GET when --method is omitted", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "proxy",
+                    "tavily",
+                    "--endpoint",
+                    "/search",
+                    "--query",
+                    "{\"limit\":1}",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                data: null,
+                                headers: {},
+                                status: 200,
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                                service: "tavily",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(requests).toHaveLength(1);
+            await expect(requests[0]?.json()).resolves.toEqual({
+                endpoint: "/search",
+                method: "GET",
+                query: { limit: 1 },
+            });
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "connector.proxy",
+                    has_body: false,
+                    method: "GET",
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("defaults the connector proxy method to GET when --data omits method", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "proxy",
+                    "tavily",
+                    "--data",
+                    "{\"endpoint\":\"/search\"}",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: {
+                                data: null,
+                                headers: {},
+                                status: 200,
+                            },
+                            meta: {
+                                executionId: "exec-1",
+                                service: "tavily",
+                            },
+                        }));
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(requests).toHaveLength(1);
+            await expect(requests[0]?.json()).resolves.toEqual({
+                endpoint: "/search",
+                method: "GET",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("rejects invalid connector proxy method values before login", async () => {
         const sandbox = await createCliSandbox();
 
@@ -873,10 +984,6 @@ describe("connectorCommand CLI", () => {
                 {
                     argv: ["connector", "proxy", "tavily"],
                     message: "The --endpoint option is required when --data is omitted.",
-                },
-                {
-                    argv: ["connector", "proxy", "tavily", "--endpoint", "/search"],
-                    message: "The --method option is required when --data is omitted.",
                 },
                 {
                     argv: [
