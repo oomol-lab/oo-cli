@@ -25,6 +25,7 @@ import {
     readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
+import { connectorExecutionIdColor } from "./result-text.ts";
 import {
     createConnectorSchemaCacheScope,
     loadConnectorActionSchema,
@@ -780,6 +781,123 @@ describe("connectorCommand CLI", () => {
                 endpoint: "/empty",
                 method: "GET",
             });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("renders connector proxy text output with the same highlighting as connector run", async () => {
+        const sandbox = await createCliSandbox();
+        const colors = createTerminalColors(true);
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "proxy",
+                    "tavily",
+                    "--endpoint",
+                    "/search",
+                    "--method",
+                    "GET",
+                ],
+                {
+                    fetcher: async () => createConnectorProxyResponse(200, {
+                        results: [{ title: "OOMOL" }],
+                    }),
+                    stdout: {
+                        hasColors: true,
+                    },
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(result.stdout).toContain(`Status: ${colors.green(200)}`);
+            expect(result.stdout).toContain(
+                `Execution ID: ${colors.hex(connectorExecutionIdColor)("exec-1")}`,
+            );
+            expect(result.stdout).toContain(colors.bold("Result data:"));
+            expect(result.stdout).toContain("\u001B[36m{\n");
+            expect(result.stdout).toContain("\"title\": \"OOMOL\"");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("colors non-success connector proxy HTTP statuses by class", async () => {
+        const sandbox = await createCliSandbox();
+        const colors = createTerminalColors(true);
+
+        try {
+            await writeAuthFile(sandbox);
+
+            for (const [status, expected] of [
+                [301, colors.yellow(301)],
+                [404, colors.red(404)],
+                [503, colors.red(503)],
+            ] as const) {
+                const result = await sandbox.run(
+                    [
+                        "connector",
+                        "proxy",
+                        "tavily",
+                        "--endpoint",
+                        "/search",
+                        "--method",
+                        "GET",
+                    ],
+                    {
+                        fetcher: async () => createConnectorProxyResponse(status, null),
+                        stdout: {
+                            hasColors: true,
+                        },
+                    },
+                );
+
+                expect(result.exitCode).toBe(0);
+                expect(result.stdout).toContain(`Status: ${expected}`);
+                expect(result.stdout).toContain(colors.cyan("null"));
+            }
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("keeps connector proxy text output plain without color support", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "proxy",
+                    "tavily",
+                    "--endpoint",
+                    "/search",
+                    "--method",
+                    "GET",
+                ],
+                {
+                    fetcher: async () => createConnectorProxyResponse(404, null),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe([
+                "Status: 404",
+                "Execution ID: exec-1",
+                "Result data:",
+                "null",
+                "",
+            ].join("\n"));
         }
         finally {
             await sandbox.cleanup();
@@ -3359,7 +3477,7 @@ describe("connectorCommand CLI", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
-            expect(result.stdout).toContain(colors.hex("#59F78D")("exec-1"));
+            expect(result.stdout).toContain(colors.hex(connectorExecutionIdColor)("exec-1"));
             expect(result.stdout).toContain(colors.bold("Result data:"));
             expect(result.stdout).toContain("\u001B[36m{\n");
             expect(result.stdout).toContain("\"messageId\": \"message-1\"");
@@ -5529,4 +5647,17 @@ function collapseWhitespace(value: string): string {
         .split(" ")
         .filter(Boolean)
         .join(" ");
+}
+
+function createConnectorProxyResponse(status: number, data: unknown): Response {
+    return new Response(JSON.stringify({
+        data: {
+            data,
+            status,
+        },
+        meta: {
+            executionId: "exec-1",
+            service: "tavily",
+        },
+    }));
 }

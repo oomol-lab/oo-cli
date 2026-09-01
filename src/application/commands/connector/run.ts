@@ -18,6 +18,7 @@ import {
     teamIdentityInputShape,
     teamOption,
 } from "../team/identity.ts";
+import { formatConnectorExecutionResultAsText } from "./result-text.ts";
 import {
     invalidateConnectorActionSchemaOnNotFound,
     loadConnectorActionSchema,
@@ -30,15 +31,12 @@ import {
 import { recordConnectorFailureTelemetry } from "./telemetry.ts";
 import { validateConnectorActionInput } from "./validation.ts";
 
-const connectorRunExecutionIdColor = "#59F78D";
-
 const connectorRunDataErrorKeys = {
     dataFilePathRequired: "errors.connectorRun.dataFilePathRequired",
     dataReadFailed: "errors.connectorRun.dataReadFailed",
     invalidDataJson: "errors.connectorRun.invalidDataJson",
 } as const;
 
-type ConnectorRunTextContext = Pick<CliExecutionContext, "stdout" | "translator">;
 type ConnectorRunTarget = Pick<ConnectorRunInput, "serviceName"> & {
     actionName: string;
 };
@@ -287,7 +285,14 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         }
 
         context.stdout.write(
-            `${formatConnectorRunResponseAsText(response, context)}\n`,
+            `${formatConnectorExecutionResultAsText(
+                {
+                    data: response.data,
+                    executionId: response.meta.executionId,
+                },
+                createWriterColors(context.stdout),
+                context.translator,
+            )}\n`,
         );
     },
 };
@@ -632,24 +637,4 @@ class ConnectorAsyncLifecycleProgressReporter extends TerminalProgressRenderer {
 
         return [""];
     }
-}
-
-function formatConnectorRunResponseAsText(
-    response: ConnectorActionRunResponse,
-    context: ConnectorRunTextContext,
-): string {
-    const colors = createWriterColors(context.stdout);
-
-    return [
-        `${context.translator.t("connector.run.text.executionId")}: ${colors.hex(connectorRunExecutionIdColor)(response.meta.executionId)}`,
-        colors.bold(`${context.translator.t("connector.run.text.resultData")}:`),
-        formatConnectorRunResultData(response.data, colors),
-    ].join("\n");
-}
-
-function formatConnectorRunResultData(
-    value: unknown,
-    colors: ReturnType<typeof createWriterColors>,
-): string {
-    return colors.cyan(JSON.stringify(value, null, 2) ?? "null");
 }

@@ -1,15 +1,18 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
+import type { TerminalColors } from "../../terminal-colors.ts";
 import type { ConnectorProxyResponse } from "./shared.ts";
 
 import { Buffer } from "node:buffer";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
+import { createWriterColors } from "../../terminal-colors.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import {
     teamIdentityInputShape,
     teamOption,
 } from "../team/identity.ts";
+import { formatConnectorExecutionResultAsText } from "./result-text.ts";
 import { resolveConnectorSession } from "./session.ts";
 import { runConnectorProxy } from "./shared.ts";
 import { recordConnectorFailureTelemetry } from "./telemetry.ts";
@@ -247,12 +250,37 @@ function parseJsonOption(value: string, errorKey: string): unknown {
 
 function formatConnectorProxyResponseAsText(
     response: ConnectorProxyResponse,
-    context: Pick<CliExecutionContext, "translator">,
+    context: Pick<CliExecutionContext, "stdout" | "translator">,
 ): string {
+    const colors = createWriterColors(context.stdout);
+
     return [
-        `${context.translator.t("connector.proxy.text.status")}: ${response.data.status}`,
-        `${context.translator.t("connector.run.text.executionId")}: ${response.meta.executionId}`,
-        `${context.translator.t("connector.run.text.resultData")}:`,
-        JSON.stringify(response.data.data, null, 2) ?? "null",
+        `${context.translator.t("connector.proxy.text.status")}: ${formatConnectorProxyStatus(response.data.status, colors)}`,
+        formatConnectorExecutionResultAsText(
+            {
+                data: response.data.data,
+                executionId: response.meta.executionId,
+            },
+            colors,
+            context.translator,
+        ),
     ].join("\n");
+}
+
+// The upstream HTTP status is colored by its class so a proxied 4xx/5xx is
+// visible at a glance even though the CLI command itself succeeded.
+function formatConnectorProxyStatus(status: number, colors: TerminalColors): string {
+    if (status >= 400) {
+        return colors.red(status);
+    }
+
+    if (status >= 300) {
+        return colors.yellow(status);
+    }
+
+    if (status >= 200) {
+        return colors.green(status);
+    }
+
+    return String(status);
 }
