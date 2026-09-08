@@ -1,6 +1,7 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 
 import type { FileUploadRecordView } from "./shared.ts";
+import { formatFileSize } from "../shared/file-size.ts";
 
 type FileTextContext = Pick<CliExecutionContext, "translator">;
 
@@ -35,19 +36,4 @@ export function formatFileUploadListAsText(
     return records
         .map(record => formatFileUploadRecordAsText(record, context))
         .join("\n\n");
-}
-
-function formatFileSize(value: number): string {
-    const units = ["B", "KiB", "MiB", "GiB"] as const;
-    let unitIndex = 0;
-    let size = value;
-
-    while (size >= 1024 && unitIndex < units.length - 1) {
-        size /= 1024;
-        unitIndex += 1;
-    }
-
-    const decimalPlaces = unitIndex === 0 ? 0 : 2;
-
-    return `${size.toFixed(decimalPlaces)} ${units[unitIndex]}`;
 }

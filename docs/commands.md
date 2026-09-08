@@ -75,7 +75,8 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
   configuration (`oo connector login`) > the active account.
 - `OO_TEAM_ID`: Run team-aware commands (`oo connector run`, `oo connector
   proxy`, `oo connector apps`, `oo connector search` / `oo search`,
-  `oo variables list/get/create/delete`, and `oo file upload`) under the team
+  `oo variables list/get/create/delete`, `oo file upload`, and
+  `oo website upload`) under the team
   with this id. It takes precedence over `OO_TEAM_NAME` and the account's
   default team; the per-run `--team` flag still outranks it. Before execution the CLI
   validates the id and resolves its team name (one extra request per
@@ -593,11 +594,12 @@ Alias for `oo auth logout`.
 Team identity selects the team that team-aware commands act for: the connector
 commands (`oo connector run`, `oo connector proxy`, `oo connector apps`), the
 variables commands (`oo variables list/get/create/delete`), whose data is
-team-owned in the first place, and `oo file upload`, whose upload is billed and
-metered under the team. One ladder selects it: the per-run `--team <name>`
-first, then the `OO_TEAM_ID` / `OO_TEAM_NAME` environment overrides, then the
-default saved on the active account. When nothing selects a team the command
-sends no team selection and the server applies the account's default team.
+team-owned in the first place, and `oo file upload` and `oo website upload`,
+whose uploads are billed and metered under the team. One ladder selects it: the
+per-run `--team <name>` first, then the `OO_TEAM_ID` / `OO_TEAM_NAME`
+environment overrides, then the default saved on the active account. When
+nothing selects a team the command sends no team selection and the server
+applies the account's default team.
 These commands help discover which teams your account can use and manage that
 default.
 
@@ -2634,6 +2636,40 @@ Delete expired or stale file transfer records.
 - Notes: download resume sessions older than 14 days are deleted when they are
   not owned by an active download process.
 - Notes: the JSON response shape is `{ "deletedCount": number }`.
+
+## Website
+
+### `oo website upload <filePath>`
+
+Upload one HTML file to long-term website storage and print the public URL it
+is served from.
+
+- Arguments: `<filePath>` is the local HTML file to upload. Its name must end
+  with `.html` or `.htm` (case-insensitive); other files are rejected with
+  exit `2`.
+- Options: `--format <format>` returns structured output. Supported value:
+  `json`.
+- Options: `--json` is an alias for `--format=json`.
+- Options: `--team <team>` uploads the website under the given team, so the
+  upload is billed and metered under that team. When omitted, the team comes
+  from `OO_TEAM_ID` / `OO_TEAM_NAME` when set, otherwise the active account's
+  default team.
+- Notes: the command requires an OOMOL account. Without one it fails with exit
+  `1` and asks you to log in first.
+- Notes: websites are stored per team. When the account belongs to no team,
+  the command fails with exit `1` and asks you to create or join one.
+- Notes: the team selection is sent only to the website service request; the
+  file itself goes straight to storage without it.
+- Notes: files larger than `20 MiB` are rejected with exit `2`.
+- Notes: the file is served as `text/html` from `https://r2.inklycat.com`,
+  does not expire, and is readable by anyone who has the URL.
+- Notes: every upload gets a new URL of the form
+  `https://r2.inklycat.com/v1/<teamId>/<id>/index.html`. The local file name
+  is not part of it, and uploading again does not replace an earlier website.
+- Notes: the JSON response shape is
+  `{ "fileName": string, "fileSize": number, "url": string }`.
+- Notes: text output is the localized success line followed by the file size
+  and the URL.
 
 ## Variables
 

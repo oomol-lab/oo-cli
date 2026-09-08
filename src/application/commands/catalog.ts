@@ -23,6 +23,7 @@ import { uninstallCommand } from "./uninstall.ts";
 import { updateCommand } from "./update.ts";
 import { variablesCommand } from "./variables/index.ts";
 import { versionCommand } from "./version.ts";
+import { websiteCommand } from "./website/index.ts";
 
 const globalOptions = [
     {
@@ -68,6 +69,7 @@ export function createCliCatalog(): CliCatalog {
             updateCommand,
             variablesCommand,
             versionCommand,
+            websiteCommand,
         ],
     };
 }

@@ -49,6 +49,7 @@ Commands:
   update|upgrade [options]     Update the CLI
   variables|variable|var|vars  Manage cloud-stored variables
   version [options]            Print the CLI version
+  website                      Publish single-file websites
   help [command]               Show help for a command
 "
 ,
@@ -86,6 +87,7 @@ Commands:
   update|upgrade [options]     更新 CLI
   variables|variable|var|vars  管理云端变量
   version [options]            输出 CLI 版本
+  website                      发布单文件网站
   help [command]               显示命令帮助
 "
 ,
