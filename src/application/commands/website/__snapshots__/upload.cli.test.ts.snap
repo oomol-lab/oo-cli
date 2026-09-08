@@ -1,0 +1,63 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`website upload CLI uploads an HTML file and prints its public URL 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Uploaded index.html.
+  - File size: 32 B
+  - URL: https://r2.inklycat.com/v1/team-1/site-1/index.html
+"
+,
+}
+`;
+
+exports[`website upload CLI supports json output for both --json and --format=json 1`] = `
+{
+  "jsonAliasResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"{"fileName":"page.htm","fileSize":32,"url":"https://r2.inklycat.com/v1/team-1/site-1/index.html"}
+"
+,
+  },
+  "jsonFormatResult": {
+    "exitCode": 0,
+    "stderr": "",
+    "stdout": 
+"{"fileName":"page.htm","fileSize":32,"url":"https://r2.inklycat.com/v1/team-1/site-1/index.html"}
+"
+,
+  },
+}
+`;
+
+exports[`website upload CLI supports website upload command help 1`] = `
+{
+  "exitCode": 0,
+  "stderr": "",
+  "stdout": 
+"Upload one HTML file to long-term website storage and print the public URL it is
+served from.
+
+Arguments:
+  filePath               File path
+
+Options:
+  --team <team>          Upload the website under the given team identity
+  --format <format>      Specify output format (use json for structured output)
+  --json                 Alias for --format=json
+  --show-schema-version  Include schemaVersion in JSON output (no effect without
+                         --json)
+  -h, --help             Show help for command
+
+Global Options:
+  -V, --version          Show the current version
+  --debug                Print the current log file path when the CLI exits
+  --lang <lang>          Specify the display language
+"
+,
+}
+`;

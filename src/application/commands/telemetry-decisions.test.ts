@@ -631,6 +631,20 @@ const commandTelemetryDecisions = {
         kind: "generic",
         reason: "Generic command telemetry is enough; the CLI version and commit are already attached to every event via the global cli_version and cli_commit dimensions, and build time is not telemetry-relevant.",
     },
+    "website": {
+        kind: "generic",
+        reason: "Command group; child commands record website dimensions where safe.",
+    },
+    "website.upload": {
+        kind: "properties",
+        properties: [
+            "bytes_total_bucket",
+            "identity_source",
+            "rejected_not_html",
+            "rejected_too_large",
+        ],
+        reason: "Records upload size bucket, both rejection states (not an HTML file, too large), and the identity source (none/flag/env_id/env_name/account) without path, filename, public URL, or team name/id.",
+    },
 } as const satisfies Record<string, TelemetryDecision>;
 
 describe("command telemetry decisions", () => {

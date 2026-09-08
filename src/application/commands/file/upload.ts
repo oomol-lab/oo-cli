@@ -1,15 +1,9 @@
-import type { Stats } from "node:fs";
-import type {
-    CliCommandDefinition,
-    CliExecutionContext,
-} from "../../contracts/cli.ts";
+import type { CliCommandDefinition } from "../../contracts/cli.ts";
 
-import { stat } from "node:fs/promises";
-import { basename, resolve } from "node:path";
 import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
-import { CliUserError } from "../../contracts/cli.ts";
 import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
+import { readUploadSourceFile } from "../shared/upload-source-file.ts";
 import {
     resolveAccountTeamIdentity,
     teamIdentityInputShape,
@@ -30,10 +24,6 @@ interface FileUploadInput {
     filePath: string;
     team?: string;
 }
-
-type RecordTelemetryProperties = NonNullable<
-    CliExecutionContext["telemetry"]
->["recordProperties"];
 
 export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
     name: "upload",
@@ -56,11 +46,15 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
     handler: async (input, context) => {
         const { account } = await requireIdentity(context);
         const identity = await resolveAccountTeamIdentity(input, account, context);
-        const sourceFile = await readSourceFile(
-            input.filePath,
-            context.cwd,
-            context.telemetry?.recordProperties,
-        );
+        const sourceFile = await readUploadSourceFile(input.filePath, context.cwd, {
+            errorKeys: {
+                pathNotFile: "errors.fileUpload.pathNotFile",
+                readFailed: "errors.fileUpload.readFailed",
+                tooLarge: "errors.fileUpload.tooLarge",
+            },
+            maxSizeBytes: maxFileUploadSizeBytes,
+            recordTelemetryProperties: context.telemetry?.recordProperties,
+        });
 
         context.telemetry?.recordProperties({
             bytes_total_bucket: bucketTelemetryBytes(sourceFile.fileSize),
@@ -121,53 +115,3 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
         });
     },
 };
-
-async function readSourceFile(
-    filePath: string,
-    cwd: string,
-    recordTelemetryProperties: RecordTelemetryProperties | undefined,
-): Promise<{
-    file: {
-        size: number;
-        slice: (start?: number, end?: number) => Blob;
-    };
-    fileName: string;
-    fileSize: number;
-}> {
-    const resolvedPath = resolve(cwd, filePath);
-    let metadata: Stats;
-
-    try {
-        metadata = await stat(resolvedPath);
-    }
-    catch (error) {
-        throw new CliUserError("errors.fileUpload.readFailed", 1, {
-            message: error instanceof Error ? error.message : String(error),
-            path: resolvedPath,
-        });
-    }
-
-    if (!metadata.isFile()) {
-        throw new CliUserError("errors.fileUpload.pathNotFile", 1, {
-            path: resolvedPath,
-        });
-    }
-
-    if (metadata.size > maxFileUploadSizeBytes) {
-        recordTelemetryProperties?.({
-            bytes_total_bucket: bucketTelemetryBytes(metadata.size),
-            rejected_too_large: true,
-        });
-        throw new CliUserError("errors.fileUpload.tooLarge", 2, {
-            max: maxFileUploadSizeBytes,
-            path: resolvedPath,
-            size: metadata.size,
-        });
-    }
-
-    return {
-        file: Bun.file(resolvedPath),
-        fileName: basename(resolvedPath),
-        fileSize: metadata.size,
-    };
-}

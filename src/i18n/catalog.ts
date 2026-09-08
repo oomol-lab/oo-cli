@@ -1395,6 +1395,31 @@ export const enMessages = {
     "variables.list.empty": "No variables.",
     "variables.create.success": "Saved variable {name} (updated {updatedAt}).",
     "variables.delete.success": "Deleted variable {name}.",
+    "commands.website.summary": "Publish single-file websites",
+    "commands.website.description": "Upload single HTML files to long-term website storage.",
+    "commands.website.upload.summary": "Upload an HTML file and print its public URL",
+    "commands.website.upload.description":
+        "Upload one HTML file to long-term website storage and print the public URL it is served from.",
+    "options.websiteUploadTeam":
+        "Upload the website under the given team identity",
+    "errors.websiteUpload.invalidResponse":
+        "The website upload service returned an unsupported response body.",
+    "errors.websiteUpload.notHtml":
+        "The file {path} is not an HTML file. Use a file that ends with .html or .htm.",
+    "errors.websiteUpload.pathNotFile":
+        "The path {path} is not a regular file.",
+    "errors.websiteUpload.readFailed":
+        "Failed to read file metadata from {path}: {message}",
+    "errors.websiteUpload.requestError":
+        "The website upload request failed: {message}",
+    "errors.websiteUpload.requestFailed":
+        "The website upload request returned HTTP {status}.",
+    "errors.websiteUpload.teamRequired":
+        "Websites are stored per team, and this account belongs to no team. Create or join a team, then run the command again.",
+    "errors.websiteUpload.tooLarge":
+        "The file at {path} is {size} bytes, which exceeds the 20 MiB limit of {max} bytes.",
+    "website.text.url": "URL",
+    "website.upload.success": "Uploaded {fileName}.",
 } as const;
 
 export const zhMessages = {
@@ -2741,6 +2766,31 @@ export const zhMessages = {
     "variables.list.empty": "暂无变量。",
     "variables.create.success": "已保存变量 {name}（更新于 {updatedAt}）。",
     "variables.delete.success": "已删除变量 {name}。",
+    "commands.website.summary": "发布单文件网站",
+    "commands.website.description": "将单个 HTML 文件上传到长期网站存储。",
+    "commands.website.upload.summary": "上传 HTML 文件并输出公开 URL",
+    "commands.website.upload.description":
+        "将单个 HTML 文件上传到长期网站存储，并输出其公开访问 URL。",
+    "options.websiteUploadTeam":
+        "以指定团队身份上传该网站",
+    "errors.websiteUpload.invalidResponse":
+        "网站上传服务返回了不受支持的响应内容。",
+    "errors.websiteUpload.notHtml":
+        "文件 {path} 不是 HTML 文件。请使用以 .html 或 .htm 结尾的文件。",
+    "errors.websiteUpload.pathNotFile":
+        "路径 {path} 不是普通文件。",
+    "errors.websiteUpload.readFailed":
+        "读取文件 {path} 的元数据失败：{message}",
+    "errors.websiteUpload.requestError":
+        "网站上传请求失败：{message}",
+    "errors.websiteUpload.requestFailed":
+        "网站上传请求返回了 HTTP {status}。",
+    "errors.websiteUpload.teamRequired":
+        "网站按团队存储，而当前账号不属于任何团队。请先创建或加入团队，然后重新执行该命令。",
+    "errors.websiteUpload.tooLarge":
+        "文件 {path} 的大小为 {size} 字节，超出了 20 MiB 上限 {max} 字节。",
+    "website.text.url": "URL",
+    "website.upload.success": "已上传 {fileName}。",
 } satisfies Record<keyof typeof enMessages, string>;
 
 export const messageCatalog = {

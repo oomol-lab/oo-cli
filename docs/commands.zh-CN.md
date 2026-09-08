@@ -62,7 +62,8 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   （`oo connector login`）> 当前激活账号。
 - `OO_TEAM_ID`：让团队相关命令（`oo connector run`、`oo connector proxy`、
   `oo connector apps`、`oo connector search` / `oo search`、
-  `oo variables list/get/create/delete`，以及 `oo file upload`）以该 id
+  `oo variables list/get/create/delete`、`oo file upload`，以及
+  `oo website upload`）以该 id
   对应的团队身份运行。优先级高于 `OO_TEAM_NAME` 和账号保存的默认团队；
   每次运行的 `--team` 标志仍然优先于它。执行前 CLI 会校验该 id 并解析出团队
   名称（每次调用多一个请求），因此请求会同时携带名称与 id；账号无法使用
@@ -487,7 +488,8 @@ oo flow
 团队身份决定团队相关命令以哪个团队运行：包括 connector 命令
 （`oo connector run`、`oo connector proxy`、`oo connector apps`）、variables
 命令（`oo variables list/get/create/delete`，其数据本身就归团队所有），以及
-`oo file upload`（上传按该团队计费与计量）。它由同一条优先级阶梯选出：先是每次
+`oo file upload` 与 `oo website upload`（上传按该团队计费与计量）。它由同一条
+优先级阶梯选出：先是每次
 运行的 `--team <name>`，其次是环境变量 `OO_TEAM_ID` / `OO_TEAM_NAME`，最后是
 保存在当前账号上的默认团队。没有任何一项选中团队时，命令不发送团队选择，由服务端
 套用该账号的默认团队。下列命令用于发现当前账号可用的团队并管理该默认值。
@@ -2199,6 +2201,33 @@ message，也不会出现在 `path` / `sourcePath` 字段之外的额外文件�
 - 说明：会删除满足 `expiresAt <= now` 的本地上传记录。
 - 说明：超过 14 天且未被活跃下载进程占用的下载续传 session 会被删除。
 - 说明：JSON 输出结构为 `{ "deletedCount": number }`。
+
+## 网站
+
+### `oo website upload <filePath>`
+
+将单个 HTML 文件上传到长期网站存储，并输出其公开访问 URL。
+
+- 参数：`<filePath>` 为要上传的本地 HTML 文件。文件名必须以 `.html` 或 `.htm`
+  结尾(不区分大小写)，其他文件会被拒绝，退出码为 `2`。
+- 选项：`--format <format>` 返回结构化输出，目前仅支持 `json`。
+- 选项：`--json` 是 `--format=json` 的别名。
+- 选项：`--team <team>` 以指定团队上传该网站，上传按该团队计费与计量。
+  未传时，团队来自已设置的 `OO_TEAM_ID` / `OO_TEAM_NAME`，否则为当前账号
+  保存的默认团队。
+- 说明：该命令需要 OOMOL 账号。未登录时以退出码 `1` 结束，并提示先登录。
+- 说明：网站按团队存储。当前账号不属于任何团队时，命令以退出码 `1` 结束，
+  并提示先创建或加入团队。
+- 说明：团队选择只随网站服务请求发送；文件本身直接发往存储服务，不携带它。
+- 说明：文件大小超过 `20 MiB` 时会被拒绝，退出码为 `2`。
+- 说明：文件以 `text/html` 类型从 `https://r2.inklycat.com` 提供访问，
+  不会过期，任何拿到 URL 的人都可以访问。
+- 说明：每次上传都会得到一个新的 URL，形如
+  `https://r2.inklycat.com/v1/<teamId>/<id>/index.html`。本地文件名不会出现
+  在 URL 中，重复上传也不会覆盖之前的网站。
+- 说明：JSON 响应形状为
+  `{ "fileName": string, "fileSize": number, "url": string }`。
+- 说明：文本输出为本地化的成功提示行，随后是文件大小和 URL。
 
 ## Variables
 
