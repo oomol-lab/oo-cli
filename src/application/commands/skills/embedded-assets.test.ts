@@ -928,7 +928,8 @@ describe("embedded skill assets", () => {
         expect(qoderWorkCreateOoContent).toContain("oo skills preflight --agent qoderwork");
         expect(universalCreateContent).toContain("references/skill-authoring.md");
         expect(qoderWorkCreateContent).toContain("references/oo-powered.md");
-        expect(qoderWorkPublishContent).toContain("`qoderwork` with that host id");
+        expect(qoderWorkPublishContent).toContain("oo skills locate <skill-id> --agent qoderwork");
+        expect(qoderWorkPublishContent).not.toContain("supported list");
         expect(qoderWorkPublishContent).not.toContain("agentic:");
     });
 

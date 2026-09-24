@@ -294,22 +294,10 @@ skill directory already exists, use `oo skills adopt` only when it is the
 existing workflow the user wants to solidify; otherwise ask for a different
 skill name instead of overwriting.
 
-Make `--description` a user-facing trigger summary: it becomes the frontmatter
-description and the main signal future agents see before loading the skill.
-Start with the user outcome. Include natural request verbs, domain nouns,
-important input artifacts, expected outputs, and user-visible product, model,
-service, or workflow names that improve matching.
-
-Prefer one or two concise sentences over a generic label. The description
-should answer what the skill does and what users would ask. Keep operational
-details, routing caveats, identifiers, schema details, command syntax, and
-negative conditions in the workflow body unless they are natural user-facing
-terms.
-
-Use this description shape when helpful:
-`<Primary user outcome>. Use when the user asks to <common verbs/request
-phrases> for <domain objects or input artifacts>, especially when they need
-<expected output/result>.`
+Write `--description` as the trigger contract described in
+`skill-authoring.md`: it becomes the frontmatter description and the main
+signal future agents see before loading the skill. Also name the user-visible
+product, model, service, or workflow names that improve matching.
 
 Use the path printed by `oo skills init` or `oo skills adopt` as the skill
 directory for authoring and validation.
@@ -398,7 +386,9 @@ directly, use that schema-driven input shape and do not add an unnecessary
 
 When generated skill code needs an OOMOL-hosted LLM client, instruct future
 agents to run `oo llm config --json` at runtime and use the returned `apiKey`,
-`baseUrl`, and `model`. Do not hardcode, persist, log, or print the API key,
+`baseUrl`, and `model`. When the runtime only needs schema-valid JSON from the
+hosted LLM, use `oo llm json` instead of a hand-written JSON prompt, parser, and
+retry loop. Do not hardcode, persist, log, or print the API key,
 and do not tell future agents to read local auth files directly.
 
 Before validation, re-check the trigger description and presentation metadata
