@@ -83,11 +83,6 @@ oo skills publish /path/to/my-skill/SKILL.md --visibility private
 oo skills publish ./already-published-skill
 ```
 
-<!-- agentic:if agent=openclaw|qoderwork -->
-If this shared skill file is running in another supported host, replace
-`<!-- agentic:var agent -->` with that host id from the supported list.
-
-<!-- agentic:endif -->
 If the command prompts about publishing a registry-installed skill under the
 active account or overwriting an existing remote package, let that prompt drive
 the next user confirmation. Do not ask those questions in advance.

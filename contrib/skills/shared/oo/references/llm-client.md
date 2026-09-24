@@ -34,17 +34,18 @@ values into the client in memory.
 
 ## Structured JSON outputs
 
-When using the hosted LLM for a local structured-output task:
+When a local task needs structured JSON from the hosted LLM, run
+`oo llm json --schema <schema|@file> --input <json|@file> --json` instead of
+prompting for JSON and parsing it yourself. The command requests JSON output,
+validates it against the schema (root type `object`), retries invalid output
+within `--max-retries`, and prints `{ ok, data, model, attempts }`.
 
-- Ask for JSON only, with no Markdown fences or prose.
-- Provide the exact object shape and required fields in the request.
+For batches:
+
 - Include stable item identifiers in each input item when the caller must
   reconcile batched outputs.
-- Parse the model output as JSON before trusting it.
-- Validate required keys, primitive types, and item identifiers locally.
-- Save valid returned items before retrying failures.
-- Retry only missing or invalid items when the task semantics allow partial
-  recovery.
+- Save valid returned items before retrying failures, and retry only missing or
+  invalid items when the task semantics allow partial recovery.
 - Keep checkpoint files for long batches so an interrupted run can continue
   without repeating successful LLM work.
 

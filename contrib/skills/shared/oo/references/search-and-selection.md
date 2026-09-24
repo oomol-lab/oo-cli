@@ -30,7 +30,7 @@ Guidance:
   Make it explicit even when the user only implies it (for example "put it on my
   calendar" for a connected Google Calendar, or "delete that 3pm call" for a
   calendar event).
-- But do NOT guess a provider you are unsure about. When the user's wording maps
+- Do not guess a provider you are unsure about. When the user's wording maps
   to a generic capability that several providers offer, and nothing in the
   request or known connected accounts tells you which one the user uses (for
   example "my workbook" -> Excel or Google Sheets, "my deals" -> HubSpot or

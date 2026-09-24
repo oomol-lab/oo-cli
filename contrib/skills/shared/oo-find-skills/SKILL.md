@@ -30,8 +30,6 @@ Convert the user request into:
 Rules:
 
 - The sentence must always be in English, regardless of the user's language.
-- Keywords are required on every search. Always provide `1` to `3` keywords and
-  never run a search without `--keywords`.
 - Keywords may use the user's original language. Keep product names, brand
   names, and proper nouns exactly as the user wrote them and do not translate
   them. For example, keep `滴答清单` as `滴答清单`; do not turn it into
@@ -44,8 +42,6 @@ Rules:
 - Prefer a short sentence built from task + capability + domain or constraint.
 - Do not add meta words such as `skill`, `skills`, `search`, or `install`
   unless the user's actual need depends on those words.
-- Avoid filler words.
-- Do not exceed `3` keywords.
 
 Examples:
 
@@ -60,12 +56,9 @@ Examples:
 - Sentence: `write Markdown more effectively`
   Keywords: `Markdown`, `writing`
 
-Use the sentence as the main search text and always pass the `1` to `3`
-keywords through `--keywords`.
-
 ### 2. Search for candidate skills
 
-Always run the keyword-refined form:
+Always pass the keywords through `--keywords`:
 
 ```bash
 oo skills search "<english sentence>" --keywords "<comma-separated keywords>" --json
@@ -164,8 +157,6 @@ with one of the displayed numbers.
 - If the user chooses `Install neither`, declines installation, or the UI returns
   `None of the above`, do not install anything. Reply with exactly one short
   acknowledgement in the user's language that no skill was installed, then stop.
-  Do not continue with extra result explanation, matched-result recap, ranking
-  recap, package names, skill names, descriptions, or repeated summaries.
 - Batch by package:
   - If both selected skills come from the same package, install them with one
     command and multiple `-s` flags.
@@ -215,20 +206,12 @@ oo skills install "<packageName2>" -s "<skillName2>"
 
 ## Behavior Notes
 
-- `oo skills search --json` returns at most `5` results because that is the CLI
-  behavior for this command; do not try to enforce or emulate a different
-  limit in the skill text.
+- `oo skills search --json` returns at most `5` results.
 - Use `skillDisplayName` when present, otherwise fall back to `name`.
-- Prefer the closest semantic match for the primary skill.
-- Break ranking ties deterministically by preferring the result whose
-  `description` or display text more directly matches the same user request.
-- Prefer non-duplicate results over near-duplicates.
-- If the semantic match is still tied, prefer the result with clearer install
-  identifiers (`packageName` plus `name`) and richer explanatory text.
 - You may compare response text fields against the original user request, but
   you must not use external metadata or guessed fields to break ties.
 - Treat a fallback as credible only when it is the next-best result that still
   plausibly solves the same user request, not merely a loosely related or
   duplicate-looking match.
-- Do not install anything before the user explicitly chooses one of the four
-  options.
+- Do not install anything before the user explicitly chooses one of the offered
+  install actions.

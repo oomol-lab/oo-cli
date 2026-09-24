@@ -85,11 +85,6 @@ Output shape:
 
 Ranking guidance:
 
-- Prefer the installable result whose `description` or display text more
-  directly matches the same user request.
-- Prefer non-duplicate results over near-duplicates.
-- If the semantic match is tied, prefer the result with clearer install
-  identifiers (`packageName` plus `name`) and richer explanatory text.
 - You may compare response text fields against the original user request, but
   you must not use external metadata or guessed fields to break ties.
 
@@ -101,8 +96,7 @@ Failure handling:
   succeeded, and do not continue silently.
 - If the user chooses `Install neither`, declines installation, or the UI returns
   `None of the above`, do not install anything. Reply with exactly one short
-  acknowledgement in the user's language that no skill was installed, then stop
-  without extra result recap, package names, skill names, or descriptions.
+  acknowledgement in the user's language that no skill was installed, then stop.
 - If any `oo` output shows HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`, stop
   immediately, tell the user their current account has insufficient credit or
   is overdue, and direct them to
