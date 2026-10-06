@@ -15,7 +15,10 @@ import {
 import { formatConnectorExecutionResultAsText } from "./result-text.ts";
 import { resolveConnectorSession } from "./session.ts";
 import { runConnectorProxy } from "./shared.ts";
-import { recordConnectorFailureTelemetry } from "./telemetry.ts";
+import {
+    recordConnectorFailureTelemetry,
+    suppressBackendRecordedConnectorTelemetry,
+} from "./telemetry.ts";
 
 const connectorProxyDataErrorKeys = {
     dataFilePathRequired: "errors.connectorProxy.dataFilePathRequired",
@@ -158,6 +161,8 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
             recordConnectorFailureTelemetry(error, context.telemetry);
             throw error;
         }
+
+        suppressBackendRecordedConnectorTelemetry(target.kind, context.telemetry);
 
         context.output.emit(response, () => {
             context.stdout.write(`${formatConnectorProxyResponseAsText(response, context)}\n`);

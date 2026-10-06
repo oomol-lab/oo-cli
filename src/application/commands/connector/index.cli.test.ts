@@ -671,12 +671,6 @@ describe("connectorCommand CLI", () => {
                     },
                 },
             );
-            const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
-            );
-
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(JSON.parse(result.stdout)).toEqual({
@@ -711,20 +705,13 @@ describe("connectorCommand CLI", () => {
                     limit: 1,
                 },
             });
-            expect(telemetryPayload).toMatchObject({
-                properties: {
-                    command_full: "connector.proxy",
-                    data_size_bucket: "<1KB",
-                    has_body: true,
-                    identity_source: "flag",
-                    method: "POST",
-                },
-            });
-            expect(telemetryPayload?.properties).not.toHaveProperty("body");
-            expect(telemetryPayload?.properties).not.toHaveProperty("endpoint");
-            expect(telemetryPayload?.properties).not.toHaveProperty("headers");
-            expect(telemetryPayload?.properties).not.toHaveProperty("service");
-            expectTelemetryFreeOfTeamIdentity(telemetryPayload?.properties, ["acme"]);
+            // A successful OOMOL connector call is recorded by the backend,
+            // so the CLI drops its own command event.
+            expect(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                ),
+            ).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
@@ -998,18 +985,6 @@ describe("connectorCommand CLI", () => {
                 endpoint: "/search",
                 method: "GET",
                 query: { limit: 1 },
-            });
-            const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
-            );
-            expect(telemetryPayload).toMatchObject({
-                properties: {
-                    command_full: "connector.proxy",
-                    has_body: false,
-                    method: "GET",
-                },
             });
         }
         finally {
@@ -1948,12 +1923,6 @@ describe("connectorCommand CLI", () => {
                     },
                 },
             );
-            const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
-            );
-
             expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(JSON.parse(result.stdout)).toEqual({
                 data: {
@@ -1975,20 +1944,13 @@ describe("connectorCommand CLI", () => {
                     to: "foo@bar.com",
                 },
             });
-            expect(telemetryPayload).toMatchObject({
-                properties: {
-                    action: "send_mail",
-                    command_full: "connector.run",
-                    connection_selector: "none",
-                    data_size_bucket: "<1KB",
-                    dry_run: false,
-                    identity_source: "none",
-                    service: "gmail",
-                    wait: false,
-                },
-            });
-            expect(telemetryPayload?.properties).not.toHaveProperty("data");
-            expect(telemetryPayload?.properties).not.toHaveProperty("input");
+            // A successful OOMOL connector call is recorded by the backend,
+            // so the CLI drops its own command event.
+            expect(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                ),
+            ).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
@@ -2038,19 +2000,6 @@ describe("connectorCommand CLI", () => {
                 "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
             expect(requests[0]?.headers.get("x-oo-connector-alias")).toBe("work");
-            const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
-            );
-
-            expect(telemetryPayload).toMatchObject({
-                properties: {
-                    command_full: "connector.run",
-                    connection_selector: "connectionName",
-                },
-            });
-            expect(JSON.stringify(telemetryPayload?.properties)).not.toContain("work");
         }
         finally {
             await sandbox.cleanup();
@@ -2301,23 +2250,6 @@ describe("connectorCommand CLI", () => {
                     pollCount: 2,
                 },
             });
-            const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
-            );
-
-            expect(telemetryPayload).toMatchObject({
-                properties: {
-                    action: "openai_image_async_result",
-                    command_full: "connector.run",
-                    data_size_bucket: "<1KB",
-                    dry_run: false,
-                    service: "fusion-api",
-                    wait: true,
-                },
-            });
-            expect(telemetryPayload?.properties).not.toHaveProperty("sessionID");
             expect(requests.map(request => request.url)).toEqual([
                 "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_result",
                 "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_result",
@@ -2479,24 +2411,6 @@ describe("connectorCommand CLI", () => {
                     submitExecutionId: "submit-exec",
                 },
             });
-            const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
-            );
-
-            expect(telemetryPayload).toMatchObject({
-                properties: {
-                    action: "openai_image_async_submit",
-                    command_full: "connector.run",
-                    data_size_bucket: "<1KB",
-                    dry_run: false,
-                    service: "fusion-api",
-                    wait: false,
-                    wait_result: true,
-                },
-            });
-            expect(telemetryPayload?.properties).not.toHaveProperty("prompt");
             expect(requests.map(request => request.url)).toEqual([
                 "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_submit",
                 "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_result",
@@ -3060,6 +2974,23 @@ describe("connectorCommand CLI", () => {
             expect(result.stderr).toContain(
                 "The async connector action failed with state not_found.",
             );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    action: "openai_image_async_result",
+                    command_full: "connector.run",
+                    data_size_bucket: "<1KB",
+                    dry_run: false,
+                    service: "fusion-api",
+                    wait: true,
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("sessionID");
         }
         finally {
             await sandbox.cleanup();
@@ -3325,6 +3256,20 @@ describe("connectorCommand CLI", () => {
                 "The --wait-result option is only supported for connector actions with an async submit lifecycle.",
             );
             expect(requestCount).toBe(0);
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "connector.run",
+                    wait: false,
+                    wait_result: true,
+                },
+            });
+            expect(telemetryPayload?.properties).not.toHaveProperty("sessionID");
         }
         finally {
             await sandbox.cleanup();
@@ -3821,6 +3766,8 @@ describe("connectorCommand CLI", () => {
             expect(JSON.stringify(telemetryPayload?.properties)).not.toContain(
                 "Invalid id value",
             );
+            expect(telemetryPayload?.properties).not.toHaveProperty("data");
+            expect(telemetryPayload?.properties).not.toHaveProperty("input");
         }
         finally {
             await sandbox.cleanup();
@@ -4923,12 +4870,6 @@ describe("connectorCommand CLI", () => {
                     },
                 },
             );
-            const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
-            );
-
             expect(result.exitCode).toBe(0);
             expect(requests).toHaveLength(1);
             expect(requests[0]?.method).toBe("POST");
@@ -4936,13 +4877,6 @@ describe("connectorCommand CLI", () => {
                 "https://connector.oomol.com/v1/actions/gmail.send_mail",
             );
             expect(requests[0]?.headers.get("x-oo-team-name")).toBe("acme");
-            expect(telemetryPayload).toMatchObject({
-                properties: {
-                    command_full: "connector.run",
-                    identity_source: "flag",
-                },
-            });
-            expectTelemetryFreeOfTeamIdentity(telemetryPayload?.properties, ["acme"]);
         }
         finally {
             await sandbox.cleanup();
@@ -5393,6 +5327,21 @@ describe("connectorCommand CLI", () => {
             );
 
             await expect(Bun.file(authFilePath).exists()).resolves.toBeFalse();
+
+            // No backend records a self-hosted call, so the CLI still reports it.
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "connector.run",
+                    connector_kind: "self_hosted",
+                    success: true,
+                },
+            });
         }
         finally {
             await sandbox.cleanup();

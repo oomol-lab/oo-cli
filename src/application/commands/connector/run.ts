@@ -28,7 +28,10 @@ import {
     requireConnectorActionName,
     runConnectorAction,
 } from "./shared.ts";
-import { recordConnectorFailureTelemetry } from "./telemetry.ts";
+import {
+    recordConnectorFailureTelemetry,
+    suppressBackendRecordedConnectorTelemetry,
+} from "./telemetry.ts";
 import { validateConnectorActionInput } from "./validation.ts";
 
 const connectorRunDataErrorKeys = {
@@ -278,6 +281,8 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             );
             throw error;
         }
+
+        suppressBackendRecordedConnectorTelemetry(target.kind, context.telemetry);
 
         if (context.output.format === "json") {
             context.output.emitJson(response);

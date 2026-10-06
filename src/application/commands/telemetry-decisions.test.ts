@@ -193,7 +193,7 @@ const commandTelemetryDecisions = {
             "wait",
             "wait_result",
         ],
-        reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, identity source (none/flag/env_id/env_name/account), and none/connectionName selector mode without the team name/id or connection name value.",
+        reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, identity source (none/flag/env_id/env_name/account), and none/connectionName selector mode without the team name/id or connection name value. A successful call against the OOMOL connector suppresses the event because the backend already records it; failures, dry runs, and self-hosted calls are still reported.",
     },
     "connector.proxy": {
         kind: "properties",
@@ -206,7 +206,7 @@ const commandTelemetryDecisions = {
             "identity_source",
             "method",
         ],
-        reason: "Records connector proxy bucketed payload size, method enum, identity source (none/flag/env_id/env_name/account), stable error code, and HTTP status without service name, endpoint, headers, body, or team name/id.",
+        reason: "Records connector proxy bucketed payload size, method enum, identity source (none/flag/env_id/env_name/account), stable error code, and HTTP status without service name, endpoint, headers, body, or team name/id. A successful call against the OOMOL connector suppresses the event because the backend already records it; failures and self-hosted calls are still reported.",
     },
     "connector.search": {
         kind: "properties",

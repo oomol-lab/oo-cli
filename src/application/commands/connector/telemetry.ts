@@ -1,6 +1,23 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
+import type { ConnectorTargetKind } from "./target.ts";
 
 import { CliUserError } from "../../contracts/cli.ts";
+
+/**
+ * Drops the command event for a call the OOMOL connector backend completed
+ * successfully: the backend already records such calls, so the CLI event
+ * would only duplicate it. Failures, dry runs, and self-hosted targets are
+ * still reported, because the backend never sees a self-hosted call and may
+ * not see a request that failed before reaching it.
+ */
+export function suppressBackendRecordedConnectorTelemetry(
+    targetKind: ConnectorTargetKind,
+    telemetry: CliExecutionContext["telemetry"],
+): void {
+    if (targetKind === "oomol") {
+        telemetry?.suppressCurrentInvocation();
+    }
+}
 
 export function recordConnectorFailureTelemetry(
     error: unknown,
