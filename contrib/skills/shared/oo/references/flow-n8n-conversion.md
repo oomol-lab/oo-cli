@@ -43,7 +43,7 @@ and mutation contract.
 2. Account for every enabled executable node and every connection. Collapse
    model, parser, tool, memory, and retriever nodes joined by specialized n8n
    edges into semantic clusters before choosing replacements.
-3. Resolve the target Project without changing the saved Project selection.
+3. Resolve the target Flow and Team without changing the active account.
    Discover exact provider Trigger and Connector contracts through Flow-scoped
    `oo flow` commands. Search by provider plus business operation, inspect the
    selected contract, and retry one precise query before declaring a catalog
@@ -57,11 +57,12 @@ and mutation contract.
    `capability-missing`, or `unsupported` using the rules below. Stop before
    mutation if any required behavior is `capability-missing` or `unsupported`.
 6. Generate JavaScript ESM modules for Code nodes and one version-1
-   `oo flow apply` request. Use explicit Code ports, literal Connector and LLM
-   inputs, all reconstructed Edges, and the expected Revision when editing an
-   existing Draft.
-7. Apply once, then perform one authoritative `oo flow check` or summary
-   inspection. A valid graph is not proof of behavioral equivalence; verify
+   `oo flow apply` operations request from the current schemas and examples.
+   Use explicit Code ports, literal or source-mapped inputs, all reconstructed
+   execution Edges, the observed base Revision, and one retained idempotency
+   key. Configure execution routing and data references separately.
+7. Apply once and use its authoritative check. If unavailable, check the accepted
+   Revision once. A valid graph is not proof of behavioral equivalence; verify
    branch meaning, cardinality, data references, and side effects separately.
 
 ## Inventory
@@ -92,9 +93,9 @@ pass-through behavior may still affect the executable path.
 Translate expressions by meaning:
 
 - `$json.path`: read an explicit current-record input.
-- `$('Node').item.json.path` and `$node['Node'].json.path`: create an Edge from
-  that upstream node into a named Code input. Preserve `.item` only when a
-  one-to-one relation is proven.
+- `$('Node').item.json.path` and `$node['Node'].json.path`: map that upstream
+  output into a named Code input and establish the required execution order.
+  Preserve `.item` only when a one-to-one relation is proven.
 - `$('Node').first()`, `.last()`, `.all()`, and `$items('Node')`: expose an array
   explicitly and implement ordering and empty-collection behavior in Code.
 - `$binary`: inspect the selected Trigger or Connector attachment or artifact
@@ -124,11 +125,11 @@ required behavior as `unsupported` for automatic conversion.
 Preserve branch indexes. `main[0]` and `main[1]` often represent true and false
 or separate Switch cases. They are not duplicate connections.
 
-An Open Flow Condition emits its input value on the selected output. When a
-guarded downstream node also needs other upstream values, join the Condition
-output and those values in a Code node. The Code node becomes a branch gate and
-does not run when that branch produces no value. Do not connect unguarded data
-directly to a side-effect node.
+An Open Flow Condition selects an execution branch. Use its case output handle
+or `otherwise` as the execution Edge's `sourceHandle`, and configure downstream
+input mappings independently. Reading upstream data does not guard execution;
+make each side-effect node reachable only through its intended branch. Preserve
+first-match versus all-match behavior using the current Condition schema.
 
 For Merge, prove mode, join keys, ordering, duplicate behavior, and empty-side
 behavior. Use Code only when these are explicit and bounded.
@@ -166,6 +167,14 @@ handling as one failure contract:
   or an unhandled error fails the workflow and invokes its configured
   workflow-level error handler.
 
+For a separate workflow-level failure handler, inspect `schema example.error`
+and `schema graph.trigger.sources.set`. Open Flow Error Triggers subscribe to
+already-published upstream Flows' automatic Run failures and expose `workflow`,
+`execution`, and `error`. Prove that scope and payload fit the source workflow;
+they do not implement a node's continue-on-error path or catch manual Run
+failures. Keep the handler as a Draft unless publication and automatic
+execution were explicitly requested.
+
 If the combined failure contract cannot be preserved by a proven Flow contract
 or an explicit bounded redesign, classify the behavior as `unsupported`. It is
 an execution-model mismatch, not a missing Connector or Trigger capability.
@@ -191,7 +200,23 @@ operations even when n8n exposes them through one configurable node.
 
 Use only schema-declared inputs and outputs. Do not carry n8n credential IDs into
 the Draft. A known Connector may omit its Connection in a Draft when supported,
-but must have an active Connection before Run or Publish.
+but an authenticated action must have an active Connection before Run or Publish.
+
+### OpenAPI and AI Decision
+
+Map an n8n HTTP Request to an Open Flow OpenAPI Task only when an actual OpenAPI
+document proves the operation, parameters, response, and supported auth
+bindings. Use `schema example.openapi`; preserve its fixed operation and map
+`body`, `statusCode`, and `headers` explicitly. Prove JSON-only behavior,
+non-2xx failure semantics, and the absence of redirect or automatic retry
+requirements. Keep secrets in supported bindings. Arbitrary HTTP requests,
+OAuth login, binary/streaming responses, or unproven operations remain blockers;
+do not invent a document to bypass a catalog or authorization gap.
+
+Use `schema example.decision` for a compatible AI classification step.
+Configure its `target` and named questions, and read each question's declared
+answer object before building branch predicates. A Decision output is not an
+implicit boolean or an execution branch.
 
 ### LLM
 
@@ -221,11 +246,16 @@ or stop.
 
 ### Stateful Interaction
 
-Wait, resume, form interaction, human approval, `sendAndWait`, webhook response,
-and conversation memory may span executions or own an external response
-lifecycle. An ordinary Code node is not a durable substitute. If current Open
-Flow contracts do not expose the required lifecycle, classify the behavior as
-`unsupported` and stop.
+Use the current Wait and Approval examples plus `runs resolve` when their
+continue/approve/reject lifecycle preserves the source behavior. A Run with
+unresolved waits returns exit `2`; retain its Run and Wait IDs instead of
+starting another Run. Prove the timing, notification, payload, and resume
+semantics before accepting the mapping.
+
+Form interaction, `sendAndWait`, webhook response, and conversation memory may
+own additional external state or response lifecycles. An ordinary Code node is
+not a durable substitute. If the required lifecycle cannot be proven from
+current contracts, classify the behavior as `unsupported` and stop.
 
 ## Blocker Decisions
 
@@ -266,8 +296,9 @@ disposition, then report every blocker without creating a partial Draft. Do not
 redirect a fundamental incompatibility as a provider catalog request.
 
 Keep catalog absence separate from authentication. An unavailable action is a
-product capability gap; an existing action without an active Connection is
-`needs-input` at Draft boundary or a runtime-readiness blocker.
+product capability gap; an authenticated action without an active Connection
+is `needs-input` at Draft boundary or a runtime-readiness blocker. Actions marked
+`authenticated: false` do not need an account.
 
 ## Conversion Report
 
@@ -278,7 +309,7 @@ specialized edges collapsed into a cluster.
 
 After a successful Draft write, report:
 
-- Project, Flow, and Revision IDs;
+- Flow and Revision IDs, Team scope, and the retained mutation key;
 - authoritative check result;
 - Trigger and Connector contracts selected;
 - Connections selected or still missing;

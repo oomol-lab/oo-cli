@@ -267,6 +267,6 @@ step becomes active.
 ### Persistent Open Flow
 
 User wants a reusable workflow rather than an immediate Connector result. Use
-the Open Flow mode, resolve the Project explicitly, discover Node and Trigger
+the Open Flow mode, resolve the Flow explicitly, discover Node and Trigger
 contracts through `oo flow`, author the smallest complete Draft, then stop at
 check, run, or publish according to the requested side-effect boundary.

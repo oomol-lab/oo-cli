@@ -26,7 +26,7 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
 - `OO_OPEN_FLOW_COMMAND_DIR`: During local Open Flow integration testing, point
   `oo flow` at an expanded Open Flow command artifact directory. The directory
   must contain `entry.js`; the standard repository build writes it to
-  `packages/open-flow/dist/command/open-flow-command`. When this variable is
+  `packages/command/dist/command/open-flow-command`. When this variable is
   unset, `oo flow` uses the Open Flow release bundled with the current `oo`
   release.
 - `OO_OPEN_FLOW_URL`: Select a self-hosted Open Flow Server using its complete
@@ -37,9 +37,6 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
   deployment's `OPEN_FLOW_TOKEN`. It is sent only to the selected
   origin's `/v1/` API as a Bearer token and must be set together with
   `OO_OPEN_FLOW_URL`.
-- `OO_FLOW_PROJECT`: Select an Open Flow Project for the current invocation. It
-  takes precedence over the account-and-Team-scoped Project saved by
-  `oo flow project use` and is not persisted.
 - `OO_FLOW_ACCOUNT`: Select a saved account for the current `oo flow`
   invocation without changing the active account in `auth.toml`. Use the exact
   account ID or `endpoint/name`; an ambiguous `endpoint/name` must be replaced
@@ -154,50 +151,73 @@ requiring network access.
   or Team and does not use `OO_ENDPOINT`. The token must be the same value as
   the Server deployment's `OPEN_FLOW_TOKEN`.
 - `OO_FLOW_ACCOUNT=<account-id|endpoint/name>` selects a saved account only for
-  the current Hosted Flow invocation, including that account's endpoint, Team,
-  and saved Project context. It does not mutate the globally active account and
+  the current Hosted Flow invocation, including that account's endpoint and
+  Team. It does not mutate the globally active account and
   has no effect while the self-hosted variables are active.
 - Credentials are attached only to `/v1/` requests for the selected origin.
   Identity and Cookie headers supplied by the command artifact are removed
   before the host writes the Hosted credential and Team selector or the Server
   Bearer token. Connector and Trigger operations remain Control API operations;
   the artifact does not connect to their backing services directly.
-- `oo flow project use <project>` verifies the Project through the selected
-  deployment and saves its ID for the current account and Team in Hosted mode.
-  Switching account or Team ignores a Project saved in another scope. An
-  `OO_API_KEY` identity has no persistent
-  account scope, so use `OO_FLOW_PROJECT` instead. In self-hosted mode the
-  selection is stored by Server origin in local CLI settings, without writing
-  it into an OOMOL account. Once a current Project is selected, later Flow
-  commands can omit `--project`; use that option only for a per-command
-  override.
-- The command surface covers Project and Flow authoring, Nodes,
+- The command surface covers Flow authoring, Nodes,
   Edges, CodeModules, Connector Tasks, Triggers, checks, Draft/Live Runs,
   Publications, rollback, and Workbench deep links. Use `--json` for versioned
-  machine output and `--project <id-or-exact-name>` for a per-command Project.
-- `oo flow inspect <flow>` reads one immutable Draft Revision and reports its
-  Nodes, Task/CodeModule details, Edges, Triggers, and authoritative Revision
-  check together. `--summary` keeps the same structural Edge/check/Revision
-  view but returns compact Node and Trigger identities without Code source or
-  complete Task and Trigger objects. Neither form executes user code or calls
-  external services.
-- `oo flow apply <flow> --file <path|-> [--expected-revision <revision>]`
-  accepts a version-1 one-shot JSON authoring request and commits all new Nodes,
-  Triggers, and Edges with one Draft CAS write. `nodes` and `triggers` are keyed
-  by request-local references. Trigger kinds are `webhook`, `cron`, and
-  `provider`; provider Triggers use `key`, optional `connection`, `config`,
-  `every` or `cron`, and `timezone`. Code Nodes use `code` with inline
-  JavaScript or `@path`; Connector Nodes use `action`, optional `connection`
-  (`default` is accepted), and optional `inputs`. Each Edge contains `source`,
-  `output`, `target`, and `input`; a request-local Trigger can be its source with
-  output `payload`. The request is not a local Project or import format. A
-  successful apply checks the new Revision but never runs or publishes it.
-  Connector add and apply choose the action's active default connection when
-  `connection` is omitted or set to `default`; when none exists, the Connector
-  Node remains unbound and JSON output omits its `connectionId`. Provider
-  Triggers require an active Connection. If the write succeeds but that final
-  check is unavailable, output still reports the accepted Revision and
-  explicitly tells callers not to retry the apply.
+  machine output. Flows are selected by ID or an unambiguous exact name;
+  `create --team <team-id>` chooses their Team, and Connector discovery accepts
+  `--flow <flow>` to use that Flow's Team scope.
+- `oo flow inspect <flow> --json` returns a compact Draft graph, input mappings,
+  port handles, module identities, and Live summary. `--full` includes complete
+  Revision content, schemas, and Code source. Inspection does not execute Code
+  or check the Revision; use `oo flow check <flow> [--revision <revision-id>]`
+  for its authoritative validity result.
+- `oo flow schema apply --json` describes the canonical version-1 apply request
+  containing an ordered `operations` array. `schema examples` lists creation
+  examples, and `schema example.<name>` returns a complete example request.
+  `oo flow apply <flow> --file <path|-> --expected-revision <revision-id>
+  --idempotency-key <edit-key>` submits one atomic Draft edit. An explicit
+  idempotency key requires a fixed base Revision for Draft edits and Draft Runs.
+  Retry the same mutation only with the same key, base identity, arguments,
+  and file contents; use a new key for a different edit.
+- The convenience apply request with `nodes`, `triggers`, and `edges` remains
+  available for simple creation. Node and Trigger keys are request-local
+  references. Trigger kinds are `manual`, `webhook`, `cron`, and `provider`;
+  provider Triggers use a discovered `key`, optional `connection`, `config`,
+  `every` or `cron`, and `timezone`. Code uses inline JavaScript or `@path` and
+  port definitions; Connector `inputs` are literal values. Each execution Edge
+  contains `source`, `target`, and optional branch `sourceHandle`. Data mappings
+  use `graph.node.input.set` operations or
+  `oo flow node input <flow> <node> <input> <source> <output>` separately from
+  `oo flow connect <flow> <source> <target-node> [branch]`.
+- Connector add and convenience apply choose an active default Connection, or
+  the sole active Connection when no default exists. When neither can be
+  selected, the Connector may remain unbound. Provider Triggers require an
+  active Connection. A successful apply reports the accepted Revision and its
+  check without running or publishing. An invalid or unavailable check does not
+  undo the write and is not a reason to resubmit it.
+- Error Triggers can be created with `schema example.error` and configured with
+  `graph.trigger.sources.set` in an apply request. Upstream Flows must already
+  be published. Error Triggers listen for selected
+  upstream Flows' automatic Run failures when their own Flow is published and
+  enabled, exposing `workflow`, `execution`, and `error` outputs.
+- `schema example.decision` describes an AI Decision Task with a `target`
+  input and named questions returning answer objects. `schema example.openapi`
+  describes a fixed JSON API operation with `body`, `statusCode`, and `headers`
+  outputs. OpenAPI credentials use supported Variable or upstream-output
+  bindings; literal auth values, OAuth login, binary/streaming responses,
+  redirects, and automatic retries are unsupported.
+- Run and publication commands may return `0` for an accepted asynchronous
+  operation, `1` for an error or unsuccessful terminal Run, `2` for an
+  unresolved Wait/Approval, or `3` when a wait times out or publication remains
+  pending. For waiting, `--timeout` is a budget in milliseconds, defaulting to
+  60000; expiration does not cancel the operation. Continue with `runs wait` or
+  `publications wait`; resolve an outstanding decision with
+  `runs resolve <run> <wait> <continue|approve|reject>`.
+  On `node set`, `--timeout` sets the node's execution timeout.
+- `runs events <run> --follow --json` streams NDJSON pages; resume with `--after`
+  using the returned `nextAfter`. Publishing accepts `--expected-revision`,
+  `--expected-publication <publication-id|none>`, and `--idempotency-key`.
+  Automatic Trigger execution is controlled with
+  `enable/disable <flow> --expected-publication <publication-id>`.
 - `oo flow node add <flow> code <name> --code <javascript|@file|->` creates the
   Node, Task, CodeModule, and final source atomically and reports all three
   opaque IDs. `oo flow check` validates the immutable Revision only; credential
@@ -226,10 +246,10 @@ Local repository example:
 
 ```bash
 cd /path/to/open-flow
-bun run --filter @oomol-lab/open-flow build
+bun run --filter @oomol-lab/open-flow-command build
 
 cd /path/to/oo-cli
-OO_OPEN_FLOW_COMMAND_DIR=/path/to/open-flow/packages/open-flow/dist/command/open-flow-command \
+OO_OPEN_FLOW_COMMAND_DIR=/path/to/open-flow/packages/command/dist/command/open-flow-command \
   bun run index.ts flow --help
 ```
 
@@ -238,8 +258,8 @@ dev login and an effective Team):
 
 ```bash
 OO_ENDPOINT=oomol.dev \
-OO_OPEN_FLOW_COMMAND_DIR=/path/to/open-flow/packages/open-flow/dist/command/open-flow-command \
-  bun run index.ts flow project list
+OO_OPEN_FLOW_COMMAND_DIR=/path/to/open-flow/packages/command/dist/command/open-flow-command \
+  bun run index.ts flow list
 ```
 
 Connect to a self-hosted Server:
@@ -249,10 +269,6 @@ export OO_OPEN_FLOW_URL=http://127.0.0.1:3000
 export OO_OPEN_FLOW_TOKEN="$OPEN_FLOW_TOKEN"
 oo flow
 ```
-
-Use `oo flow project use <project>` to remember a Project for that Server
-origin. Scripts can use `OO_FLOW_PROJECT` or `--project` as a per-invocation
-override.
 
 ## JSON Output
 
