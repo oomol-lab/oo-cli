@@ -24,7 +24,7 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 - `OO_OPEN_FLOW_COMMAND_DIR`：本地联调 Open Flow 时，让 `oo flow`
   使用指定的已展开命令产物目录。该目录必须包含 `entry.js`；Open Flow
   仓库的标准构建会将它写到
-  `packages/open-flow/dist/command/open-flow-command`。未设置时，`oo flow`
+  `packages/command/dist/command/open-flow-command`。未设置时，`oo flow`
   使用当前 `oo` 版本固定的 Open Flow release。
 - `OO_OPEN_FLOW_URL`：用完整 HTTP(S) origin 选择自部署 Open Flow Server，例如
   `http://127.0.0.1:3000`。必须与 `OO_OPEN_FLOW_TOKEN` 同时设置；两者生效时，
@@ -32,8 +32,6 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 - `OO_OPEN_FLOW_TOKEN`：自部署 Server 的 operator token，值应与该部署的
   `OPEN_FLOW_TOKEN` 相同。它只会作为 Bearer token 发往所选 origin 的
   `/v1/` API，并且必须与 `OO_OPEN_FLOW_URL` 同时设置。
-- `OO_FLOW_PROJECT`：只为当前调用选择 Open Flow Project。它的优先级高于
-  `oo flow project use` 按账号和 Team 保存的 Project，且不会写回配置。
 - `OO_FLOW_ACCOUNT`：只为当前 `oo flow` 调用选择一个已保存账号，不修改
   `auth.toml` 中的 active account。值可以是精确账号 ID 或 `endpoint/name`；如果
   后者匹配多个账号，必须改用账号 ID。与 `OO_API_KEY` 同时设置时仍然后者优先。
@@ -124,41 +122,58 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   Server。此模式不读取 OOMOL 账号或 Team，也不使用 `OO_ENDPOINT`；token 必须与
   Server 部署的 `OPEN_FLOW_TOKEN` 相同。
 - `OO_FLOW_ACCOUNT=<account-id|endpoint/name>` 只为本次 Hosted Flow 调用选择已保存
-  账号，同时使用该账号的 endpoint、Team 和已保存 Project context，不会修改全局
+  账号，同时使用该账号的 endpoint 和 Team，不会修改全局
   active account；自部署变量生效时它不起作用。
 - 凭据只附加到所选 origin 的 `/v1/` 请求。宿主会先删除 command artifact 提供的
   身份 header 和 Cookie，再写入 Hosted credential 与 Team selector，或 Server
   Bearer token。Connector 与 Trigger 操作仍通过 Control API，artifact 不直连它们的
   后端服务。
-- `oo flow project use <project>` 会先通过所选部署验证 Project；Hosted 模式再按当前
-  账号和 Team 保存其 ID。切换账号或 Team 后不会复用其他 scope 的 Project。
-  `OO_API_KEY` 身份没有可持久化的账号 scope，因此应改用 `OO_FLOW_PROJECT`。
-  自部署模式会按 Server origin 把选择结果保存在本地 CLI settings 中，不会写入
-  OOMOL 账号。选择 current Project 后，后续 Flow 命令可以省略 `--project`；
-  该选项只用于单次命令临时覆盖。
-- 命令覆盖 Project 与 Flow authoring、节点、连线、CodeModule、
+- 命令覆盖 Flow authoring、节点、连线、CodeModule、
   Connector Task、Trigger、检查、Draft/Live Run、Publication、Rollback 和
-  Workbench deep link。`--json` 输出带版本的机器格式，`--project <ID 或精确名称>`
-  只覆盖当前命令的 Project。
-- `oo flow inspect <flow>` 固定并读取一个不可变 Draft Revision，一次返回 Node、
-  Task/CodeModule、Edge、Trigger 和该 Revision 的权威 check。`--summary` 保留同一份
-  Edge、check 与 Revision 结构视图，但只返回紧凑的 Node/Trigger identity，不包含
-  Code source、完整 Task 或完整 Trigger 对象。两种形式都不会执行用户代码或调用
-  外部服务。
-- `oo flow apply <flow> --file <path|-> [--expected-revision <revision>]` 接受
-  version 1 的一次性 JSON authoring request，并用一次 Draft CAS 提交其中的所有新
-  Node、Trigger 和 Edge。`nodes` 与 `triggers` 都使用 request-local reference 作为
-  key。Trigger kind 支持 `webhook`、`cron` 与 `provider`；provider Trigger 使用
-  `key`、可选 `connection`、`config`、`every` 或 `cron` 以及 `timezone`。Code Node
-  的 `code` 可以是内联 JavaScript 或 `@path`；Connector Node 使用 `action`、可选的
-  `connection`（支持 `default`）和可选 `inputs`。每条 Edge 包含 `source`、
-  `output`、`target` 与 `input`；request-local Trigger 可以作为 `source`，其输出为
-  `payload`。该 request 不是本地 Project 或 import 格式。apply 成功后会检查新
-  Revision，但不会运行或发布。Connector add 与 apply 在 `connection` 省略或为
-  `default` 时选择 Action 当前的 active default Connection；不存在默认连接时仍会
-  保存未绑定的 Connector Node，JSON 输出不包含 `connectionId`。provider Trigger
-  必须使用 active Connection。若写入已成功但最终 check 暂时不可用，输出仍会报告
-  已接受的 Revision，并明确提示调用方不要重试 apply。
+  Workbench deep link。`--json` 输出带版本的机器格式。Flow 使用 ID 或无歧义的精确
+  名称选择；`create --team <team-id>` 指定 Team，Connector 发现命令接受
+  `--flow <flow>`，以该 Flow 的 Team 为查询范围。
+- `oo flow inspect <flow> --json` 返回紧凑的 Draft graph、input mapping、port
+  handle、module identity 与 Live 概要。`--full` 包含完整 Revision、schema 和 Code
+  source。inspect 不执行 Code，也不检查 Revision；权威校验使用
+  `oo flow check <flow> [--revision <revision-id>]`。
+- `oo flow schema apply --json` 描述包含有序 `operations` 数组的 version 1 apply
+  request。`schema examples` 列出创建示例，`schema example.<name>` 返回完整请求。
+  `oo flow apply <flow> --file <path|-> --expected-revision <revision-id>
+  --idempotency-key <edit-key>` 提交一次原子 Draft 修改。Draft 修改与 Run 显式指定
+  幂等键时，必须同时固定基础 Revision。重试同一次修改必须保留相同键、基础身份、
+  参数和文件内容；不同修改使用新键。
+- 简单创建仍可使用包含 `nodes`、`triggers` 和 `edges` 的便捷 apply request。
+  Node 与 Trigger 的 key 是请求内的局部引用。Trigger kind 支持 `manual`、
+  `webhook`、`cron` 和 `provider`；provider 使用发现得到的 `key`、可选
+  `connection`、`config`、`every` 或 `cron` 以及 `timezone`。Code 使用内联
+  JavaScript 或 `@path` 和 port definition；Connector `inputs` 是字面值。
+  执行 Edge 包含 `source`、`target` 和可选的分支 `sourceHandle`。数据映射使用
+  `graph.node.input.set` operation，或
+  `oo flow node input <flow> <node> <input> <source> <output>`；执行顺序另由
+  `oo flow connect <flow> <source> <target-node> [branch]` 配置。
+- Connector add 和便捷 apply 选择 active default Connection；没有默认值时，
+  也可选择唯一的 active Connection。两者都无法选中时，Connector 可以保持未绑定。
+  provider Trigger 必须使用 active Connection。apply 成功会返回已接受的 Revision
+  与 check，但不运行或发布。check 无效或暂不可用不会撤销写入，也不应重新提交。
+- Error Trigger 可以通过 `schema example.error` 创建，并在 apply 中用
+  `graph.trigger.sources.set` 选择已发布的上游 Flow。自身 Flow 发布且启用后，它会
+  监听这些上游 Flow 的自动 Run 失败，并输出 `workflow`、`execution` 和 `error`。
+- `schema example.decision` 描述 AI Decision Task：输入为 `target`，命名问题返回
+  answer object。`schema example.openapi` 描述固定的 JSON API operation，输出为
+  `body`、`statusCode` 和 `headers`。OpenAPI 凭据使用支持的 Variable 或上游输出
+  绑定；不支持固定鉴权值、OAuth 登录、二进制/流式响应、重定向或自动重试。
+- Run 和发布命令可用 `0` 表示已接受异步操作、`1` 表示错误或未成功的终态 Run、
+  `2` 表示尚未解决的 Wait/Approval、`3` 表示等待超时或发布仍在进行。
+  `--timeout` 是毫秒等待预算，默认 60000；超时不会取消操作。后续使用
+  `runs wait` 或 `publications wait` 等待，使用
+  `runs resolve <run> <wait> <continue|approve|reject>` 解决待处理决定。
+  在 `node set` 上，`--timeout` 设置节点执行超时。
+- `runs events <run> --follow --json` 输出 NDJSON page，使用返回的 `nextAfter`
+  作为 `--after` 继续读取。发布接受 `--expected-revision`、
+  `--expected-publication <publication-id|none>` 和 `--idempotency-key`。
+  自动 Trigger 执行通过
+  `enable/disable <flow> --expected-publication <publication-id>` 控制。
 - `oo flow node add <flow> code <name> --code <javascript|@file|->` 在一个原子
   change set 中创建 Node、Task、CodeModule 和最终 source，并返回三个 opaque ID。
   `oo flow check` 只校验不可变 Revision；credential 当前是否可用以及 Connector 的
@@ -180,10 +195,10 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 
 ```bash
 cd /path/to/open-flow
-bun run --filter @oomol-lab/open-flow build
+bun run --filter @oomol-lab/open-flow-command build
 
 cd /path/to/oo-cli
-OO_OPEN_FLOW_COMMAND_DIR=/path/to/open-flow/packages/open-flow/dist/command/open-flow-command \
+OO_OPEN_FLOW_COMMAND_DIR=/path/to/open-flow/packages/command/dist/command/open-flow-command \
   bun run index.ts flow --help
 ```
 
@@ -191,8 +206,8 @@ OO_OPEN_FLOW_COMMAND_DIR=/path/to/open-flow/packages/open-flow/dist/command/open
 
 ```bash
 OO_ENDPOINT=oomol.dev \
-OO_OPEN_FLOW_COMMAND_DIR=/path/to/open-flow/packages/open-flow/dist/command/open-flow-command \
-  bun run index.ts flow project list
+OO_OPEN_FLOW_COMMAND_DIR=/path/to/open-flow/packages/command/dist/command/open-flow-command \
+  bun run index.ts flow list
 ```
 
 连接自部署 Server：
@@ -202,9 +217,6 @@ export OO_OPEN_FLOW_URL=http://127.0.0.1:3000
 export OO_OPEN_FLOW_TOKEN="$OPEN_FLOW_TOKEN"
 oo flow
 ```
-
-使用 `oo flow project use <project>` 可以按该 Server origin 记住 Project。
-脚本可以使用 `OO_FLOW_PROJECT` 或 `--project` 做单次调用覆盖。
 
 ## JSON 输出
 

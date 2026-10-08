@@ -12,12 +12,12 @@ export interface OpenFlowCommandRelease {
 
 export const openFlowCommandRelease = {
     archive: {
-        digest: "b035d3ff1a5ef4ed1d45ffab50f625e081b6b7e6de3da48cbc0a8378bc6736d5",
-        length: 168_543,
-        url: "https://static.oomol.com/release/apps/open-flow/command/open-flow-0.1.0-beta.48-b035d3ff1a5ef4ed1d45ffab50f625e081b6b7e6de3da48cbc0a8378bc6736d5.tar.gz",
+        digest: "82fd62a57bc475b00853bed9d0bbda467566106a7798ee56dab4f0a59d9d0dce",
+        length: 177_534,
+        url: "https://static.oomol.com/release/apps/open-flow/command/open-flow-0.1.0-beta.54-82fd62a57bc475b00853bed9d0bbda467566106a7798ee56dab4f0a59d9d0dce.tar.gz",
     },
     bunVersion: "1.4.2",
     format: "open-flow-command-release",
-    openFlowVersion: "0.1.0-beta.48",
+    openFlowVersion: "0.1.0-beta.54",
     version: 1,
 } as const satisfies OpenFlowCommandRelease;

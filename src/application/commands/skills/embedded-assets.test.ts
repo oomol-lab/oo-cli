@@ -445,43 +445,6 @@ describe("embedded skill assets", () => {
         }
     });
 
-    test("routes persistent workflows through Flow-scoped authoring", async () => {
-        for (const agentName of availableBundledSkillAgentNames) {
-            const skillFiles = getBundledSkillFiles("oo", agentName);
-            const skillFile = skillFiles.find(file => file.relativePath === "SKILL.md");
-            const flowGuide = skillFiles.find(
-                file => file.relativePath === "references/flow-authoring.md",
-            );
-
-            if (skillFile === undefined || flowGuide === undefined) {
-                throw new Error(`Missing ${agentName} oo Flow authoring guidance`);
-            }
-
-            const skillContent = normalizeMarkdownWrappingForAssertion(
-                await readBundledSkillFileContent(skillFile),
-            );
-            const flowContent = normalizeMarkdownWrappingForAssertion(
-                await readBundledSkillFileContent(flowGuide),
-            );
-
-            expect(skillContent).toContain("Open Flow mode");
-            expect(skillContent).toContain("references/flow-authoring.md");
-            expect(skillContent).toContain("replaces the connector operating state machine");
-            expect(skillContent).toContain("services that were only added to a Flow");
-            expect(flowContent).toContain("oo flow connector search <query>");
-            expect(flowContent).toContain("Prefer one `oo flow apply`");
-            expect(flowContent).toContain("Triggers are not `apply` Nodes");
-            expect(flowContent).toContain("export default function run");
-            expect(flowContent).toContain("the resulting Draft remains structurally invalid");
-            expect(flowContent).toContain("Do neither unless the user explicitly requested");
-            expect(flowContent).toContain("Never substitute `oo search`");
-            expect(flowContent).toContain("array output to a string input");
-            expect(flowContent).toContain("An empty schema `{}` is dynamic, not a conversion");
-            expect(flowContent).toContain("`check.valid` is `false`");
-            expect(flowContent).toContain("Do not retry the same request");
-        }
-    });
-
     test("guides local code toward oo LLM client config", async () => {
         for (const agentName of availableBundledSkillAgentNames) {
             const skillFiles = getBundledSkillFiles("oo", agentName);

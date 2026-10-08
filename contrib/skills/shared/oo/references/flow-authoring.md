@@ -1,8 +1,8 @@
 # Open Flow authoring
 
-Use this mode for persistent Cloud workflows. Use `--json` for every command
-whose output feeds another step. Put `oo` global options such as `--lang` and
-`--debug` before `flow`.
+Use this mode for persistent workflows in the selected Hosted or self-hosted
+deployment. Use `--json` for every command whose output feeds another step.
+Put `oo` global options such as `--lang` and `--debug` before `flow`.
 
 ## Contents
 
@@ -10,7 +10,7 @@ whose output feeds another step. Put `oo` global options such as `--lang` and
 - [Resolve and retain context](#resolve-and-retain-context)
 - [Discover contracts and readiness](#discover-contracts-and-readiness)
 - [Create an atomic graph](#create-an-atomic-graph)
-- [Port compatibility](#port-compatibility)
+- [Execution and input mappings](#execution-and-input-mappings)
 - [Triggers](#triggers)
 - [Verify, run, and publish](#verify-run-and-publish)
 - [Opening Workbench](#opening-workbench)
@@ -20,256 +20,270 @@ whose output feeds another step. Put `oo` global options such as `--lang` and
 
 Before issuing commands, decide where the user's request ends:
 
-- **Draft**: create or edit the Flow, then inspect or check it.
+- **Draft**: create or edit the Flow, then check it.
 - **Run**: complete the Draft path, then execute the Draft and read its result.
 - **Publish**: prove semantic and runtime readiness, then update Live.
 - **Open**: resolve a fresh Workbench URL and hand it to the requested browser.
 
-`oo flow run` can execute external side effects. `oo flow publish` changes Live
-state and can enable automatic Trigger execution. Do neither unless the user
-explicitly requested that boundary. Do not publish merely to test a Flow.
+`oo flow run` can execute external side effects. Publishing changes Live;
+enabling a published Flow allows automatic Trigger execution. Perform these
+actions only when the user requested the corresponding boundary.
 
 ## Resolve and retain context
 
-Resolve the Project context once. Run `oo flow project current --json` when no
-Project is already known; if it identifies the intended Project, omit
-`--project` from subsequent commands. Every command also accepts an exact ID or
-name through `--project` for a temporary override. Because separate CLI
-invocations are stateless beyond the saved context, keep passing that override
-when it differs from current. Use `oo flow project list --json` only when there
-is no saved context or a name is ambiguous. Use `oo flow project use` only when
-the user wants to change the saved default.
+Use a known Flow ID or unambiguous exact name directly with `inspect`, `show`,
+or the requested mutation. Use `oo flow list --json` only when the target is
+unknown or ambiguous; follow `nextCursor` only while resolving that target.
+For a requested new Flow, call `oo flow create <name> --json` directly. When a
+specific Team is required, obtain its ID from `oo flow connector teams --json`
+and use `create --team <team-id>`.
 
-The command examples below assume the intended current Project. Append
-`--project <project-id>` only when temporarily overriding it.
+Retain the Flow ID, current Draft Revision ID, observed Live Publication ID,
+selected contracts and Connections, and identities returned by mutations.
+Use `--flow <flow-id>` on Connector discovery commands to fix that Flow's Team
+scope. Keep the user's chosen deployment and account throughout the work.
 
-Likewise, use a known Flow ID or exact name directly with `inspect`, `show`, or
-the requested mutation. Use `oo flow list --json` only when the target is
-unknown or ambiguous. If the user explicitly asked to create a Flow, call
-`oo flow create <name> --json` directly and handle `flow.conflict` instead of
-listing first.
-
-Retain a compact fact set for the current turn:
-
-- Project ID, Flow ID, and latest Revision ID.
-- Selected Connector service/action, input/output handles, and default or
-  explicit Connection.
-- Selected Trigger key/provider, config fields, and Connection.
-- Node, CodeModule, Task, Trigger, and request-local reference identities
-  returned by mutations.
-
-Update the retained Revision from each successful mutation response. Do not
-repeat list, search, show, or inspect commands while those facts remain current.
-Use `oo flow inspect <flow> --summary --json` for broad
-structure, conflicts, or multi-Node edits. Use the narrower `node show`, `code
-show`, `trigger list`, or Connector/Trigger discovery command for an isolated
-fact; use full `inspect` only when Task, CodeModule source, or complete Trigger
-details are needed.
+`oo flow inspect <flow> --json` returns a compact Draft graph, input mappings,
+port handles, module identities, and Live summary. Use `--full` only when
+schemas, Code source, or complete Revision content are needed. Inspection does
+not perform a Revision check. Use narrower `node show`, `code show`, or
+`trigger list` commands for an isolated fact. Retain `draft.revisionId` from
+inspection and update it from each accepted mutation; avoid repeated reads
+while those facts remain current.
 
 ## Discover contracts and readiness
 
 Discover Connector Nodes with
-`oo flow connector search <query> --json`, then inspect
+`oo flow connector search "<query>" --flow <flow-id> --json`, then inspect
 the selected action with
-`oo flow connector show <action> --json`. Never
-substitute `oo search`, `oo connector schema`, or `oo connector run`. Search
-returns ranked matches, not an exhaustive catalog or connection status. If a
-known action is missing, retry once with a provider-qualified, action-shaped
-query, then use
-`oo flow connector list --json` only if its existence
-remains uncertain.
+`oo flow connector show <action> --flow <flow-id> --json`.
+Search returns ranked matches, not an exhaustive catalog or proof of
+authorization. Retry one provider-qualified query for a missing action; use
+`oo flow connector providers --flow <flow-id> --json` only when the provider's
+availability remains uncertain. Keep discovery and execution in `oo flow`.
 
-Do not invent action IDs, Trigger keys, connection IDs, input/output handles,
-or config fields. Take them from Flow-scoped search/show output. Keep action
-discovery separate from authorization readiness:
+Take action IDs, Trigger keys, Connection IDs, input/output handles, and config
+fields from command output. Distinguish:
 
-- **Draft-ready** means the Connector action contract is known. A Connector
-  Node may be saved without `connectionId`, but the resulting Draft remains
-  structurally invalid until a Connection identity is selected. Validation is
-  deterministic: it requires that identity but does not inspect credentials or
-  current provider state.
-- **Runtime-ready** means every Connector and provider Trigger used by the
-  target Flow has an active Connection. This is required before Run or Publish.
+- **Draft-ready**: the action contract is known. Connector Nodes may be saved
+  without a Connection; report missing configuration separately from the check.
+- **Runtime-ready**: authenticated actions and provider Triggers have active
+  Connections and the required permissions before Run or Publish. An action
+  marked `authenticated: false` does not require an account.
 
-An omitted Connector connection or `connection: "default"` selects the active
-default when one exists; otherwise apply can return a Connector identity with
-no `connectionId`. If `connector show` has no `defaultConnection` and the edit
-would use the default, call `oo flow connector connections <service> --json`
-before applying so the missing selection is known in advance. At the Draft
-boundary, save an unconfigured Connector only when doing so still fulfills the
-requested edit, then report that the Draft is invalid until it is configured.
-Before Run or Publish, verify a service with
-`oo flow connector connections <service> --json` when
-the selected identity has no Connection or readiness is otherwise uncertain.
-Require an explicit empty/inactive result or an authorization error before
-reporting an auth blocker; a catalog miss alone is never one. Provider Triggers
-cannot be created without an active Connection.
+For a Draft Run, readiness applies to the selected Trigger's reachable nodes
+and dependencies. Unrelated branches may still have diagnostics in the full
+check. Publish and Live Run require the complete Flow to be valid and ready.
 
-`--set field=value` values are JSON. Use `field=@file` for a JSON file or
-`field=-` for stdin; use `--set @file` or `--set -` to merge an object.
+An omitted Connector connection or `connection: "default"` chooses an active
+default, or the sole active Connection when no default exists. If selection is
+uncertain, use
+`oo flow connector connections <service> --flow <flow-id> --json`.
+At the Draft boundary, save an unconfigured Connector only when that fulfills
+the requested edit, then report its missing Connection. Provider Triggers
+require an active Connection at creation.
+
+Preserve explicit inactive, expired, or permission-denied diagnostics and the
+returned re-authorization guidance. An active account alone does not prove
+action or Trigger permission, and a catalog miss alone is not an auth blocker.
+Code Connector access has its own permission contract: inspect
+`oo flow connector code-access <flow> --json` and
+`oo flow connector candidates <flow> <provider> --json` only when the intended
+Code needs it. A Connector Task's Connection does not grant Code access.
+
+For `--set`, use the port's schema to supply the value. `field=@file` reads
+JSON, `field=-` reads stdin, and `--set @file` or `--set -` merges an object.
+Use `--unset <field>` to remove a supported literal or config value.
 
 ## Create an atomic graph
 
-Build the smallest complete Draft mutation. Prefer one `oo flow apply` for a
-new multi-Node graph or for a Trigger and its first Edge. Use individual Node,
-Code, Connector, Trigger, and Edge commands for isolated edits.
+Prefer one `oo flow apply` for a complete graph or a coordinated edit. Discover
+the current request shape locally before constructing it:
 
-`oo flow apply <flow> --file <path|-> [--expected-revision <revision>] --json`
-accepts a version-1 one-shot request:
-
-```json
-{
-  "version": 1,
-  "triggers": {
-    "incoming": {
-      "kind": "provider",
-      "key": "<discovered-trigger-key>",
-      "connection": "default",
-      "config": {}
-    }
-  },
-  "nodes": {
-    "transform": {
-      "kind": "code",
-      "name": "Transform",
-      "code": "@transform.js"
-    },
-    "destination": {
-      "kind": "connector",
-      "action": "<discovered-action-id>",
-      "connection": "default",
-      "inputs": {}
-    }
-  },
-  "edges": [
-    { "source": "incoming", "output": "payload", "target": "transform", "input": "value" },
-    { "source": "transform", "output": "result", "target": "destination", "input": "text" }
-  ]
-}
+```bash
+oo flow schema apply --json
+oo flow schema examples --json
+oo flow schema example.poll-notification --json
 ```
 
-Trigger kinds are `webhook`, `cron`, and `provider`. Provider Triggers use a
-discovered `key` plus optional `connection`, `config`, `every`, `cron`, and
-`timezone`. Cron Triggers use `every` or `cron` plus optional `timezone`.
+Read only the example needed for the intended node family. Examples cover Code,
+Connector, LLM, AI Decision, OpenAPI, Condition, Wait, Approval, and Trigger
+creation; replace sample actions, Connections, models, port definitions, and
+values with proven ones.
+Use `oo flow schema <operation-kind> --json` for a particular edit.
 
-References inside the request are local labels, not persistent IDs. `apply`
-creates the Nodes, Tasks, CodeModules, bindings, Triggers, and Edges with one
-Draft CAS. It checks the accepted Revision but does not run or publish it. The
-request is not a Project export or a persistent local source. If the request
-itself comes from stdin, Code source in the same request cannot also use `-`;
-use `@file` or inline code instead.
+For AI Decision, read `schema example.decision` and configure its `target` and
+named questions. Each question's output is a complete answer object; read its
+schema before using it in a predicate or downstream input.
 
-Use `--expected-revision` when the edit was prepared from an earlier read. For
-one isolated change, use `oo flow connector add/set`, `oo flow node
-add/set/remove`, `oo flow code edit/set`, `oo flow trigger add/set/remove`, or
-`oo flow connect/disconnect` instead of wrapping it in a batch request.
+For a user-requested API operation backed by an OpenAPI document, read
+`schema example.openapi`. Fix the actual document, operation, server URL,
+inputs, and auth bindings. Its outputs are `body`, `statusCode`, and `headers`.
+Credentials must use supported Variable or upstream-output bindings, not
+literal values. This contract supports JSON operations; binary/streaming
+responses, OAuth login, redirects, and automatic retries are unsupported.
+Do not use it to bypass a missing Connector or Trigger authorization.
 
-## Port compatibility
+The canonical request is `{"version": 1, "operations": [...]}`. Operations are
+ordered, use explicit Node/Task/Module IDs, and can create resources, connect
+execution Edges, and set input mappings in one Draft transaction. Include the
+observed `before` value for an existing field; omit it only when that field was
+absent. A request is a one-shot edit, not a persistent local Flow definition.
 
-Before creating each Edge, compare the exact source output and target input
-from `connector show`, `trigger show`, or full `inspect`. A concrete output
-schema must satisfy the input schema and nullability. Never connect known
-incompatible types such as an array output to a string input, even if an older
-Draft check accepts the Edge.
-
-An empty schema `{}` is dynamic, not a conversion. Use a dynamic Code Node
-between typed ports only when its implementation returns a value accepted by
-the destination. For example, convert a message array to text explicitly:
-
-```js
-export default function run(input) {
-  return { result: input.value.map((item) => item.subject).join("\n") };
-}
+```bash
+oo flow apply <flow> --file <path|-> \
+  --expected-revision <revision-id> --idempotency-key <edit-key> --json
 ```
 
-Connect the source to the Code Node's `value` input and its `result` output to
-the destination. If the required conversion cannot be expressed with a proven
-Code Node contract, stop instead of direct-connecting the ports or claiming the
-Flow is valid.
+Choose one edit key before submission and retain the exact file contents,
+arguments, and base Revision for recovery. An explicit idempotency key requires
+`--expected-revision` for Draft mutations. Use a new key for a different edit.
+
+The convenience request with `nodes`, `triggers`, and `edges` is still accepted
+for simple creation. Its Edges contain `source`, `target`, and optional
+`sourceHandle` for an execution branch. Connector `inputs` are literal values;
+Code `inputs` and `outputs` declare port definitions. Use canonical operations
+when source input mappings or fully configured built-in nodes are required.
+Code source in the convenience request may be inline JavaScript or `@file`;
+if the request comes from stdin, its Code cannot also use stdin.
+
+For isolated edits, use `connector add/set`, `node add/set/input/remove`,
+`code edit/set`, `trigger add/set/remove`, or `connect/disconnect` with the
+observed Revision and a retained edit key. Deletions require `--yes`.
+
+## Execution and input mappings
+
+An execution Edge determines which node runs next. An input mapping determines
+where a node reads data. Configure both when a downstream node consumes an
+upstream result:
+
+```bash
+oo flow connect <flow> <source> <target-node> [branch] \
+  --expected-revision <revision-id> --idempotency-key <edge-key> --json
+oo flow node input <flow> <target-node> <input> <source> <output> \
+  --expected-revision <new-revision-id> --idempotency-key <input-key> --json
+```
+
+These are separate writes. For an atomic change, combine `graph.edge.connect`
+and `graph.node.input.set` in one apply request, using the schema-reported
+`kind: "sources"` mapping and its explicit source Node ID and output handle.
+
+Compare source output and destination input schemas and nullability before
+setting a mapping. Use `connector show`, `node show`, or `inspect --full` for
+those definitions. A dynamic schema `{}` does not convert values. For an array
+to string conversion, use Code that explicitly returns the required string,
+declare its ports, and map that output into the destination input.
+
+Condition Edges use the selected case's output handle or `otherwise` as their
+branch. They route execution; the target's data still needs its own input
+mapping. Ensure side-effect nodes are reachable only through the intended
+branch. Use the current schema/example for the Condition predicates.
 
 ## Triggers
 
-Triggers are not `apply` Nodes; `apply` gives them request-local references only
-so their creation and first Edge can share the same Draft transaction.
-Discover provider Triggers with
-`oo flow trigger search <query> --json` and inspect the
-exact key with
-`oo flow trigger show <key> --json`. Prefer `apply` when
-creating a Trigger and its first `payload` Edge so both changes use one Draft
-CAS.
+Discover provider Triggers with `oo flow trigger search "<query>" --json` and
+inspect the exact key with `oo flow trigger show <key> --json`. Use its actual
+config and output handles; webhook, cron, poll, and integration Triggers have
+different output contracts.
 
-For an isolated Trigger edit, use
-`oo flow trigger add <flow> <webhook|cron|trigger-key> --json` plus only
-discovered `--connection`, `--set`, `--every`, or `--cron`
-values. `trigger add` and a later `flow connect` are separate writes. If the
-connection fails, the Trigger remains in the Draft: inspect or run
-`oo flow trigger list <flow> --json`, retain the returned
-`triggerId`, and retry only the missing `oo flow connect` command. Never rerun
-`trigger add` blindly. Use `oo flow trigger set` for later changes.
+For simple creation, use
+`oo flow trigger add <flow> <manual|webhook|cron|trigger-key> --json` with the
+observed Revision, an edit key, and only applicable `--connection`, `--set`,
+`--every`, `--cron`, or `--timezone` options. Provider definitions resolve into
+poll or integration nodes. Prefer atomic apply for creation, execution Edges,
+and input mappings together. Configure complex Webhook behavior from its
+schema or in Workbench.
 
-Configure complex Webhook request and response behavior in Workbench when the
-CLI reports that boundary.
+An Error Trigger is created through `schema example.error` and canonical apply.
+Select already-published upstream Flows and set their IDs through
+`graph.trigger.sources.set`, using the operation schema and observed prior
+value. It listens for failures of those Flows' automatic runs after its own
+Flow is published and enabled. Its outputs
+are `workflow`, `execution`, and `error`; it does not catch an individual node's
+failure and resume that same execution. Keep creation at the Draft boundary
+unless automatic error handling was explicitly requested.
+
+When a Trigger was created but a later Edge or mapping failed, retain its
+returned ID and retry only the missing change. Inspect before creating a second
+Trigger. Use `trigger set` for supported later changes.
 
 ## Verify, run, and publish
 
-Perform one authoritative verification after the final mutation:
+A successful apply returns an authoritative check of the accepted Revision.
+Use that result when available. If the final mutation has no check, run
+`oo flow check <flow> --revision <revision-id> --json` once. Inspection provides
+structure and source context when needed; it does not replace this check.
+At the Draft boundary, report the latest Revision, validity, and missing
+Connections or other diagnostics.
 
-- Use `oo flow inspect <flow> --summary --json` when the
-  result must include structure and the latest Revision.
-- Use `oo flow check <flow> --json` when only semantic
-  validity is needed.
-
-At the Draft boundary, report the latest Revision, check validity, and any
-Connector Nodes that still lack `connectionId`. Do not call both inspect and
-check unless the first result lacks a fact required by the request.
-
-For an explicitly requested execution, prove runtime readiness, then run:
+For explicitly requested execution, prove runtime readiness, select the
+Trigger, and submit one repeatable Run:
 
 ```bash
-oo flow run <flow> --source draft --wait --json
-oo flow runs result <run-id> --json
+oo flow run <flow> --source draft --trigger <trigger-id> \
+  --expected-revision <revision-id> --idempotency-key <run-key> --wait --json
 ```
 
-Read `runs result` after terminal success. On failure or `indeterminate`, read
-`oo flow runs events <run-id> --json` for diagnostics;
-do not fetch the full event stream after every successful Run.
+A sole Manual Trigger is selected automatically. For other Triggers, provide
+`--outputs <json|@file|->` matching their named output contract. `--input`
+provides per-Node input overrides keyed by Node ID then input handle.
+For a Live Run, use the observed `--expected-publication` instead of
+`--expected-revision`.
 
-Publish only after the latest Revision is valid and runtime-ready:
+Interpret the response as well as its exit code:
+
+- `0`: successful command or accepted asynchronous operation. Read
+  `runs result <run-id> --json` after the Run is `completed`.
+- `1`: error, failed/canceled Run, or `indeterminate`. Read
+  `runs events <run-id> --json` for diagnostics; do not blindly repeat effects.
+- `2`: an unresolved Wait or Approval. Inspect `run.waits`; use
+  `runs resolve <run-id> <wait-id> <continue|approve|reject> --json` only for the
+  user's requested decision, then wait again.
+- `3`: the wait budget expired or publication is pending. The operation
+  continues. Use `runs wait <run-id> --json` or
+  `publications wait <flow> <operation-id> --json` instead of resubmitting.
+
+For Run/publication waiting, `--timeout` is a budget in milliseconds, defaulting
+to 60000. On `node set`, it changes the node's execution timeout. Follow Run
+events only when needed with `runs events <run-id> --after <sequence> --follow
+--json`; it emits NDJSON pages. Retain `nextAfter` to resume. For large results,
+use `runs results`, `runs read-result`, and `runs download-result` as needed.
+
+Publish a valid, runtime-ready Revision with a retained publication key:
 
 ```bash
-oo flow publish <flow> --json
+oo flow publish <flow> --expected-revision <revision-id> \
+  --expected-publication <publication-id|none> \
+  --idempotency-key <publish-key> --json
 ```
+
+`none` means no Live Publication was observed. Use
+`oo flow enable <flow> --expected-publication <publication-id> --json` only
+when the user also requested automatic execution.
 
 ## Opening Workbench
 
-Use `oo flow open [flow]` when the user wants the Workbench opened in their
-system browser.
+Use `oo flow open [flow]` for the user's system browser. For an agent-hosted
+in-app browser, run `oo flow workbench [flow] --json`, read its top-level `url`,
+and navigate immediately. Hosted URLs contain a short-lived, one-time sign-in
+code. Never log, persist, share, or reuse it; obtain a fresh URL if navigation
+fails or the URL was consumed. If no in-app Browser capability is available,
+return the fresh URL and explain its lifetime.
 
-When the user explicitly asks for an agent-hosted in-app browser, run
-`oo flow workbench [flow] --json`, read its top-level
-`url`, and navigate immediately. The URL contains a short-lived, one-time
-browser sign-in code. Never log, cache, persist, share, or attempt to reuse it;
-if navigation fails or the URL was consumed, run the command again for a fresh
-URL. If the host has no in-app Browser capability, return the fresh URL and
-state that it is short-lived instead of claiming the preview was opened.
-
-An already-open Workbench subscribes to Project revision notifications and
-updates its Draft after successful `oo flow` mutations. Do not reload, reopen,
-or navigate it merely to display a CLI change. Verify writes with CLI output.
-Interact with the browser after a write only when the user explicitly requests
-it or when diagnosing an observed stale view.
+An already-open Workbench receives revision notifications after mutations.
+Verify writes from CLI output; do not reload or reopen it merely to display a
+change. Use browser interaction when requested or when diagnosing a stale view.
 
 ## Failure handling
 
-- On `project.revision-conflict`, inspect the new Draft and recompute the edit.
-  Do not drop the expected Revision and overwrite concurrent work.
-- On `flow.mutation-outcome-unknown`, inspect before retrying because the write
-  may already have been accepted.
-- A successful `flow apply --json` response is authoritative even when
-  `check.valid` is `false` or `check.status` is `unavailable`: the mutation was
-  accepted and the response identifies the new Revision. Do not retry the same
-  request. Repair reported diagnostics, or inspect the current Revision when
-  the check was unavailable.
-- Stop on missing Connector or Trigger authorization at the requested Run or
-  Publish boundary and report the direct connection or re-authorization
-  action. Do not replace a Flow Node with a direct third-party API call.
+- On `flow.revision-conflict`, inspect the latest Draft and recompute the edit
+  with a new key. Preserve concurrent changes.
+- On `flow.mutation-outcome-unknown`, retain the returned key and base Revision.
+  Retry only with that same key, fixed Revision, identical arguments, and
+  identical file contents. Inspect afterward if confirmation remains missing.
+- A successful apply is accepted even when its check is invalid or unavailable.
+  Retain its Revision; repair diagnostics or check that Revision later instead
+  of resubmitting the accepted mutation.
+- On missing Connector or Trigger authorization, report the specific returned
+  connection, permission, or re-authorization action. Do not replace a Flow
+  operation with a direct third-party call.
