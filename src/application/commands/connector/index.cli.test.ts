@@ -36,6 +36,33 @@ import {
 } from "./search-provider.ts";
 
 describe("connectorCommand CLI", () => {
+    test.each([
+        { argv: ["--team", "acme", "connector", "search", "send mail"], team: "acme" },
+        { argv: ["--team", "acme", "connector", "search", "send mail", "--team", "other-team"], team: "other-team" },
+    ])("uses the invocation-wide team selector for Connector requests: $argv", async ({ argv, team }) => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFileWithDefaultTeam(sandbox, "saved-team", { teamId: "saved-id" });
+            sandbox.env.OO_TEAM_ID = "env-id";
+            const requests: Request[] = [];
+            const result = await sandbox.run(argv, {
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+                    return createConnectorSearchResponse([]);
+                },
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBe(team);
+            expect(requests[0]?.headers.get("x-oo-team-id")).toBeNull();
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("connector search forwards the session's team identity headers", async () => {
         const sandbox = await createCliSandbox();
 

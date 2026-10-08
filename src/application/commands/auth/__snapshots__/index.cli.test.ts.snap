@@ -49,6 +49,7 @@ Options:
 
 Global Options:
   -V, --version                    Show the current version
+  --team <team>                    Use this team name for the current invocation
   --debug                          Print the current log file path when the CLI
                                    exits
   --lang <lang>                    Specify the display language
@@ -66,6 +67,7 @@ Options:
 
 Global Options:
   -V, --version  Show the current version
+  --team <team>  Use this team name for the current invocation
   --debug        Print the current log file path when the CLI exits
   --lang <lang>  Specify the display language
 "

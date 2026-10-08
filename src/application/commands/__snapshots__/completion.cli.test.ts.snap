@@ -15,6 +15,7 @@ Options:
 
 Global Options:
   -V, --version  Show the current version
+  --team <team>  Use this team name for the current invocation
   --debug        Print the current log file path when the CLI exits
   --lang <lang>  Specify the display language
 "
@@ -37,6 +38,7 @@ exports[`completionCommand CLI renders localized choices metadata in Chinese com
 
 全局选项：
   -V, --version  显示当前版本
+  --team <team>  本次调用使用指定名称的团队
   --debug        在 CLI 退出时打印当前日志文件路径
   --lang <lang>  指定显示语言
 "

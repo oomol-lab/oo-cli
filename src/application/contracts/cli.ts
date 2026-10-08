@@ -169,6 +169,7 @@ export interface CliExecutionContext {
     fetcher: Fetcher;
     cwd: string;
     env: Record<string, string | undefined>;
+    teamFlag?: string;
     stdin: InteractiveInput;
     logger: Logger;
     packageName: string;

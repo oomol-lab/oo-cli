@@ -250,8 +250,9 @@ const commandTelemetryDecisions = {
         reason: "Records upload size bucket, rejection state, and the identity source (none/flag/env_id/env_name/account) without path, filename, or team name/id.",
     },
     "flow": {
-        kind: "generic",
-        reason: "Generic command telemetry records only the delegated flow command and its exit code; Open Flow arguments, flags, paths, project, deployment origin, account and team identities, and hosted or Server tokens are not inspected.",
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the Hosted team selection source enum. Delegated Flow arguments, paths, deployment origins, account and team identities, and tokens are not recorded.",
     },
     "info": {
         kind: "generic",

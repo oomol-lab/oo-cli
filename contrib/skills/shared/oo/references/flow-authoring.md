@@ -3,6 +3,9 @@
 Use this mode for persistent workflows in the selected Hosted or self-hosted
 deployment. Use `--json` for every command whose output feeds another step.
 Put `oo` global options such as `--lang` and `--debug` before `flow`.
+Use `--team <name>` to select the Hosted team for the whole invocation; it can
+appear before `flow` or after a subcommand and overrides environment and saved
+team selections.
 
 ## Contents
 
@@ -35,8 +38,9 @@ Use a known Flow ID or unambiguous exact name directly with `inspect`, `show`,
 or the requested mutation. Use `oo flow list --json` only when the target is
 unknown or ambiguous; follow `nextCursor` only while resolving that target.
 For a requested new Flow, call `oo flow create <name> --json` directly. When a
-specific Team is required, obtain its ID from `oo flow connector teams --json`
-and use `create --team <team-id>`.
+specific Hosted team is required, use
+`oo --team <team-name> flow create <name> --json`. Use the same team selector
+for later discovery, editing, checking, running, and opening the Flow.
 
 Retain the Flow ID, current Draft Revision ID, observed Live Publication ID,
 selected contracts and Connections, and identities returned by mutations.

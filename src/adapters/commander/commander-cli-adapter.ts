@@ -21,6 +21,7 @@ import {
     outputFormatOptions,
     resolveOutputFormat,
 } from "../../application/commands/command-output.ts";
+import { readTeamFlag } from "../../application/commands/team/identity.ts";
 import {
     CliUserError,
 } from "../../application/contracts/cli.ts";
@@ -273,6 +274,7 @@ function bindCommandHandler<TInput>(
     command.action(async (...actionArguments) => {
         const commandInstance = actionArguments.at(-1) as Command;
         const optionValues = commandInstance.optsWithGlobals<OptionValues>();
+        const teamFlag = readTeamFlag({ team: optionValues.team });
         const rawInput = collectRawInput(
             definition,
             actionArguments,
@@ -301,7 +303,7 @@ function bindCommandHandler<TInput>(
             rawInput,
         );
 
-        await handler(parsedInput, { ...request.context, output });
+        await handler(parsedInput, { ...request.context, teamFlag, output });
         request.observer?.onCommandCompleted?.({ exitCode: 0 });
     });
 }

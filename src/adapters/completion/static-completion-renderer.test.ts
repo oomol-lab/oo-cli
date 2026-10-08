@@ -20,6 +20,7 @@ describe("StaticCompletionRenderer", () => {
         expect(output).toContain("search");
         expect(output).toContain(`"|update")`);
         expect(output).toContain("--lang");
+        expect(output).toContain("--team");
         expect(output).toContain("en zh");
     });
 

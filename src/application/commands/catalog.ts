@@ -17,6 +17,7 @@ import { loginCommand } from "./login.ts";
 import { logoutCommand } from "./logout.ts";
 import { searchCommand } from "./search.ts";
 import { skillsCommand } from "./skills/index.ts";
+import { teamOption } from "./team/identity.ts";
 import { teamCommand } from "./team/index.ts";
 import { telemetryCommand } from "./telemetry/index.ts";
 import { uninstallCommand } from "./uninstall.ts";
@@ -26,6 +27,7 @@ import { versionCommand } from "./version.ts";
 import { websiteCommand } from "./website/index.ts";
 
 const globalOptions = [
+    { ...teamOption("options.team"), global: true },
     {
         name: "debug",
         longFlag: "--debug",

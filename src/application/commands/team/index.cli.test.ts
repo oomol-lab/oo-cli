@@ -39,6 +39,28 @@ const teamsResponse = {
 };
 
 describe("teamCommand CLI", () => {
+    test("reports the invocation-wide team selector without changing the saved default", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const authPath = await writeAuthFileWithDefaultTeam(sandbox, "acme", { teamId: "team-1" });
+            const saved = await Bun.file(authPath).text();
+            sandbox.env.OO_TEAM_ID = "env-team-id";
+            const result = await sandbox.run(["--team", "beta", "team", "current", "--json"]);
+
+            expect(result.exitCode).toBe(0);
+            expect(JSON.parse(result.stdout)).toMatchObject({ team: "beta", teamId: null, source: "flag", status: null });
+            const current = await sandbox.run(["team", "current", "--json"], {
+                fetcher: async () => Response.json({ id: "env-team-id", name: "env-team", role: "member", system_created: false }),
+            });
+            expect(JSON.parse(current.stdout)).toMatchObject({ team: "env-team", teamId: "env-team-id", source: "env_id" });
+            expect(await Bun.file(authPath).text()).toBe(saved);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("lists accessible teams as JSON and marks the configured default", async () => {
         const sandbox = await createCliSandbox();
 

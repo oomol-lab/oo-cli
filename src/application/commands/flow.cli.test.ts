@@ -10,6 +10,8 @@ import {
     toRequest,
     writeAuthFile,
 } from "../../../__tests__/helpers.ts";
+import { APP_NAME } from "../config/app-config.ts";
+import { parseTelemetryRowPayload, readTelemetryRowsForTest } from "../telemetry/outbox.ts";
 import { openFlowCommandRelease } from "./flow-release.ts";
 import { resolveOpenFlowInvocation } from "./flow.ts";
 import { formatByteCount } from "./shared/download-progress.ts";
@@ -135,6 +137,130 @@ describe("flow CLI", () => {
                 sandbox.cleanup(),
                 rm(commandDirectory, { force: true, recursive: true }),
             ]);
+        }
+    });
+
+    test.each([
+        { argv: ["--team", "selected-team", "flow", "create", "Main", "--json"], team: "selected-team" },
+        { argv: ["--team=selected-team", "flow", "create", "Main", "--json"], team: "selected-team" },
+        { argv: ["flow", "--team", "selected-team", "create", "Main", "--json"], team: "selected-team" },
+        { argv: ["flow", "create", "Main", "--team", "selected-team", "--json"], team: "selected-team" },
+        { argv: ["flow", "create", "Main", "--team=selected-team", "--json"], team: "selected-team" },
+        { argv: ["--team", "selected-team", "flow", "create", "Main", "--team", "other-team", "--json"], team: "other-team" },
+    ])("uses the selected team for creation and the Workbench link: $argv", async ({ argv, team }) => {
+        const sandbox = await createCliSandbox();
+        const commandDirectory = await createTemporaryDirectory("oo-open-flow-command");
+        const captureKey = `open-flow-selected-team-${Bun.randomUUIDv7()}`;
+
+        try {
+            await writeAuthFile(sandbox, {
+                accounts: [{
+                    id: "user-1",
+                    name: "Alice",
+                    apiKey: "test-secret",
+                    endpoint: "oomol.com",
+                    team: "saved-team",
+                    teamId: "saved-id",
+                }],
+            });
+            await writeCommandEntry(commandDirectory, [
+                "const response = await host.cloudRequest('/v1/flows', { method: 'POST', body: JSON.stringify({ name: args[1], version: 1 }) });",
+                "const url = await host.getWorkbenchUrl('flow-1');",
+                `Reflect.set(globalThis, ${JSON.stringify(captureKey)}, { args: [...args], url });`,
+                "return response.status === 201 ? 0 : 9;",
+            ]);
+            sandbox.env.OO_OPEN_FLOW_COMMAND_DIR = commandDirectory;
+            sandbox.env.OO_TEAM_ID = "env-id";
+            sandbox.env.OO_TEAM_NAME = "env-team";
+            const requests: Request[] = [];
+            const result = await sandbox.run(argv, {
+                fetcher: async (input, init) => {
+                    const request = toRequest(input, init);
+                    requests.push(request);
+                    return new URL(request.url).pathname === "/v1/auth/session_code"
+                        ? Response.json({ session_code: "test-code", expires_in: 600 })
+                        : new Response(null, { status: 201 });
+                },
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            const captured = Reflect.get(globalThis, captureKey) as { args: string[]; url: string };
+            expect(captured.args).toEqual(["create", "Main", "--json"]);
+            expect(requests.map(request => new URL(request.url).pathname)).toEqual(["/v1/flows", "/v1/auth/session_code"]);
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBe(team);
+            expect(requests[0]?.headers.get("x-oo-team-id")).toBeNull();
+            expect(await requests[0]?.json()).toEqual({ name: "Main", version: 1 });
+            expect(new URL(captured.url).searchParams.get("redirect")).toBe(
+                `https://console.oomol.com/team/${team}/flows/flow-1/design`,
+            );
+            const telemetry = readTelemetryRowsForTest(join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"))
+                .map(row => parseTelemetryRowPayload(row))
+                .find(payload => payload?.properties?.command_full === "flow");
+            expect(telemetry?.properties).toMatchObject({ identity_source: "flag" });
+            const properties = JSON.stringify(telemetry?.properties);
+            expect(properties).not.toContain("selected-team");
+            expect(properties).not.toContain("other-team");
+            expect(properties).not.toContain("saved-team");
+            expect(properties).not.toContain("env-id");
+        }
+        finally {
+            Reflect.deleteProperty(globalThis, captureKey);
+            await Promise.all([sandbox.cleanup(), rm(commandDirectory, { force: true, recursive: true })]);
+        }
+    });
+
+    test("uses the selected team for Flow reads without forwarding the selector", async () => {
+        const sandbox = await createCliSandbox();
+        const commandDirectory = await createTemporaryDirectory("oo-open-flow-command");
+
+        try {
+            await writeAuthFile(sandbox);
+            await writeCommandEntry(commandDirectory, [
+                "if (args.join(' ') !== 'list --json') return 9;",
+                "const response = await host.cloudRequest('/v1/flows?limit=100');",
+                "return response.status === 200 ? 0 : 9;",
+            ]);
+            sandbox.env.OO_OPEN_FLOW_COMMAND_DIR = commandDirectory;
+            const requests: Request[] = [];
+            const result = await sandbox.run(["flow", "list", "--team", "selected-team", "--json"], {
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+                    return Response.json({ version: 1, flows: [] });
+                },
+            });
+
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(1);
+            expect(requests[0]?.headers.get("x-oo-team-name")).toBe("selected-team");
+        }
+        finally {
+            await Promise.all([sandbox.cleanup(), rm(commandDirectory, { force: true, recursive: true })]);
+        }
+    });
+
+    test.each([
+        ["flow", "create", "Main", "--team"],
+        ["flow", "create", "Main", "--team", "--json"],
+        ["flow", "create", "Main", "--team", "   "],
+        ["flow", "create", "Main", "--team="],
+    ].map(argv => ({ argv })))("rejects an invalid team selector before loading the command or sending requests: $argv", async ({ argv }) => {
+        const sandbox = await createCliSandbox();
+        let requested = false;
+
+        try {
+            const result = await sandbox.run(argv, {
+                fetcher: async () => {
+                    requested = true;
+                    return new Response(null, { status: 500 });
+                },
+            });
+
+            expect(result.exitCode).toBe(2);
+            expect(requested).toBe(false);
+        }
+        finally {
+            await sandbox.cleanup();
         }
     });
 

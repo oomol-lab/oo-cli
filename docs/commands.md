@@ -100,6 +100,11 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
   Every other command sends the saved selection as is and the server resolves
   it by id, applying that same default team when nothing is selected. There
   is no private, per-user scope.
+- `--team <name>` is an invocation-wide team selector. It can appear before
+  the command, for example `oo --team acme flow list --json`, or after a
+  team-aware subcommand. Requests and Workbench links use the same team
+  without changing the account's saved default. Repeated selectors use the
+  last value, consistently across commands.
 - `OO_SKILLS_SYNC_DISABLED`: A truthy value disables the startup managed-skill
   synchronization, so the CLI writes no skill files into agent home directories
   such as `~/.agents` or `~/.claude`.
@@ -115,8 +120,9 @@ invocation downloads and verifies its immutable command archive. Later
 invocations reuse the verified local cache without checking for updates or
 requiring network access.
 
-- Every argument after `flow` is passed to Open Flow unchanged. The main `oo`
-  CLI does not parse, reorder, or log these arguments.
+- The `oo` host consumes `--team <name>` for the whole Flow invocation.
+  Remaining arguments after `flow` are passed to Open Flow unchanged and are
+  kept out of debug logs.
 - The effective `oo --lang` locale is passed to Open Flow as `en` or
   `zh-CN`. Open Flow owns and versions its translated command text.
 - `oo flow --help` and `oo flow --version` are therefore Open Flow commands.
@@ -125,7 +131,8 @@ requiring network access.
 - Root help and generated shell completions always list `flow` for both Hosted
   and self-hosted deployments.
 - Main `oo` global options such as `--lang` and `--debug` must appear before
-  `flow`. Options after `flow` belong to Open Flow.
+  `flow`. The team selector can also appear after `flow`, including after a
+  subcommand; other options after `flow` belong to Open Flow.
 - Open Flow uses the current process's working directory, standard streams,
   environment, and signals. Its exit code becomes the `oo` exit code.
 - With no delegated arguments, Open Flow prints help and never waits for
@@ -146,6 +153,10 @@ requiring network access.
   Team. The Hosted gateway is derived from the current endpoint as
   `https://open-flow.<endpoint>`; for example, `OO_ENDPOINT=oomol.dev` uses
   `https://open-flow.oomol.dev`.
+- `--team <name>` overrides environment and saved team selections for all
+  Hosted Flow operations. `oo flow create Main --team acme --json` and
+  `oo --team acme flow create Main --json` both create in the authenticated
+  `acme` team. The flag accepts a team name, not an internal team id.
 - Setting both `OO_OPEN_FLOW_URL` and `OO_OPEN_FLOW_TOKEN` instead connects
   directly to that self-hosted Server. This mode does not read an OOMOL account
   or Team and does not use `OO_ENDPOINT`. The token must be the same value as
@@ -163,7 +174,7 @@ requiring network access.
   Edges, CodeModules, Connector Tasks, Triggers, checks, Draft/Live Runs,
   Publications, rollback, and Workbench deep links. Use `--json` for versioned
   machine output. Flows are selected by ID or an unambiguous exact name;
-  `create --team <team-id>` chooses their Team, and Connector discovery accepts
+  Team selection belongs to the `oo` invocation, and Connector discovery accepts
   `--flow <flow>` to use that Flow's Team scope.
 - `oo flow inspect <flow> --json` returns a compact Draft graph, input mappings,
   port handles, module identities, and Live summary. `--full` includes complete
@@ -239,7 +250,8 @@ requiring network access.
   directly to the Server Workbench; the browser establishes its own operator
   session, and the operator token is never placed in the URL.
 - Host telemetry records this delegation only as top-level command `flow`, its
-  success or failure, and duration. It records no delegated subcommand, flags,
+  success or failure, duration, and the Hosted team selection source enum.
+  It records no delegated subcommand, flag values, team names or ids,
   Project/Flow ID, free-form argument, or command output.
 
 Local repository example:
@@ -451,7 +463,7 @@ Show every saved auth account and validate the API key of the active one.
 
 - When a default team identity is in effect, the `oo auth status --json` output
   — specifically its `logged-in` shape above — carries an optional top-level
-  `team` field. `source` says which mechanism selected it (`env_id`,
+  `team` field. `source` says which mechanism selected it (`flag` for `--team`, `env_id`,
   `env_name`, `account`, or `backend_default` for the server-side default team
   the backend reported because no default team is saved), and `status` reports
   the team lookup:
@@ -521,7 +533,7 @@ Show every saved auth account and validate the API key of the active one.
     output and API key validation, but does not rewrite this field.
   - `team` is present only on the `logged-in` shape and only when a default
     team identity is in effect. `source` is `account` (the saved default),
-    `env_id` (`OO_TEAM_ID`), `env_name` (`OO_TEAM_NAME`), or `backend_default`
+    `flag` (`--team`), `env_id` (`OO_TEAM_ID`), `env_name` (`OO_TEAM_NAME`), or `backend_default`
     (the server-side default team the backend reported because none is saved).
     An env-selected identity is looked up to complete its missing half, so on
     success it carries both `name` and `id`; when the lookup does not succeed,
@@ -645,7 +657,7 @@ read-only.
 - Options: `--format=json` and `--json` print a JSON array.
 - Output: JSON entries include the stable CLI fields `name`, `id`, `role`, and
   `current`. `role` is `creator` or `member`. `current` is `true` for the team
-  connector commands use by default: the team selected by `OO_TEAM_ID`
+  selected by `--team` (matched by name), otherwise by `OO_TEAM_ID`
   (matched by id) or `OO_TEAM_NAME` (matched by name) when set, otherwise the
   team matching the account's default.
 - Output: pass the `name` value to `--team <name>` (or `oo team use <name>`),
@@ -676,7 +688,7 @@ applies its own default team.
   own.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: JSON is `{ "team": <name|null>, "teamId": <id|null>, "source":
-  <"env_id"|"env_name"|"account"|"backend_default"|null>, "status":
+  <"flag"|"env_id"|"env_name"|"account"|"backend_default"|null>, "status":
   <status|null> }`. `source` says which mechanism selects the team:
   `backend_default` when no default team is saved and the backend reported the
   server-side default team it applies, `null` when it reported none (the
@@ -690,6 +702,9 @@ applies its own default team.
   `request_failed_sandbox`, or `no_credential`; for the `account` source a
   non-`valid` status keeps the saved name and id in the output, and the text
   output appends the reason.
+- An explicit `--team <name>` reports that invocation's selection instead:
+  `team` is the supplied name, `teamId` is `null`, `source` is `flag`, and
+  `status` is `null`. The service gateway resolves and validates that name.
 - Output: under `OO_TEAM_ID` / `OO_TEAM_NAME` text output shows `<name> (<id>)`
   once both halves are known. If the lookup does not succeed the env-supplied
   value is still shown and the reason is appended; the command still exits `0`.

@@ -352,7 +352,10 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                 flagsCount: 0,
                 outputFormat: "text",
             });
-            exitCode = await runOpenFlowCommand(openFlowInvocation.args, context);
+            exitCode = await runOpenFlowCommand(openFlowInvocation.args, {
+                ...context,
+                teamFlag: openFlowInvocation.teamFlag,
+            });
 
             if (exitCode === 0) {
                 telemetryRecorder.observer.onCommandCompleted?.({ exitCode });
