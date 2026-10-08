@@ -1,6 +1,7 @@
 import { APP_NAME } from "../application/config/app-config.ts";
 
 export const enMessages = {
+    "options.team": "Use this team name for the current invocation",
     "app.description": `${APP_NAME} is OOMOL's CLI toolkit. Everything can be done in the CLI.`,
     "auth.login.openManually": "Open this login URL in your browser:",
     "auth.account.activeAccountMissing":
@@ -1423,6 +1424,7 @@ export const enMessages = {
 } as const;
 
 export const zhMessages = {
+    "options.team": "本次调用使用指定名称的团队",
     "app.description": `${APP_NAME} 是 OOMOL 的 CLI 工具集，一切均可在 CLI 中完成`,
     "auth.login.openManually": "请在你的浏览器中打开此登录 URL：",
     "auth.account.activeAccountMissing": "当前激活账号不存在于认证数据中。",

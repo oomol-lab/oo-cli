@@ -82,6 +82,10 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   刷新名称 (团队改名后仍可用)，没有保存时向后端询问它套用的默认团队；其他
   命令原样发送保存的选择，由服务端按 id 解析，没有选择时套用同一个默认团队。
   不存在按用户私有的作用域。
+- `--team <name>` 是本次 CLI 调用的全局团队选择，可以放在命令前，例如
+  `oo --team acme flow list --json`，也可以放在团队相关子命令后。请求和
+  Workbench 链接使用同一团队，不修改账号保存的默认团队。重复指定时，
+  各命令统一使用最后一个值。
 - `OO_SKILLS_SYNC_DISABLED`：设为真值会禁用启动时的 managed skill 同步，
   使 CLI 不会向 `~/.agents`、`~/.claude` 等代理主目录写入任何 skill 文件。
 - `OO_NO_SELF_UPDATE`：设为真值会禁用 `oo update`、`oo install` 和
@@ -94,15 +98,15 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 运行当前 `oo` 版本固定的 Open Flow CLI release。首次调用会下载并验证对应的
 不可变命令归档；之后直接离线复用已验证的本地缓存，不会在每次启动时检查更新。
 
-- `flow` 后的全部参数都会原样传给 Open Flow；主 `oo` CLI
-  不解析、不重排，也不把这些参数写入日志。
+- `oo` 宿主读取 `--team <name>`，为整个 Flow 调用选择团队。`flow` 后的
+  其余参数原样传给 Open Flow，并且不写入 debug 日志。
 - 当前生效的 `oo --lang` locale 会以 `en` 或 `zh-CN` 传给 Open Flow；
   Open Flow 自己拥有并随版本发布对应的命令翻译文案。
 - 因此 `oo flow --help` 和 `oo flow --version` 都属于 Open Flow 命令。
   如需在不加载 Open Flow 的情况下查看宿主侧命令说明，请使用 `oo help flow`。
 - 根帮助和生成的 shell 补全始终会列出 `flow`，Hosted 与自部署模式一致。
 - `--lang`、`--debug` 等 `oo` 全局选项必须放在 `flow` 前面；
-  `flow` 后的选项归 Open Flow 所有。
+  团队选择也可以放在 `flow` 后或子命令后，其余选项归 Open Flow 所有。
 - Open Flow 使用当前进程的工作目录、标准输入输出、环境变量和信号；
   它的退出码会直接成为 `oo` 的退出码。
 - 未传入后续参数时，Open Flow 只打印帮助且不等待输入；stdin 和 stdout 都是
@@ -118,6 +122,10 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 - 默认情况下，Open Flow 子命令使用当前 `oo` 登录凭证和生效的 Team。Hosted
   gateway 由当前 endpoint 派生为 `https://open-flow.<endpoint>`；例如
   `OO_ENDPOINT=oomol.dev` 使用 `https://open-flow.oomol.dev`。
+- `--team <name>` 为所有托管 Flow 操作覆盖环境变量和默认团队选择。
+  `oo flow create Main --team acme --json` 与
+  `oo --team acme flow create Main --json` 都在认证后的 `acme` 团队创建。
+  该参数接受团队名称，不接受内部 Team ID。
 - 同时设置 `OO_OPEN_FLOW_URL` 与 `OO_OPEN_FLOW_TOKEN` 后，CLI 会改为直连该自部署
   Server。此模式不读取 OOMOL 账号或 Team，也不使用 `OO_ENDPOINT`；token 必须与
   Server 部署的 `OPEN_FLOW_TOKEN` 相同。
@@ -131,7 +139,7 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 - 命令覆盖 Flow authoring、节点、连线、CodeModule、
   Connector Task、Trigger、检查、Draft/Live Run、Publication、Rollback 和
   Workbench deep link。`--json` 输出带版本的机器格式。Flow 使用 ID 或无歧义的精确
-  名称选择；`create --team <team-id>` 指定 Team，Connector 发现命令接受
+  名称选择；团队由本次 `oo` 调用统一选择，Connector 发现命令接受
   `--flow <flow>`，以该 Flow 的 Team 为查询范围。
 - `oo flow inspect <flow> --json` 返回紧凑的 Draft graph、input mapping、port
   handle、module identity 与 Live 概要。`--full` 包含完整 Revision、schema 和 Code
@@ -367,7 +375,7 @@ oo flow
 
 - 当存在默认团队身份时，`oo auth status --json` 的输出——即上面的 `logged-in`
   形态——会携带一个可选的顶层 `team` 字段。`source` 表示由哪种机制选中
-  (`env_id`、`env_name`、`account`，或 `backend_default`，即未保存默认团队时
+  (`flag`，即 `--team`；`env_id`、`env_name`、`account`，或 `backend_default`，即未保存默认团队时
   后端报告的服务端默认团队)，`status` 报告团队查询的结果：
 
   ```json
@@ -428,7 +436,7 @@ oo flow
     `OO_ENDPOINT`（不设 `OO_API_KEY`）会重定向文本输出与 API key 校验所用的
     endpoint，但不会改写该字段。
   - `team` 仅在 `logged-in` 形态且存在默认团队身份时出现。`source` 为
-    `account`（账号保存的默认值）、`env_id`（`OO_TEAM_ID`）、
+    `flag`（`--team`）、`account`（账号保存的默认值）、`env_id`（`OO_TEAM_ID`）、
     `env_name`（`OO_TEAM_NAME`）或 `backend_default` (未保存默认团队时后端
     报告的服务端默认团队)。env 选定的身份会被查询补全缺失的那一半，因此成功时
     同时携带 `name` 与 `id`；查询未成功时保留 env 提供的那一半，并由 `status`
@@ -550,8 +558,11 @@ oo flow
 - 无 OOMOL 账号时同样可用：此时跳过查询而不是让命令失败，只单独展示 env
   提供的值。
 - 选项：`--format=json` 与 `--json` 输出 JSON 对象。
+- 显式传入 `--team <name>` 时，报告本次调用的选择：`team` 为传入的名称，
+  `teamId` 为 `null`，`source` 为 `flag`，`status` 为 `null`。
+  服务网关负责解析和验证该名称。
 - 输出：JSON 为 `{ "team": <name|null>, "teamId": <id|null>, "source":
-  <"env_id"|"env_name"|"account"|"backend_default"|null>, "status":
+  <"flag"|"env_id"|"env_name"|"account"|"backend_default"|null>, "status":
   <status|null> }`。`source` 表示团队由哪种机制选定：未保存默认团队且后端
   报告了它套用的服务端默认团队时为 `backend_default`；后端未报告 (账号未创建
   过任何团队) 或该查询失败时为 `null`。`team` 是团队当前的名称：有保存的默认

@@ -11,6 +11,7 @@ import { installOpenFlowCommandRelease } from "./flow-artifact.ts";
 import { openFlowCommandRelease } from "./flow-release.ts";
 import { createDownloadProgressReporter } from "./shared/download-progress.ts";
 import {
+    readTeamFlag,
     requireValidTeamIdentity,
     resolveTeamIdentity,
     teamIdentityHeaders,
@@ -30,6 +31,7 @@ interface CommandModule {
 interface OpenFlowInvocation {
     readonly args: readonly string[];
     readonly commandIndex: number;
+    readonly teamFlag?: string;
 }
 
 interface HostedSession {
@@ -72,6 +74,7 @@ export const flowCommand = {
 
 export function resolveOpenFlowInvocation(argv: readonly string[]): OpenFlowInvocation | undefined {
     let commandIndex = 0;
+    let teamFlag: string | undefined;
 
     while (commandIndex < argv.length) {
         const argument = argv[commandIndex];
@@ -86,6 +89,18 @@ export function resolveOpenFlowInvocation(argv: readonly string[]): OpenFlowInvo
             continue;
         }
 
+        if (argument === "--team") {
+            teamFlag = argv[commandIndex + 1];
+            commandIndex += 2;
+            continue;
+        }
+
+        if (argument?.startsWith("--team=")) {
+            teamFlag = argument.slice("--team=".length);
+            commandIndex += 1;
+            continue;
+        }
+
         break;
     }
 
@@ -96,6 +111,7 @@ export function resolveOpenFlowInvocation(argv: readonly string[]): OpenFlowInvo
     return {
         args: argv.slice(commandIndex + 1),
         commandIndex,
+        ...(teamFlag === undefined ? {} : { teamFlag }),
     };
 }
 
@@ -112,9 +128,42 @@ export async function runOpenFlowCommand(
         | "logger"
         | "settingsStore"
         | "stderr"
+        | "teamFlag"
+        | "telemetry"
         | "translator"
     >,
 ): Promise<number> {
+    const commandArgs: string[] = [];
+    let team = context.teamFlag;
+
+    for (let index = 0; index < args.length; index += 1) {
+        const argument = args[index]!;
+
+        if (argument === "--") {
+            commandArgs.push(...args.slice(index));
+            break;
+        }
+
+        if (argument === "--team" || argument.startsWith("--team=")) {
+            const value = argument === "--team"
+                ? args[++index]
+                : argument.slice("--team=".length);
+
+            if (value === undefined || (argument === "--team" && value.startsWith("-"))) {
+                throw new CliUserError("errors.commander.optionMissingArgument", 2, {
+                    value: "--team",
+                });
+            }
+
+            team = value;
+        }
+        else {
+            commandArgs.push(argument);
+        }
+    }
+
+    const hostContext = { ...context, teamFlag: readTeamFlag({ team }) };
+
     const configuredDirectory = context.env[commandDirectoryEnvName]?.trim();
     let commandDirectory: string;
 
@@ -209,7 +258,7 @@ export async function runOpenFlowCommand(
     // control requests and the Workbench deep link act for the same team.
     let sessionPromise: Promise<OpenFlowSession> | undefined;
     const resolveHostSession = (): Promise<OpenFlowSession> =>
-        (sessionPromise ??= resolveOpenFlowSession(context).catch((error: unknown) => {
+        (sessionPromise ??= resolveOpenFlowSession(hostContext).catch((error: unknown) => {
             throw translateHostError(error, context);
         }));
     const host: OpenFlowCommandHost = {
@@ -287,7 +336,7 @@ export async function runOpenFlowCommand(
         },
         language: resolveRequestLanguage(context.translator.locale),
     };
-    const exitCode = await commandModule.runOpenFlowCommand(args, host);
+    const exitCode = await commandModule.runOpenFlowCommand(commandArgs, host);
 
     if (
         typeof exitCode !== "number"
@@ -329,6 +378,8 @@ async function resolveOpenFlowSession(
         | "fetcher"
         | "logger"
         | "settingsStore"
+        | "teamFlag"
+        | "telemetry"
         | "translator"
     >,
 ): Promise<OpenFlowSession> {
@@ -394,6 +445,10 @@ async function resolveOpenFlowSession(
         ),
         context,
     );
+
+    context.telemetry?.recordProperties({
+        identity_source: identity?.source ?? "none",
+    });
 
     return {
         apiKey: account.apiKey,

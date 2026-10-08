@@ -21,6 +21,7 @@ exports[`config CLI persists the configured locale and allows explicit override 
 
 Options:
   -V, --version                Show the current version
+  --team <team>                Use this team name for the current invocation
   --debug                      Print the current log file path when the CLI
                                exits
   --lang <lang>                Specify the display language
@@ -62,6 +63,7 @@ Commands:
 
 选项：
   -V, --version                显示当前版本
+  --team <team>                本次调用使用指定名称的团队
   --debug                      在 CLI 退出时打印当前日志文件路径
   --lang <lang>                指定显示语言
   -h, --help                   显示命令帮助
@@ -218,6 +220,7 @@ exports[`config CLI renders config list help with configured wording 1`] = `
 
 全局选项：
   -V, --version      显示当前版本
+  --team <team>      本次调用使用指定名称的团队
   --debug            在 CLI 退出时打印当前日志文件路径
   --lang <lang>      指定显示语言
 
@@ -242,6 +245,7 @@ exports[`config CLI renders config list help with configured wording 1`] = `
 
 全局选项：
   -V, --version  显示当前版本
+  --team <team>  本次调用使用指定名称的团队
   --debug        在 CLI 退出时打印当前日志文件路径
   --lang <lang>  指定显示语言
 "
@@ -258,6 +262,7 @@ Options:
 
 Global Options:
   -V, --version      Show the current version
+  --team <team>      Use this team name for the current invocation
   --debug            Print the current log file path when the CLI exits
   --lang <lang>      Specify the display language
 
@@ -282,6 +287,7 @@ Options:
 
 Global Options:
   -V, --version  Show the current version
+  --team <team>  Use this team name for the current invocation
   --debug        Print the current log file path when the CLI exits
   --lang <lang>  Specify the display language
 "

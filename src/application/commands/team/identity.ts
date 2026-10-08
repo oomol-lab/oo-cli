@@ -51,7 +51,7 @@ export interface TeamIdentity {
 
 type ResolveTeamIdentityContext = Pick<
     CliExecutionContext,
-    "env" | "fetcher" | "logger"
+    "env" | "fetcher" | "logger" | "teamFlag"
 >;
 
 /**
@@ -92,7 +92,7 @@ export async function resolveTeamIdentity(
     input: ResolveTeamIdentityInput,
     context: ResolveTeamIdentityContext,
 ): Promise<TeamIdentity | undefined> {
-    const teamFlag = normalizeTeamValue(input.teamFlag);
+    const teamFlag = normalizeTeamValue(input.teamFlag ?? context.teamFlag);
 
     if (teamFlag !== undefined) {
         return { name: teamFlag, id: null, source: "flag", status: null };

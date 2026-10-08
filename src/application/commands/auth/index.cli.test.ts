@@ -2428,7 +2428,7 @@ describe("auth CLI login default team", () => {
             );
 
             expect(result.exitCode).toBe(2);
-            expect(result.stderr).toContain("The team name must not be empty.");
+            expect(result.stderr).toContain("The --team value cannot be empty.");
         }
         finally {
             await sandbox.cleanup();
