@@ -27,6 +27,7 @@
     "src/**/*.ts"
   ],
   "scripts": {
+    "postinstall": "bun run contrib/skills/sync-open-flow-docs.ts",
     "build:current-platform": "bun run contrib/ci/build-platform-npm-packages.ts current-platform",
     "build:windows-x64": "bun run contrib/ci/build-platform-npm-packages.ts win32-x64",
     "build:windows-arm64": "bun run contrib/ci/build-platform-npm-packages.ts win32-arm64",
@@ -58,6 +59,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^7.7.3",
+    "@oomol-lab/open-flow": "^0.1.0-beta.57",
     "@types/bun": "latest",
     "eslint": "^10.0.3",
     "eslint-plugin-format": "^2.0.1",

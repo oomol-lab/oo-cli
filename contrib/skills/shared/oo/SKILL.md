@@ -54,6 +54,16 @@ read
 [references/flow-n8n-conversion.md](references/flow-n8n-conversion.md) before
 analyzing the workflow or issuing the first `oo flow` command.
 
+The oo host supplies the deployment and identity. Put `--lang` and `--debug`
+before `flow`; `--team <name>` selects the Hosted team for the whole invocation.
+Keep the same account and team while editing, discovering capabilities, running,
+and opening the Flow. For a self-hosted Server, configure both
+`OO_OPEN_FLOW_URL` and `OO_OPEN_FLOW_TOKEN`; service credentials stay on that Server.
+
+Hosted `workbench --json` URLs contain short-lived, one-time browser sign-in
+codes. Navigate immediately; never persist, share, or reuse them. Self-hosted
+Workbench URLs use the browser's own login session.
+
 ## LLM client config mode
 
 If local code you are writing or running needs an OpenAI-compatible base URL,

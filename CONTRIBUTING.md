@@ -117,3 +117,11 @@ artifacts later in the publish workflow.
 - New or changed behavior is covered by tests when the logic is non-trivial.
 - New user-facing text is localized.
 - Documentation is updated when command behavior or developer workflow changes.
+
+## Open Flow skill resources
+
+Flow references are maintained in `@oomol-lab/open-flow`. `bun install` runs
+`postinstall` to generate them under `contrib/skills/shared/oo/references/` with
+`oo flow` as the command prefix. These generated files are ignored by Git;
+edit the upstream documentation instead. After installing with `--ignore-scripts`,
+run `bun run postinstall` before development, testing, or building.
