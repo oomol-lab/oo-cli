@@ -176,46 +176,28 @@ requiring network access.
   machine output. Flows are selected by ID or an unambiguous exact name;
   Team selection belongs to the `oo` invocation, and Connector discovery accepts
   `--flow <flow>` to use that Flow's Team scope.
-- `oo flow inspect <flow> --json` returns a compact Draft graph, input mappings,
-  port handles, module identities, and Live summary. `--full` includes complete
-  Revision content, schemas, and Code source. Inspection does not execute Code
-  or check the Revision; use `oo flow check <flow> [--revision <revision-id>]`
-  for its authoritative validity result.
-- `oo flow schema apply --json` describes the canonical version-1 apply request
-  containing an ordered `operations` array. `schema examples` lists creation
-  examples, and `schema example.<name>` returns a complete example request.
-  `oo flow apply <flow> --file <path|-> --expected-revision <revision-id>
-  --idempotency-key <edit-key>` submits one atomic Draft edit. An explicit
-  idempotency key requires a fixed base Revision for Draft edits and Draft Runs.
-  Retry the same mutation only with the same key, base identity, arguments,
-  and file contents; use a new key for a different edit.
-- The convenience apply request with `nodes`, `triggers`, and `edges` remains
-  available for simple creation. Node and Trigger keys are request-local
-  references. Trigger kinds are `manual`, `webhook`, `cron`, and `provider`;
-  provider Triggers use a discovered `key`, optional `connection`, `config`,
-  `every` or `cron`, and `timezone`. Code uses inline JavaScript or `@path` and
-  port definitions; Connector `inputs` are literal values. Each execution Edge
-  contains `source`, `target`, and optional branch `sourceHandle`. Data mappings
-  use `graph.node.input.set` operations or
-  `oo flow node input <flow> <node> <input> <source> <output>` separately from
-  `oo flow connect <flow> <source> <target-node> [branch]`.
-- Connector add and convenience apply choose an active default Connection, or
-  the sole active Connection when no default exists. When neither can be
-  selected, the Connector may remain unbound. Provider Triggers require an
-  active Connection. A successful apply reports the accepted Revision and its
-  check without running or publishing. An invalid or unavailable check does not
-  undo the write and is not a reason to resubmit it.
-- Error Triggers can be created with `schema example.error` and configured with
-  `graph.trigger.sources.set` in an apply request. Upstream Flows must already
-  be published. Error Triggers listen for selected
-  upstream Flows' automatic Run failures when their own Flow is published and
-  enabled, exposing `workflow`, `execution`, and `error` outputs.
-- `schema example.decision` describes an AI Decision Task with a `target`
-  input and named questions returning answer objects. `schema example.openapi`
-  describes a fixed JSON API operation with `body`, `statusCode`, and `headers`
-  outputs. OpenAPI credentials use supported Variable or upstream-output
-  bindings; literal auth values, OAuth login, binary/streaming responses,
-  redirects, and automatic retries are unsupported.
+- `oo flow read <flow> --json` returns a Draft graph outline. Supply `nodes`
+  for selected node details or `text` for a Code/prompt excerpt; these modes
+  are mutually exclusive. Keep the returned `revision` for subsequent reads.
+  Text pagination uses `nextStart`; continue until `truncated` is false.
+  `oo flow search <flow>` searches names, configuration, and source text,
+  optionally restricted by node type, and paginates with `nextOffset`.
+- `read`, `search`, and `edit` accept either `--input <JSON|@file|->` or
+  `--file <path|->`. Input is optional for `read` and required for `search`
+  and `edit`. Nested strings are literal: a Code value of `@file` does not
+  read that file.
+- `oo flow schema read|search|edit|check --json` describes request contracts;
+  `oo flow schema <node-type> --json` describes node configuration and ports.
+  `oo flow edit <flow> --file <path|-> --json` submits an atomic batch with
+  `baseRevision`, `requestId`, and an ordered `edits` array. Use the observed
+  Revision and a fresh request ID for a new edit; retry uncertain submissions
+  with the same Revision, request ID, and contents.
+- Edit operations include `node.add`, `node.update`, `node.remove`, `input.set`,
+  `edge.connect`, `edge.disconnect`, `text.edit`, and `text.set`. A `node.add`
+  alias is referenced as `$alias` by later edits in the same batch; subsequent
+  requests use stable references from the response's `nodes` map. Input bindings
+  supply data independently of execution edges. `text.edit` replaces one exact
+  occurrence; read the selected text before editing it.
 - Run and publication commands may return `0` for an accepted asynchronous
   operation, `1` for an error or unsuccessful terminal Run, `2` for an
   unresolved Wait/Approval, or `3` when a wait times out or publication remains
@@ -223,15 +205,13 @@ requiring network access.
   60000; expiration does not cancel the operation. Continue with `runs wait` or
   `publications wait`; resolve an outstanding decision with
   `runs resolve <run> <wait> <continue|approve|reject>`.
-  On `node set`, `--timeout` sets the node's execution timeout.
 - `runs events <run> --follow --json` streams NDJSON pages; resume with `--after`
   using the returned `nextAfter`. Publishing accepts `--expected-revision`,
   `--expected-publication <publication-id|none>`, and `--idempotency-key`.
   Automatic Trigger execution is controlled with
   `enable/disable <flow> --expected-publication <publication-id>`.
-- `oo flow node add <flow> code <name> --code <javascript|@file|->` creates the
-  Node, Task, CodeModule, and final source atomically and reports all three
-  opaque IDs. `oo flow check` validates the immutable Revision only; credential
+- `oo flow check <flow> [--revision <revision-id>]` validates the immutable
+  Revision. Reading and editing do not run or publish a Flow; credential
   availability and real Connector side effects are checked only by an explicit
   `oo flow run`.
 - `oo flow open [flow]` opens the selected deployment's Workbench in the system

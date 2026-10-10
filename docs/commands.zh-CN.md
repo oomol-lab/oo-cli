@@ -141,50 +141,36 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   Workbench deep link。`--json` 输出带版本的机器格式。Flow 使用 ID 或无歧义的精确
   名称选择；团队由本次 `oo` 调用统一选择，Connector 发现命令接受
   `--flow <flow>`，以该 Flow 的 Team 为查询范围。
-- `oo flow inspect <flow> --json` 返回紧凑的 Draft graph、input mapping、port
-  handle、module identity 与 Live 概要。`--full` 包含完整 Revision、schema 和 Code
-  source。inspect 不执行 Code，也不检查 Revision；权威校验使用
-  `oo flow check <flow> [--revision <revision-id>]`。
-- `oo flow schema apply --json` 描述包含有序 `operations` 数组的 version 1 apply
-  request。`schema examples` 列出创建示例，`schema example.<name>` 返回完整请求。
-  `oo flow apply <flow> --file <path|-> --expected-revision <revision-id>
-  --idempotency-key <edit-key>` 提交一次原子 Draft 修改。Draft 修改与 Run 显式指定
-  幂等键时，必须同时固定基础 Revision。重试同一次修改必须保留相同键、基础身份、
-  参数和文件内容；不同修改使用新键。
-- 简单创建仍可使用包含 `nodes`、`triggers` 和 `edges` 的便捷 apply request。
-  Node 与 Trigger 的 key 是请求内的局部引用。Trigger kind 支持 `manual`、
-  `webhook`、`cron` 和 `provider`；provider 使用发现得到的 `key`、可选
-  `connection`、`config`、`every` 或 `cron` 以及 `timezone`。Code 使用内联
-  JavaScript 或 `@path` 和 port definition；Connector `inputs` 是字面值。
-  执行 Edge 包含 `source`、`target` 和可选的分支 `sourceHandle`。数据映射使用
-  `graph.node.input.set` operation，或
-  `oo flow node input <flow> <node> <input> <source> <output>`；执行顺序另由
-  `oo flow connect <flow> <source> <target-node> [branch]` 配置。
-- Connector add 和便捷 apply 选择 active default Connection；没有默认值时，
-  也可选择唯一的 active Connection。两者都无法选中时，Connector 可以保持未绑定。
-  provider Trigger 必须使用 active Connection。apply 成功会返回已接受的 Revision
-  与 check，但不运行或发布。check 无效或暂不可用不会撤销写入，也不应重新提交。
-- Error Trigger 可以通过 `schema example.error` 创建，并在 apply 中用
-  `graph.trigger.sources.set` 选择已发布的上游 Flow。自身 Flow 发布且启用后，它会
-  监听这些上游 Flow 的自动 Run 失败，并输出 `workflow`、`execution` 和 `error`。
-- `schema example.decision` 描述 AI Decision Task：输入为 `target`，命名问题返回
-  answer object。`schema example.openapi` 描述固定的 JSON API operation，输出为
-  `body`、`statusCode` 和 `headers`。OpenAPI 凭据使用支持的 Variable 或上游输出
-  绑定；不支持固定鉴权值、OAuth 登录、二进制/流式响应、重定向或自动重试。
+- `oo flow read <flow> --json` 返回 Draft graph 概览。传入 `nodes` 读取选定节点
+  的详情，或传入 `text` 读取 Code/prompt 片段；两种模式互斥。后续读取保留返回的
+  `revision`。文本通过 `nextStart` 分页，直到 `truncated` 为 false。
+  `oo flow search <flow>` 搜索名称、配置与源码，可按节点类型过滤，并通过
+  `nextOffset` 分页。
+- `read`、`search`、`edit` 接受 `--input <JSON|@file|->` 或 `--file <path|->`，
+  每次只使用一种输入方式。`read` 的输入可省略，`search` 和 `edit` 必须提供输入。
+  嵌套字符串按字面值处理：Code 值为 `@file` 时不会读取该文件。
+- `oo flow schema read|search|edit|check --json` 描述请求契约；
+  `oo flow schema <node-type> --json` 描述节点配置和端口。
+  `oo flow edit <flow> --file <path|-> --json` 提交原子批次，请求包含
+  `baseRevision`、`requestId` 与有序 `edits` 数组。新修改使用已读取的 Revision
+  和新的请求 ID；提交结果不确定时，使用相同 Revision、请求 ID 和内容重试。
+- edit operation 包括 `node.add`、`node.update`、`node.remove`、`input.set`、
+  `edge.connect`、`edge.disconnect`、`text.edit` 和 `text.set`。同一批次的后续
+  operation 通过 `$alias` 引用 `node.add` 声明的别名；后续请求使用响应 `nodes`
+  map 返回的稳定引用。input binding 提供数据，execution edge 独立控制执行顺序。
+  `text.edit` 替换一次精确匹配；修改前先读取目标文本。
 - Run 和发布命令可用 `0` 表示已接受异步操作、`1` 表示错误或未成功的终态 Run、
   `2` 表示尚未解决的 Wait/Approval、`3` 表示等待超时或发布仍在进行。
   `--timeout` 是毫秒等待预算，默认 60000；超时不会取消操作。后续使用
   `runs wait` 或 `publications wait` 等待，使用
   `runs resolve <run> <wait> <continue|approve|reject>` 解决待处理决定。
-  在 `node set` 上，`--timeout` 设置节点执行超时。
 - `runs events <run> --follow --json` 输出 NDJSON page，使用返回的 `nextAfter`
   作为 `--after` 继续读取。发布接受 `--expected-revision`、
   `--expected-publication <publication-id|none>` 和 `--idempotency-key`。
   自动 Trigger 执行通过
   `enable/disable <flow> --expected-publication <publication-id>` 控制。
-- `oo flow node add <flow> code <name> --code <javascript|@file|->` 在一个原子
-  change set 中创建 Node、Task、CodeModule 和最终 source，并返回三个 opaque ID。
-  `oo flow check` 只校验不可变 Revision；credential 当前是否可用以及 Connector 的
+- `oo flow check <flow> [--revision <revision-id>]` 校验不可变 Revision。
+  读取与编辑不会运行或发布 Flow；credential 当前是否可用以及 Connector 的
   真实副作用只会由显式 `oo flow run` 检查。
 - `oo flow open [flow]` 会在系统浏览器打开所选部署的 Workbench，并同时输出 URL；
   `oo flow workbench [flow]` 只输出相同 URL，不打开浏览器，适用于脚本和 Agent

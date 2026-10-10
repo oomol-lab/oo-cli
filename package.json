@@ -59,7 +59,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^7.7.3",
-    "@oomol-lab/open-flow": "^0.1.0-beta.57",
+    "@oomol-lab/open-flow": "^0.1.0-beta.58",
     "@types/bun": "latest",
     "eslint": "^10.0.3",
     "eslint-plugin-format": "^2.0.1",
