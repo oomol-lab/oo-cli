@@ -85,9 +85,9 @@ const connectorActionSearchResultSchema = z.object({
     accessStatus: connectorActionAccessStatusSchema.optional(),
     authenticated: z.boolean(),
     description: z.string().optional().default(""),
-    inputSchema: z.unknown(),
+    inputSchema: z.unknown().optional(),
     name: z.string().min(1),
-    outputSchema: z.unknown(),
+    outputSchema: z.unknown().optional(),
     service: z.string().min(1),
 }).transform(({ accessStatus, ...result }) => ({
     accessStatus: accessStatus
