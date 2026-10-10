@@ -8,7 +8,6 @@ import {
 import { publishNpmPackagesFromOrderFile } from "./npm-publish.ts";
 import {
     buildCreateReleaseCommand,
-    buildFeishuReleaseFollowupNotification,
     buildFeishuReleaseNotification,
     buildUploadReleaseAssetsCommand,
     preparePackageManifest,
@@ -110,20 +109,6 @@ async function runNotifyFeishuRelease(): Promise<void> {
     });
 
     await sendFeishuCustomBotMessage(webhookUrl, payload, "Feishu release group");
-
-    const atUserId = process.env.FEISHU_RELEASE_FOLLOWUP_AT_USER_ID;
-    if (atUserId === undefined || atUserId === "") {
-        return;
-    }
-
-    const followupSignature = createFeishuSignature(process.env.FEISHU_RELEASE_SECRET ?? "");
-    const followupPayload = buildFeishuReleaseFollowupNotification({
-        atUserId,
-        timestamp: followupSignature?.timestamp,
-        sign: followupSignature?.sign,
-    });
-
-    await sendFeishuCustomBotMessage(webhookUrl, followupPayload, "Feishu release follow-up bot");
 }
 
 async function sendFeishuCustomBotMessage(webhookUrl: string, payload: string, targetName: string): Promise<void> {

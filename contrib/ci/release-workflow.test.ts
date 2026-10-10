@@ -4,7 +4,6 @@ import { afterEach, describe, expect, test } from "bun:test";
 
 import {
     buildCreateReleaseCommand,
-    buildFeishuReleaseFollowupNotification,
     buildFeishuReleaseNotification,
     buildUploadReleaseAssetsCommand,
     preparePackageManifest,
@@ -145,40 +144,6 @@ describe("release-workflow", () => {
             sign: "signature",
             msg_type: "text",
         });
-    });
-
-    test("builds the Feishu release follow-up notification payload", () => {
-        expect(JSON.parse(buildFeishuReleaseFollowupNotification({
-            atUserId: "ou_followup_bot",
-        }))).toEqual({
-            msg_type: "text",
-            content: {
-                text: "<at user_id=\"ou_followup_bot\">follow-up bot</at> 更新 oo-cli",
-            },
-        });
-    });
-
-    test("builds the signed Feishu release follow-up notification payload", () => {
-        expect(JSON.parse(buildFeishuReleaseFollowupNotification({
-            atUserId: "ou_\"bot&reviewer",
-            timestamp: "1710000000",
-            sign: "signature",
-        }))).toEqual({
-            timestamp: "1710000000",
-            sign: "signature",
-            msg_type: "text",
-            content: {
-                text: "<at user_id=\"ou_&quot;bot&amp;reviewer\">follow-up bot</at> 更新 oo-cli",
-            },
-        });
-    });
-
-    test("rejects Feishu follow-up notifications without an at user id", () => {
-        expect(() =>
-            buildFeishuReleaseFollowupNotification({
-                atUserId: "",
-            }),
-        ).toThrow("FEISHU_RELEASE_FOLLOWUP_AT_USER_ID is required.");
     });
 
     test("rejects Feishu notifications without a release tag", () => {
