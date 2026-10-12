@@ -2,14 +2,12 @@ import type { CliCommandDefinition, CliExecutionContext } from "../contracts/cli
 
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { runOpenFlowCommand as runBundledOpenFlowCommand } from "@oomol-lab/open-flow/command";
 import { resolveRequestLanguage } from "../../i18n/locale.ts";
 import { readDefaultTeam } from "../auth/default-team.ts";
 import { readTrimmedEnv, requireIdentity } from "../auth/identity.ts";
 import { CliUserError } from "../contracts/cli.ts";
 import { createBrowserSignIn } from "./auth/web.ts";
-import { installOpenFlowCommandRelease } from "./flow-artifact.ts";
-import { openFlowCommandRelease } from "./flow-release.ts";
-import { createDownloadProgressReporter } from "./shared/download-progress.ts";
 import {
     readTeamFlag,
     requireValidTeamIdentity,
@@ -123,11 +121,9 @@ export async function runOpenFlowCommand(
         | "connectorStore"
         | "cwd"
         | "env"
-        | "execPath"
         | "fetcher"
         | "logger"
         | "settingsStore"
-        | "stderr"
         | "teamFlag"
         | "telemetry"
         | "translator"
@@ -165,93 +161,55 @@ export async function runOpenFlowCommand(
     const hostContext = { ...context, teamFlag: readTeamFlag({ team }) };
 
     const configuredDirectory = context.env[commandDirectoryEnvName]?.trim();
-    let commandDirectory: string;
+    let runCommand = runBundledOpenFlowCommand;
 
     if (configuredDirectory) {
-        commandDirectory = resolve(context.cwd, configuredDirectory);
-    }
-    else {
-        const progressReporter = createDownloadProgressReporter(
-            context.stderr,
-            openFlowCommandRelease.archive.length,
-            `Open Flow ${openFlowCommandRelease.openFlowVersion}`,
-        );
-        let downloadStarted = false;
-        let downloadedBytes = 0;
+        const entryPath = join(resolve(context.cwd, configuredDirectory), "entry.js");
+        let loaded: unknown;
 
         try {
-            commandDirectory = await installOpenFlowCommandRelease(openFlowCommandRelease, {
-                env: context.env,
-                execPath: context.execPath,
-                fetcher: context.fetcher,
-                onDownloadProgress(nextDownloadedBytes) {
-                    if (!downloadStarted && progressReporter === undefined) {
-                        context.stderr.write(
-                            `${context.translator.t("flow.download.start", {
-                                version: openFlowCommandRelease.openFlowVersion,
-                            })}\n`,
-                        );
-                    }
-
-                    downloadStarted = true;
-                    downloadedBytes = nextDownloadedBytes;
-                    progressReporter?.render(downloadedBytes);
-                },
-            });
-
-            if (downloadStarted) {
-                if (progressReporter === undefined) {
-                    context.stderr.write(
-                        `${context.translator.t("flow.download.complete", {
-                            version: openFlowCommandRelease.openFlowVersion,
-                        })}\n`,
-                    );
-                }
-                else {
-                    progressReporter.complete(downloadedBytes);
-                }
-            }
+            loaded = await import(pathToFileURL(entryPath).href);
         }
         catch (error) {
-            if (downloadStarted) {
-                progressReporter?.finish(downloadedBytes);
-            }
-
-            context.logger.debug({ err: error }, "Open Flow command artifact preparation failed.");
-            throw new CliUserError("errors.flow.commandArtifactUnavailable", 1, {
-                version: openFlowCommandRelease.openFlowVersion,
+            throw new CliUserError("errors.flow.commandEntryLoadFailed", 1, {
+                message: error instanceof Error ? error.message : String(error),
+                path: entryPath,
             });
         }
-    }
 
-    const entryPath = join(commandDirectory, "entry.js");
-    let loaded: unknown;
+        if (loaded === null || typeof loaded !== "object") {
+            throw new CliUserError("errors.flow.commandEntryInvalid", 1, {
+                path: entryPath,
+            });
+        }
 
-    try {
-        loaded = await import(pathToFileURL(entryPath).href);
-    }
-    catch (error) {
-        throw new CliUserError("errors.flow.commandEntryLoadFailed", 1, {
-            message: error instanceof Error ? error.message : String(error),
-            path: entryPath,
-        });
-    }
+        const commandModule = loaded as CommandModule;
 
-    if (loaded === null || typeof loaded !== "object") {
-        throw new CliUserError("errors.flow.commandEntryInvalid", 1, {
-            path: entryPath,
-        });
-    }
+        if (
+            commandModule.commandArtifactVersion !== commandArtifactVersion
+            || typeof commandModule.runOpenFlowCommand !== "function"
+        ) {
+            throw new CliUserError("errors.flow.commandEntryInvalid", 1, {
+                path: entryPath,
+            });
+        }
+        const runLocalCommand = commandModule.runOpenFlowCommand;
+        runCommand = async (args, host) => {
+            const exitCode = await runLocalCommand(args, host);
 
-    const commandModule = loaded as CommandModule;
+            if (
+                typeof exitCode !== "number"
+                || !Number.isInteger(exitCode)
+                || exitCode < 0
+                || exitCode > 255
+            ) {
+                throw new CliUserError("errors.flow.commandEntryInvalid", 1, {
+                    path: entryPath,
+                });
+            }
 
-    if (
-        commandModule.commandArtifactVersion !== commandArtifactVersion
-        || typeof commandModule.runOpenFlowCommand !== "function"
-    ) {
-        throw new CliUserError("errors.flow.commandEntryInvalid", 1, {
-            path: entryPath,
-        });
+            return exitCode;
+        };
     }
 
     // Resolved once per invocation and shared by both host methods, so the
@@ -336,20 +294,7 @@ export async function runOpenFlowCommand(
         },
         language: resolveRequestLanguage(context.translator.locale),
     };
-    const exitCode = await commandModule.runOpenFlowCommand(commandArgs, host);
-
-    if (
-        typeof exitCode !== "number"
-        || !Number.isInteger(exitCode)
-        || exitCode < 0
-        || exitCode > 255
-    ) {
-        throw new CliUserError("errors.flow.commandEntryInvalid", 1, {
-            path: entryPath,
-        });
-    }
-
-    return exitCode;
+    return await runCommand(commandArgs, host);
 }
 
 // The command artifact reports any error a host method throws as

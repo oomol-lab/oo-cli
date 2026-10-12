@@ -1,7 +1,9 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import process from "node:process";
 
-import { describe, expect, test } from "bun:test";
+import { version as openFlowVersion } from "@oomol-lab/open-flow/package.json";
+import { describe, expect, spyOn, test } from "bun:test";
 import {
     createCliSandbox,
     createTemporaryDirectory,
@@ -12,9 +14,7 @@ import {
 } from "../../../__tests__/helpers.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import { parseTelemetryRowPayload, readTelemetryRowsForTest } from "../telemetry/outbox.ts";
-import { openFlowCommandRelease } from "./flow-release.ts";
 import { resolveOpenFlowInvocation } from "./flow.ts";
-import { formatByteCount } from "./shared/download-progress.ts";
 
 describe("flow CLI", () => {
     test("recognizes flow after oo global options without consuming delegated options", () => {
@@ -844,44 +844,30 @@ describe("flow CLI", () => {
         }
     });
 
-    test("reports when the pinned Open Flow release cannot be downloaded", async () => {
+    test.each([{ args: [] }, { args: ["--help"] }, { args: ["--version"] }])("runs the bundled command offline with arguments %j", async ({ args }) => {
         const sandbox = await createCliSandbox();
+        let output = "";
+        let requestCount = 0;
+        const stdout = spyOn(process.stdout, "write").mockImplementation((chunk) => {
+            output += String(chunk);
+            return true;
+        });
 
         try {
-            const result = await sandbox.run(["flow", "--help"], {
-                fetcher: () => Promise.resolve(new Response(null, { status: 404 })),
+            const result = await sandbox.run(["flow", ...args], {
+                fetcher: () => {
+                    requestCount += 1;
+                    throw new Error("Network unavailable");
+                },
             });
 
-            expect(result.exitCode).toBe(1);
-            expect(result.stdout).toBe("");
-            expect(result.stderr).toContain(
-                `Downloading Open Flow ${openFlowCommandRelease.openFlowVersion}...`,
-            );
-            expect(result.stderr).toContain(
-                `Open Flow ${openFlowCommandRelease.openFlowVersion} could not be downloaded or verified.`,
-            );
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(requestCount).toBe(0);
+            expect(output).toContain(args[0] === "--version" ? openFlowVersion : "oo flow");
         }
         finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("renders byte progress while downloading in an interactive terminal", async () => {
-        const sandbox = await createCliSandbox();
-
-        try {
-            const result = await sandbox.run(["flow", "--help"], {
-                fetcher: () => Promise.resolve(new Response(null, { status: 404 })),
-                stderr: { isTTY: true },
-            });
-
-            expect(result.exitCode).toBe(1);
-            expect(result.stdout).toBe("");
-            expect(result.stderr).toContain(
-                `Downloading Open Flow ${openFlowCommandRelease.openFlowVersion}: 0 B / ${formatByteCount(openFlowCommandRelease.archive.length)} (0%)`,
-            );
-        }
-        finally {
+            stdout.mockRestore();
             await sandbox.cleanup();
         }
     });

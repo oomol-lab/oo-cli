@@ -3,6 +3,7 @@ import { chmod, mkdir, readdir, readFile, rm } from "node:fs/promises";
 
 import { dirname, join } from "node:path";
 
+import { version as openFlowVersion } from "@oomol-lab/open-flow/package.json";
 import { describe, expect, test } from "bun:test";
 import { createTemporaryDirectory } from "../../__tests__/helpers.ts";
 import {
@@ -464,7 +465,7 @@ describe("npm-packages", () => {
     });
 
     compiledBinaryInstallTest(
-        "compiled binary installs bundled skills to stable file paths",
+        "compiled binary runs bundled Flow and installs bundled skills",
         async () => {
             const rootDirectoryPath = process.cwd();
             const temporaryDirectoryPath = await createTemporaryDirectory(
@@ -513,6 +514,31 @@ describe("npm-packages", () => {
                     mkdir(configHomeDirectoryPath, { recursive: true }),
                     mkdir(homeDirectoryPath, { recursive: true }),
                 ]);
+
+                for (const args of [[], ["--help"], ["--version"]]) {
+                    const flowResult = Bun.spawnSync([executablePath, "flow", ...args], {
+                        cwd: temporaryDirectoryPath,
+                        env: {
+                            ...process.env,
+                            HOME: homeDirectoryPath,
+                            XDG_CONFIG_HOME: configHomeDirectoryPath,
+                            XDG_CACHE_HOME: join(temporaryDirectoryPath, "cache"),
+                            LOCALAPPDATA: join(temporaryDirectoryPath, "local-app-data"),
+                            OO_OPEN_FLOW_COMMAND_DIR: "",
+                            OO_TELEMETRY_DISABLED: "1",
+                        },
+                        stderr: "pipe",
+                        stdin: "ignore",
+                        stdout: "pipe",
+                        timeout: 5_000,
+                    });
+
+                    expect(decodeOutput(flowResult.stderr)).toBe("");
+                    expect(flowResult.exitCode).toBe(0);
+                    expect(decodeOutput(flowResult.stdout)).toContain(
+                        args[0] === "--version" ? openFlowVersion : "oo flow",
+                    );
+                }
 
                 const installResult = Bun.spawnSync(
                     [executablePath, "skills", "add"],

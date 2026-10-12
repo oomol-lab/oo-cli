@@ -153,10 +153,6 @@ export const enMessages = {
         "Run the Open Flow CLI with all following arguments passed through unchanged.",
     "commands.flow.summary": "Run Open Flow",
     "arguments.flowArgs": "Arguments passed to Open Flow",
-    "flow.download.complete": "Downloaded and verified Open Flow {version}.",
-    "flow.download.start": "Downloading Open Flow {version}...",
-    "errors.flow.commandArtifactUnavailable":
-        "Open Flow {version} could not be downloaded or verified. Check the network connection and local cache, then try again.",
     "errors.flow.commandEntryInvalid":
         "The Open Flow command entry at {path} is invalid.",
     "errors.flow.commandEntryLoadFailed":
@@ -1565,10 +1561,6 @@ export const zhMessages = {
     "commands.flow.description": "运行 Open Flow CLI，并将后续参数原样传递给它。",
     "commands.flow.summary": "运行 Open Flow",
     "arguments.flowArgs": "传递给 Open Flow 的参数",
-    "flow.download.complete": "已下载并验证 Open Flow {version}。",
-    "flow.download.start": "正在下载 Open Flow {version}…",
-    "errors.flow.commandArtifactUnavailable":
-        "无法下载或验证 Open Flow {version}。请检查网络连接和本地缓存后重试。",
     "errors.flow.commandEntryInvalid": "{path} 中的 Open Flow 命令入口无效。",
     "errors.flow.commandEntryLoadFailed":
         "无法加载 {path} 中的 Open Flow 命令入口：{message}",
