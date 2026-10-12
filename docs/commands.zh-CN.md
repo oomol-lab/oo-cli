@@ -25,7 +25,7 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   使用指定的已展开命令产物目录。该目录必须包含 `entry.js`；Open Flow
   仓库的标准构建会将它写到
   `packages/command/dist/command/open-flow-command`。未设置时，`oo flow`
-  使用当前 `oo` 版本固定的 Open Flow release。
+  使用当前 `oo` 版本内置的 Open Flow CLI。
 - `OO_OPEN_FLOW_URL`：用完整 HTTP(S) origin 选择自部署 Open Flow Server，例如
   `http://127.0.0.1:3000`。必须与 `OO_OPEN_FLOW_TOKEN` 同时设置；两者生效时，
   `oo flow` 不使用 OOMOL 账号、Team 或 `OO_ENDPOINT`。
@@ -95,15 +95,15 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 
 ### `oo flow [args...]`
 
-运行当前 `oo` 版本固定的 Open Flow CLI release。首次调用会下载并验证对应的
-不可变命令归档；之后直接离线复用已验证的本地缓存，不会在每次启动时检查更新。
+运行随当前 `oo` 版本内置的 Open Flow CLI，无需额外下载。帮助和版本查询
+无需网络；访问 Hosted 或自部署 Server 的操作仍需要连接对应服务。
 
 - `oo` 宿主读取 `--team <name>`，为整个 Flow 调用选择团队。`flow` 后的
   其余参数原样传给 Open Flow，并且不写入 debug 日志。
 - 当前生效的 `oo --lang` locale 会以 `en` 或 `zh-CN` 传给 Open Flow；
   Open Flow 自己拥有并随版本发布对应的命令翻译文案。
 - 因此 `oo flow --help` 和 `oo flow --version` 都属于 Open Flow 命令。
-  如需在不加载 Open Flow 的情况下查看宿主侧命令说明，请使用 `oo help flow`。
+  如需查看宿主侧命令说明，请使用 `oo help flow`。
 - 根帮助和生成的 shell 补全始终会列出 `flow`，Hosted 与自部署模式一致。
 - `--lang`、`--debug` 等 `oo` 全局选项必须放在 `flow` 前面；
   团队选择也可以放在 `flow` 后或子命令后，其余选项归 Open Flow 所有。
@@ -111,14 +111,7 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   它的退出码会直接成为 `oo` 的退出码。
 - 未传入后续参数时，Open Flow 只打印帮助且不等待输入；stdin 和 stdout 都是
   TTY 时也保持相同行为。
-- 只有归档长度和 SHA-256 与 `oo` 固定的 release 一致，且内部 manifest 和完整
-  文件集合与该 release 相符时，下载内容才会被接受。Artifact 中记录的 Bun 构建
-  版本不需要与 `oo` 使用的 Bun runtime 版本一致。
-- Command Artifact v2 只包含 Control API CLI entry 和 license 文件，不包含
-  Workbench assets、Deployment Runtime、skills 或本地 Project 实现。
-- 缓存未命中时，交互式终端会在 stderr 原地刷新字节进度；非交互式输出会分别打印
-  一行开始和完成信息。命中缓存时保持静默。
-- `OO_OPEN_FLOW_COMMAND_DIR` 仅用于本地仓库联调；设置后会跳过下载和缓存解析。
+- `OO_OPEN_FLOW_COMMAND_DIR` 仅用于本地仓库联调；设置后使用指定目录中的命令入口。
 - 默认情况下，Open Flow 子命令使用当前 `oo` 登录凭证和生效的 Team。Hosted
   gateway 由当前 endpoint 派生为 `https://open-flow.<endpoint>`；例如
   `OO_ENDPOINT=oomol.dev` 使用 `https://open-flow.oomol.dev`。

@@ -115,10 +115,9 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
 
 ### `oo flow [args...]`
 
-Run the Open Flow CLI release pinned by the current `oo` release. The first
-invocation downloads and verifies its immutable command archive. Later
-invocations reuse the verified local cache without checking for updates or
-requiring network access.
+Run the Open Flow CLI bundled with the current `oo` release, without any
+additional download. Help and version queries work offline; operations against
+a Hosted or self-hosted Server still require a connection to that service.
 
 - The `oo` host consumes `--team <name>` for the whole Flow invocation.
   Remaining arguments after `flow` are passed to Open Flow unchanged and are
@@ -126,8 +125,7 @@ requiring network access.
 - The effective `oo --lang` locale is passed to Open Flow as `en` or
   `zh-CN`. Open Flow owns and versions its translated command text.
 - `oo flow --help` and `oo flow --version` are therefore Open Flow commands.
-  Use `oo help flow` to show the host-side command description without loading
-  Open Flow.
+  Use `oo help flow` to show the host-side command description.
 - Root help and generated shell completions always list `flow` for both Hosted
   and self-hosted deployments.
 - Main `oo` global options such as `--lang` and `--debug` must appear before
@@ -137,18 +135,8 @@ requiring network access.
   environment, and signals. Its exit code becomes the `oo` exit code.
 - With no delegated arguments, Open Flow prints help and never waits for
   input, including when stdin and stdout are TTYs.
-- The downloaded archive is accepted only when its length and SHA-256 digest
-  match the release pinned by `oo`, and its internal manifest and complete file
-  set agree with that release. The Bun build version recorded by the artifact
-  does not need to match the Bun runtime used by `oo`.
-- Command Artifact v2 contains only the Control API CLI entry and license
-  files. It does not contain Workbench assets, a Deployment Runtime, skills,
-  or a local Project implementation.
-- On a cache miss, interactive terminals show in-place byte progress on stderr;
-  non-interactive streams receive one start and one completion line. Cache hits
-  remain silent.
-- `OO_OPEN_FLOW_COMMAND_DIR` bypasses download and cache resolution for local
-  repository integration testing.
+- `OO_OPEN_FLOW_COMMAND_DIR` selects a local command entry for repository
+  integration testing.
 - By default, Open Flow commands use the current `oo` credential and effective
   Team. The Hosted gateway is derived from the current endpoint as
   `https://open-flow.<endpoint>`; for example, `OO_ENDPOINT=oomol.dev` uses
