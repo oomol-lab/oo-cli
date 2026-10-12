@@ -44,7 +44,7 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@oomol-lab/open-flow": "0.1.0-beta.61",
+    "@oomol-lab/open-flow": "0.1.0-beta.62",
     "@vercel/detect-agent": "^1.2.5",
     "@wopjs/cast": "^0.1.16",
     "agentic-markdown": "^0.0.4",

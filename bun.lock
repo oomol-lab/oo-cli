@@ -5,7 +5,7 @@
     "": {
       "name": "oo",
       "dependencies": {
-        "@oomol-lab/open-flow": "0.1.0-beta.61",
+        "@oomol-lab/open-flow": "0.1.0-beta.62",
         "@vercel/detect-agent": "^1.2.5",
         "@wopjs/cast": "^0.1.16",
         "agentic-markdown": "^0.0.4",
@@ -110,7 +110,7 @@
 
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.1.4", "", { "dependencies": { "@tybys/wasm-util": "^0.10.1" }, "peerDependencies": { "@emnapi/core": "^1.7.1", "@emnapi/runtime": "^1.7.1" } }, "sha512-3NQNNgA1YSlJb/kMH1ildASP9HW7/7kYnRI2szWJaofaS1hWmbGI4H+d3+22aGzXXN9IJ+n+GiFVcGipJP18ow=="],
 
-    "@oomol-lab/open-flow": ["@oomol-lab/open-flow@0.1.0-beta.61", "", { "peerDependencies": { "effect": "4.0.0-rc.112", "react": "^18.3.1 || ^19.0.0", "react-dom": "^18.3.1 || ^19.0.0", "zod": "^4.6.5" } }, "sha512-ybridw95CYrE0UFqQoXEJOxWh4qJrBXVmqomvI4pGnGHlz+PVIu2A9LmOb5D28lqAwsgftqEaDug6O15VSkCaw=="],
+    "@oomol-lab/open-flow": ["@oomol-lab/open-flow@0.1.0-beta.62", "", { "peerDependencies": { "effect": "4.0.0-rc.112", "react": "^18.3.1 || ^19.0.0", "react-dom": "^18.3.1 || ^19.0.0", "zod": "^4.6.5" } }, "sha512-Y3D6qWFCd7t4xmk5j8inphqJqOS/7+C3kXP9v4WTUDNhtx+943xIpCCg37C+ZoHJIRhEkcdvMJmQQC2PUEVmHQ=="],
 
     "@ota-meshi/ast-token-store": ["@ota-meshi/ast-token-store@0.3.0", "", {}, "sha512-XRO0zi2NIUKq2lUk3T1ecFSld1fMWRKE6naRFGkgkdeosx7IslyUKNv5Dcb5PJTja9tHJoFu0v/7yEpAkrkrTg=="],
 
