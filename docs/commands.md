@@ -164,6 +164,17 @@ a Hosted or self-hosted Server still require a connection to that service.
   machine output. Flows are selected by ID or an unambiguous exact name;
   Team selection belongs to the `oo` invocation, and Connector discovery accepts
   `--flow <flow>` to use that Flow's Team scope.
+- `oo flow export <flow> > template.openflow.json` writes a workflow template
+  as JSON to stdout. `oo flow import --file <path|-> --name <name>
+  --idempotency-key <key> --json` imports a template from a file or stdin into
+  a new unpublished Draft; `--name` is optional. Import never overwrites the
+  source Flow. Retry an uncertain import with the same file, name, and key.
+  Both operations clear structured accounts, Variables, error-source workflows,
+  and Trigger resource selections while preserving the graph, shared code
+  Modules, fixed inputs, prompts, model choices, and layout. Review literal
+  sensitive data in code, prompts, and business JSON before sharing a template.
+  Configure missing resources and check the imported Draft before running or
+  publishing it.
 - `oo flow read <flow> --json` returns a Draft graph outline. Supply `nodes`
   for selected node details or `text` for a Code/prompt excerpt; these modes
   are mutually exclusive. Keep the returned `revision` for subsequent reads.

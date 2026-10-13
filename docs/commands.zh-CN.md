@@ -134,6 +134,14 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   Workbench deep link。`--json` 输出带版本的机器格式。Flow 使用 ID 或无歧义的精确
   名称选择；团队由本次 `oo` 调用统一选择，Connector 发现命令接受
   `--flow <flow>`，以该 Flow 的 Team 为查询范围。
+- `oo flow export <flow> > template.openflow.json` 将工作流模板以 JSON 输出到
+  stdout。`oo flow import --file <path|-> --name <name>
+  --idempotency-key <key> --json` 从文件或 stdin 导入模板，创建新的未发布 Draft；
+  `--name` 可省略。导入不会覆盖源 Flow；提交结果不确定时，使用相同文件、名称和
+  key 重试。导入和导出都会清除结构化账号、Variables、错误来源工作流和 Trigger
+  资源选择，保留图、共享代码 Module、固定输入、prompt、模型选择和布局。
+  分享模板前应检查代码、prompt 和业务 JSON 中直接写入的敏感数据；运行或发布
+  导入的 Draft 前，先配置缺失资源并执行检查。
 - `oo flow read <flow> --json` 返回 Draft graph 概览。传入 `nodes` 读取选定节点
   的详情，或传入 `text` 读取 Code/prompt 片段；两种模式互斥。后续读取保留返回的
   `revision`。文本通过 `nextStart` 分页，直到 `truncated` 为 false。
