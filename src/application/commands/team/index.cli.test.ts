@@ -33,7 +33,6 @@ const teamsResponse = {
             id: "team-2",
             name: "beta",
             role: "member",
-            system_created: false,
         },
     ],
 };
