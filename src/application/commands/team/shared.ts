@@ -4,17 +4,13 @@ import type { AuthAccount } from "../../schemas/auth.ts";
 import { z } from "zod";
 import { probeOo, requestOo } from "../shared/oo-request.ts";
 
-// One team the current account belongs to. The membership listing always
-// carries `role` (exactly `creator` or `member`; any other value is treated as
-// a plain membership) and `system_created`, which marks the team the backend
-// provisions for every account (at most one at a time, and it cannot be
-// deleted). Both fields are always present in the response, so both are
-// required — a missing one is a malformed response, not a defaulted value.
+// The backend may omit system_created for teams that were not provisioned
+// automatically.
 const teamResponseItemSchema = z.object({
     id: z.string().min(1),
     name: z.string().min(1),
     role: z.string(),
-    system_created: z.boolean(),
+    system_created: z.boolean().default(false),
 });
 
 // `GET /v1/me/teams` wraps the memberships in a `teams` array. The array is

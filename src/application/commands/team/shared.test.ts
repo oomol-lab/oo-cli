@@ -112,7 +112,7 @@ describe("listMemberTeams", () => {
         ]);
     });
 
-    test("rejects a team item missing the required role or system_created field", async () => {
+    test("rejects a team item missing the required role", async () => {
         const missingRole = await expectCliUserError(listMemberTeams(
             testAccount,
             createRequestContext({
@@ -122,16 +122,34 @@ describe("listMemberTeams", () => {
             }),
         ));
         expect(missingRole.key).toBe("errors.team.invalidResponse");
+    });
 
-        const missingSystemCreated = await expectCliUserError(listMemberTeams(
+    test("accepts a team without the system_created marker", async () => {
+        const teams = await listMemberTeams(
             testAccount,
             createRequestContext({
-                fetcher: async () => new Response(JSON.stringify({
+                fetcher: async () => Response.json({
                     teams: [{ id: "team-1", name: "acme", role: "creator" }],
-                })),
+                }),
+            }),
+        );
+
+        expect(teams).toEqual([
+            { id: "team-1", name: "acme", role: "creator", systemCreated: false },
+        ]);
+    });
+
+    test.each([null, "false", 0])("rejects an invalid system_created marker: %p", async (systemCreated) => {
+        const error = await expectCliUserError(listMemberTeams(
+            testAccount,
+            createRequestContext({
+                fetcher: async () => Response.json({
+                    teams: [{ id: "team-1", name: "acme", role: "creator", system_created: systemCreated }],
+                }),
             }),
         ));
-        expect(missingSystemCreated.key).toBe("errors.team.invalidResponse");
+
+        expect(error.key).toBe("errors.team.invalidResponse");
     });
 
     test("returns an empty list when the account has no teams", async () => {
