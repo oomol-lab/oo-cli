@@ -108,8 +108,22 @@ Use `oo search "<text>" --all-teams --json` when the user asks to search across
 teams, or current evidence establishes that no team has been selected and the
 task calls for finding a connection across memberships. This is hosted-only,
 ignores saved/env team selections, and conflicts with `--team`. For a known
-team, use `oo search "<text>" --team "<name>" --json`. Do not automatically
-broaden scope after a current-team authorization failure.
+team, use `oo search "<text>" --team "<name>" --json`.
+
+In Hosted mode, if a successful current-team search returns no matching,
+available action, repeat the same query once with `--all-teams --json` before
+reporting an auth or catalog blocker. This includes empty or irrelevant results
+and matching actions whose discovery status indicates an unavailable connection
+or authorization. Do not fall back when a matching action is available, when
+the user explicitly scoped the task to a team, or when the search command itself
+fails (including network, service, or authentication errors). A saved or
+environment-selected team alone does not prohibit this discovery fallback.
+Do not repeat an already cross-team search or use this fallback after connector
+execution fails. If no usable match is found, report the applicable blocker.
+
+When fallback finds a match, identify its team and connection. For a discovery
+request, report the results; for execution in another team, establish the user's
+intended team and connection before running. Do not change the saved team.
 
 Cross-team results preserve `teamId`, `teamName`, and `appId`. Keep the selected
 triple together; do not deduplicate different connections solely by action ID.
@@ -156,6 +170,9 @@ Representative JSON example:
 ```
 
 ## Rank the first result set
+
+Apply the discovery fallback under [Team scope](#team-scope) before reporting
+unavailable connections or missing candidates under the rules below.
 
 Inspect the first result set before trying alternative searches. Usually keep
 one primary candidate and at most one materially different fallback.
