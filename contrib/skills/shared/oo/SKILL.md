@@ -168,7 +168,9 @@ proves its output.
    activate only the current unresolved external step.
 3. Discover
    Read [references/search-and-selection.md](references/search-and-selection.md)
-   before the first search. Run `oo search "<goal>" --json` unless a complete
+   before the first search. Preserve the current team; use `--all-teams` only
+   under the reference's explicit cross-team discovery rules.
+   Run `oo search "<goal>" --json` unless a complete
    capability contract is already known from current evidence.
    A complete contract means connector schema already proves the callable id,
    required inputs, and output semantics; a user-named service is not enough.

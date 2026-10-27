@@ -996,6 +996,14 @@ export const enMessages = {
         "Run the action with the connector app connection name",
     "options.connectorAppsTeam":
         "List connected apps under the given team identity",
+    "options.searchAllTeams": "Search all your teams (ignores the current team; conflicts with --team; hosted only)",
+    "options.connectorRunAppId": "Run with the exact app ID returned by search; conflicts with --connection-name",
+    "errors.connectorSearch.teamConflict": "--all-teams cannot be combined with --team.",
+    "errors.connectorSearch.allTeamsUnsupported": "--all-teams requires the OOMOL-hosted connector and a user identity.",
+    "errors.connectorRun.appIdEmpty": "--app-id must not be empty.",
+    "errors.connectorRun.connectionSelectorConflict": "--app-id cannot be combined with --connection-name.",
+    "connector.search.text.team": "Team",
+    "connector.search.text.appId": "App ID",
     "options.searchTeam":
         "Report each action's authenticated status under the given team identity",
     "options.connectorRunTeam":
@@ -1289,6 +1297,7 @@ export const enMessages = {
     "team.list.text.team": "Team",
     "team.list.text.role": "Role",
     "team.list.text.default": "Default",
+    "team.list.text.current": "Current",
     "team.list.text.noTeams":
         "The active account has no teams; team-aware commands send no team selection.",
     "team.current.text.accountDefault": "Default team identity: {team}",
@@ -2371,6 +2380,14 @@ export const zhMessages = {
         "使用指定 connector app 连接名称运行该 action",
     "options.connectorAppsTeam":
         "以指定团队身份列出已连接的 app",
+    "options.searchAllTeams": "搜索所属的全部团队（忽略当前团队，与 --team 互斥，仅限托管服务）",
+    "options.connectorRunAppId": "使用搜索返回的精确 app ID 执行，与 --connection-name 互斥",
+    "errors.connectorSearch.teamConflict": "--all-teams 不能与 --team 同时使用。",
+    "errors.connectorSearch.allTeamsUnsupported": "--all-teams 需要 OOMOL 托管 connector 和用户身份。",
+    "errors.connectorRun.appIdEmpty": "--app-id 不能为空。",
+    "errors.connectorRun.connectionSelectorConflict": "--app-id 不能与 --connection-name 同时使用。",
+    "connector.search.text.team": "团队",
+    "connector.search.text.appId": "应用 ID",
     "options.searchTeam":
         "以指定团队身份报告每个 action 的 authenticated 状态",
     "options.connectorRunTeam":
@@ -2661,6 +2678,7 @@ export const zhMessages = {
     "team.list.text.team": "团队",
     "team.list.text.role": "角色",
     "team.list.text.default": "默认",
+    "team.list.text.current": "当前",
     "team.list.text.noTeams":
         "当前活动账号没有任何团队；团队相关命令不会发送团队选择。",
     "team.current.text.accountDefault": "默认团队身份：{team}",

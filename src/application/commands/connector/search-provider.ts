@@ -13,6 +13,9 @@ export const connectorSearchActionColor = "#59F78D";
 export const connectorSearchServiceColor = "#CAA8FA";
 
 export interface ConnectorSearchResult {
+    appId?: string;
+    teamId?: string;
+    teamName?: string;
     accessStatus: ConnectorActionAccessStatus;
     authenticated: boolean;
     description: string;
@@ -24,6 +27,7 @@ type ConnectorSearchTextContext = Pick<CliExecutionContext, "stdout" | "translat
 
 export async function loadConnectorSearchResults(
     options: {
+        allTeams?: boolean;
         identity?: TeamIdentity | undefined;
         target: ConnectorSchemaRequestTarget;
         text: string;
@@ -34,6 +38,7 @@ export async function loadConnectorSearchResults(
     >,
 ): Promise<ConnectorSearchResult[]> {
     const actions = await searchConnectorActions({
+        allTeams: options.allTeams,
         identity: options.identity,
         target: options.target,
         text: options.text,
@@ -42,6 +47,9 @@ export async function loadConnectorSearchResults(
     await warmConnectorActionSchemas(actions, options.target.cacheScope, context);
 
     return actions.map(action => ({
+        appId: action.appId,
+        teamId: action.teamId,
+        teamName: action.teamName,
         accessStatus: action.accessStatus,
         authenticated: action.authenticated,
         description: action.description,
@@ -84,6 +92,15 @@ export function formatConnectorSearchResultAsText(
         `${context.translator.t("connector.search.text.accessStatus")}: ${formatConnectorAccessStatusLabel(result.accessStatus, context, colors)}`,
     );
 
+    if (result.teamId !== undefined) {
+        const team = result.teamName === undefined
+            ? result.teamId
+            : `${result.teamName} (${result.teamId})`;
+        lines.push(`${context.translator.t("connector.search.text.team")}: ${team}`);
+    }
+    if (result.appId !== undefined) {
+        lines.push(`${context.translator.t("connector.search.text.appId")}: ${result.appId}`);
+    }
     return lines.join("\n");
 }
 

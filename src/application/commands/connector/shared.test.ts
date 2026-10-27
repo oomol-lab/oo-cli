@@ -402,6 +402,41 @@ describe("connector shared requests", () => {
         expect(requests[0]?.headers.get("x-oo-team-id")).toBe("team-1");
     });
 
+    test.each([
+        createConnectorTargetFixture(),
+        createSelfHostedConnectorTargetFixture(),
+    ])("runConnectorAction routes the app ID selector for $kind targets", async (target) => {
+        const requests: Request[] = [];
+        await runConnectorAction(
+            {
+                actionName: "send_mail",
+                connectionSelector: { appId: "app-123" },
+                inputData: {},
+                serviceName: "gmail",
+                target,
+            },
+            createRequestContext({
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+                    return Response.json({
+                        data: {},
+                        meta: { executionId: "exec-1" },
+                    });
+                },
+            }),
+        );
+
+        expect(requests).toHaveLength(1);
+        const request = requests[0]!;
+        expect(request.url).toBe(
+            `${target.baseUrl}/v1/actions/gmail.send_mail${target.kind === "oomol" ? "?appId=app-123" : ""}`,
+        );
+        expect(request.headers.get("x-oo-connector-app-id")).toBe(
+            target.kind === "self_hosted" ? "app-123" : null,
+        );
+        expect(request.headers.get("x-oo-connector-alias")).toBeNull();
+    });
+
     test("runConnectorAction sends the connection-name selector as a header without query params", async () => {
         const requests: Request[] = [];
         await runConnectorAction(

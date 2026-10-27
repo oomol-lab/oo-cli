@@ -2552,7 +2552,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("sends the connection-name selector on async submit and result requests", async () => {
+    test.each(["--connection-name", "--app-id"])("preserves %s and team selection on async submit and result requests", async (selector) => {
         const sandbox = await createCliSandbox();
         const sleepMock = createBunSleepMock();
 
@@ -2600,7 +2600,9 @@ describe("connectorCommand CLI", () => {
                     "openai_image_async_submit",
                     "-d",
                     "{\"prompt\":\"a cat\"}",
-                    "--connection-name",
+                    selector,
+                    "work",
+                    "--team",
                     "work",
                     "--wait-result",
                     "--json",
@@ -2619,10 +2621,11 @@ describe("connectorCommand CLI", () => {
                 "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_submit",
                 "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_result",
                 "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_result",
-            ]);
+            ].map(url => selector === "--app-id" ? `${url}?appId=work` : url));
             expect(requests.map(
                 request => request.headers.get("x-oo-connector-alias"),
-            )).toEqual(["work", "work", "work"]);
+            )).toEqual(selector === "--app-id" ? [null, null, null] : ["work", "work", "work"]);
+            expect(requests.map(request => request.headers.get("x-oo-team-name"))).toEqual(["work", "work", "work"]);
         }
         finally {
             sleepMock.restore();
@@ -5795,3 +5798,111 @@ function createConnectorProxyResponse(status: number, data: unknown): Response {
         },
     }));
 }
+
+test.each([{ command: ["search"] }, { command: ["connector", "search"] }])("cross-team discovery preserves selectors and ignores saved/env teams: %p", async ({ command }) => {
+    const sandbox = await createCliSandbox();
+    try {
+        const authPath = await writeAuthFileWithDefaultTeam(sandbox, "saved", { teamId: "saved-id" });
+        const saved = await Bun.file(authPath).text();
+        sandbox.env.OO_TEAM_ID = "unavailable-env-team";
+        const requests: Request[] = [];
+        const entry = {
+            service: "gmail",
+            name: "send_mail",
+            description: "Send mail",
+            authenticated: true,
+            accessStatus: "available",
+            appId: "app-other",
+            teamId: "team-other",
+            teamName: "Other",
+            inputSchema: { type: "object" },
+            outputSchema: { type: "object" },
+        };
+        const result = await sandbox.run([...command, "send mail", "--all-teams", "--json"], {
+            fetcher: async (input, init) => {
+                requests.push(toRequest(input, init));
+                return Response.json({ data: [entry, { ...entry, teamId: "team-second", appId: "app-second" }] });
+            },
+        });
+        expect(result.exitCode).toBe(0);
+        expect(requests).toHaveLength(1);
+        expect(requests[0]?.url).toBe("https://connector.oomol.com/v1/actions/search/all-teams?q=send+mail");
+        expect(requests[0]?.headers.get("x-oo-team-id")).toBeNull();
+        expect(requests[0]?.headers.get("x-oo-team-name")).toBeNull();
+        expect(JSON.parse(result.stdout)).toMatchObject([
+            { appId: "app-other", teamId: "team-other", teamName: "Other" },
+            { appId: "app-second", teamId: "team-second" },
+        ]);
+        expect(await Bun.file(authPath).text()).toBe(saved);
+        const event = readTelemetryRowsForTest(join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"))
+            .map(row => parseTelemetryRowPayload(row))
+            .find(payload => payload?.properties?.command_full === command.join("."));
+        expect(event?.properties).toMatchObject({ search_scope: "all_teams", identity_source: "none", result_count_bucket: "1-5" });
+        expectTelemetryFreeOfTeamIdentity(event?.properties, ["app-other", "team-other"]);
+        expect(JSON.stringify(event)).not.toContain("app-other");
+        expect(JSON.stringify(event)).not.toContain("team-other");
+
+        sandbox.env.OO_TEAM_ID = "team-other";
+        const runRequests: Request[] = [];
+        const run = await sandbox.run(["connector", "run", "gmail", "--action", "send_mail", "--app-id", "app-other", "--json"], {
+            fetcher: async (input, init) => {
+                const request = toRequest(input, init);
+                runRequests.push(request);
+                if (request.url === "https://relation-control.oomol.com/v1/teams/team-other") {
+                    return Response.json({ id: "team-other", name: "Other", role: "member" });
+                }
+                if (request.method === "POST") {
+                    return Response.json({ data: { sent: true }, meta: { executionId: "exec-1" } });
+                }
+                throw new Error(`Unexpected request: ${request.url}`);
+            },
+        });
+        expect(run.exitCode).toBe(0);
+        expect(runRequests).toHaveLength(2);
+        expect(runRequests[1]?.url).toBe("https://connector.oomol.com/v1/actions/gmail.send_mail?appId=app-other");
+        expect(runRequests[1]?.headers.get("x-oo-team-id")).toBe("team-other");
+        expect(runRequests[1]?.headers.get("x-oo-connector-alias")).toBeNull();
+        expect(await Bun.file(authPath).text()).toBe(saved);
+        const runEvent = readTelemetryRowsForTest(join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"))
+            .map(row => parseTelemetryRowPayload(row))
+            .find(payload => payload?.properties?.command_full === "connector.run");
+        expect(runEvent?.properties).toMatchObject({ connection_selector: "appId" });
+        expect(JSON.stringify(runEvent)).not.toContain("app-other");
+    }
+    finally { await sandbox.cleanup(); }
+});
+
+test.each([
+    ["search", "mail", "--all-teams", "--team", "acme"],
+    ["--team", "acme", "search", "mail", "--all-teams"],
+    ["connector", "run", "gmail", "--action", "send_mail", "--app-id", ""],
+    ["connector", "run", "gmail", "--action", "send_mail", "--app-id", "app-1", "--connection-name", "work"],
+].map(argv => ({ argv })))("rejects conflicting or empty selectors before requests: %p", async ({ argv }) => {
+    const sandbox = await createCliSandbox();
+    try {
+        let requests = 0;
+        const result = await sandbox.run(argv, { fetcher: async () => {
+            requests++;
+            throw new Error("Unexpected fetch");
+        } });
+        expect(result.exitCode).toBe(2);
+        expect(requests).toBe(0);
+    }
+    finally { await sandbox.cleanup(); }
+});
+
+test("rejects all-teams search for self-hosted targets", async () => {
+    const sandbox = await createCliSandbox();
+    try {
+        sandbox.env.OO_CONNECTOR_URL = "http://localhost:3000";
+        let requests = 0;
+        const result = await sandbox.run(["search", "mail", "--all-teams"], { fetcher: async () => {
+            requests++;
+            throw new Error("Unexpected fetch");
+        } });
+        expect(result.exitCode).toBe(2);
+        expect(result.stderr).toContain("--all-teams");
+        expect(requests).toBe(0);
+    }
+    finally { await sandbox.cleanup(); }
+});

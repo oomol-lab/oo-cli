@@ -104,7 +104,14 @@ Facts:
   `connection_ambiguous`, run `oo connector apps "<serviceName>" --json`, pick
   the intended `connectionName`, then pass `--connection-name "<connectionName>"`
   to `oo connector run`.
-- Do not use app ids as CLI selectors for connector actions.
+- If search supplies an `appId`, pass `--app-id "<appId>"` to select that exact
+  connection. It conflicts with `--connection-name`.
+- For a selected cross-team result, execute with
+  `OO_TEAM_ID="<teamId>" oo connector run "<service>" --action "<action>" --app-id "<appId>" --data '<json object>' --json`.
+  Use IDs from the same result, preserve that team/app pair for async polling,
+  and do not add `--team` (which would override the selected team ID).
+  This per-command environment override does not change the saved current team.
+  Schema lookup is team-independent; still inspect the contract before running.
 - `--json` returns a stable JSON object for execution output.
 - In execution responses, the execution id is nested under
   `meta.executionId`, not a top-level field.

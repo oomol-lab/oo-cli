@@ -48,6 +48,8 @@ Arguments:
   text                   Search text
 
 Options:
+  --all-teams            Search all your teams (ignores the current team;
+                         conflicts with --team; hosted only)
   --team <team>          Report each action's authenticated status under the
                          given team identity
   --format <format>      Specify output format (use json for structured output)
@@ -74,6 +76,8 @@ Arguments:
   text                   Search text
 
 Options:
+  --all-teams            Search all your teams (ignores the current team;
+                         conflicts with --team; hosted only)
   --team <team>          Report each action's authenticated status under the
                          given team identity
   --format <format>      Specify output format (use json for structured output)

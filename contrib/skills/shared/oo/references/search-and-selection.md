@@ -97,6 +97,33 @@ Examples:
 - Missing format constraint: `translate contract PDF`
   Better: `translate a scanned German contract PDF into English and return a DOCX`
 
+## Team scope
+
+Ordinary `oo search` honors the current team (including environment and saved
+account selections). Preserve a user-selected team throughout the task. Do not
+infer that no current team exists just because the user did not name one, and
+do not run routine team/auth prechecks before search.
+
+Use `oo search "<text>" --all-teams --json` when the user asks to search across
+teams, or current evidence establishes that no team has been selected and the
+task calls for finding a connection across memberships. This is hosted-only,
+ignores saved/env team selections, and conflicts with `--team`. For a known
+team, use `oo search "<text>" --team "<name>" --json`. Do not automatically
+broaden scope after a current-team authorization failure.
+
+Cross-team results preserve `teamId`, `teamName`, and `appId`. Keep the selected
+triple together; do not deduplicate different connections solely by action ID.
+The hosted response contains at most 10 expanded result entries, not 10 distinct
+actions or all connections. Absence from this shortlist does not prove a team
+has no connection. When several team/connection choices fit and the intended
+account or destination is unclear, ask which one to use instead of choosing by
+search order. Discovery does not authorize execution in another team.
+
+If team choice needs clarification, `oo team list --json` reports `current`
+(the effective selection) separately from `isDefault` (the backend default).
+An existing current team takes precedence; the default marker does not grant
+permission to switch teams or choose an ambiguous destination.
+
 ## Discovery command
 
 Canonical form:

@@ -82,6 +82,9 @@ const connectorActionAccessStatusSchema = z.enum([
 ]);
 
 const connectorActionSearchResultSchema = z.object({
+    appId: z.string().optional(),
+    teamId: z.string().optional(),
+    teamName: z.string().optional(),
     accessStatus: connectorActionAccessStatusSchema.optional(),
     authenticated: z.boolean(),
     description: z.string().optional().default(""),
@@ -175,6 +178,7 @@ const connectorActionFailureResponseSchema = z.object({
 }).passthrough();
 
 export interface ConnectorConnectionSelector {
+    appId?: string;
     connectionName?: string;
 }
 
@@ -199,6 +203,7 @@ type ConnectorActionFailureResponse = z.output<typeof connectorActionFailureResp
 
 export async function searchConnectorActions(
     options: {
+        allTeams?: boolean;
         identity?: TeamIdentity | undefined;
         target: ConnectorRequestTarget;
         text: string;
@@ -220,7 +225,7 @@ export async function searchConnectorActions(
                 textLength: options.text.length,
             },
         },
-        path: "/v1/actions/search",
+        path: options.allTeams === true ? "/v1/actions/search/all-teams" : "/v1/actions/search",
         query: { q: options.text },
         schema: connectorActionSearchResponseSchema,
         unexpectedMessage: error => selfHostedConnectorUnreachableMessage(
@@ -373,7 +378,7 @@ export async function runConnectorAction(
         context,
         errors: { scope: "connectorRun" },
         headers: {
-            ...connectorConnectionSelectorHeaders(options.connectionSelector),
+            ...connectorConnectionSelectorHeaders(options.connectionSelector, options.target.kind),
             ...teamIdentityHeaders(options.identity),
         },
         host: { baseUrl: options.target.baseUrl },
@@ -388,6 +393,9 @@ export async function runConnectorAction(
         },
         method: "POST",
         path: connectorActionPath(options.serviceName, options.actionName),
+        query: options.target.kind === "oomol" && options.connectionSelector?.appId !== undefined
+            ? { appId: options.connectionSelector.appId }
+            : undefined,
         schema: connectorActionRunResponseSchema,
         statusErrors: failure => createConnectorFailureError({
             failure,
@@ -464,8 +472,13 @@ function selfHostedConnectorUnreachableMessage(
 
 function connectorConnectionSelectorHeaders(
     selector: ConnectorConnectionSelector | undefined,
+    targetKind: ConnectorRequestTarget["kind"],
 ): Record<string, string> {
     const headers: Record<string, string> = {};
+
+    if (targetKind === "self_hosted" && selector?.appId !== undefined) {
+        headers["x-oo-connector-app-id"] = selector.appId;
+    }
 
     // The connection name is sent on the wire as the legacy `x-oo-connector-alias`
     // header; this is the only place the `alias` name survives.

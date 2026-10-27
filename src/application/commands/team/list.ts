@@ -18,6 +18,7 @@ import { listMemberTeams } from "./shared.ts";
 
 interface TeamListItem {
     current: boolean;
+    isDefault: boolean;
     id: string;
     name: string;
     role: TeamRole;
@@ -38,14 +39,17 @@ export const teamListCommand: CliCommandDefinition = {
             { account, defaultTeam, resolveAgainstBackend: false },
             context,
         );
-        const isCurrent = (team: TeamView): boolean =>
-            isCurrentTeamRow(team, identity);
-
         const teams = await listMemberTeams(account, context);
 
         await backfillDefaultTeamId(context, defaultTeam, teams);
 
-        const output = teams.map(team => createTeamListItem(team, isCurrent));
+        const output = teams.map(team => ({
+            current: isCurrentTeamRow(team, identity),
+            isDefault: team.isDefault,
+            id: team.id,
+            name: team.name,
+            role: team.role,
+        }));
 
         context.telemetry?.recordProperties({
             result_count_bucket: bucketTelemetryCount(output.length),
@@ -100,16 +104,17 @@ async function backfillDefaultTeamId(
     }
 }
 
-// Decides which row is the effective default for connector commands. An
+// Decides which row is current for connector commands. An
 // offline identity carries exactly the dimension its source supplies — the id
 // under OO_TEAM_ID, the name under OO_TEAM_NAME, and whichever the account
-// default stored — so the row is matched on whichever one is known.
+// default stored — so the row is matched on whichever one is known. With no
+// local selection, the backend default marker determines the current row.
 function isCurrentTeamRow(
     team: TeamView,
     identity: TeamIdentity | undefined,
 ): boolean {
     if (identity === undefined) {
-        return false;
+        return team.isDefault;
     }
 
     return identity.id !== null
@@ -117,24 +122,11 @@ function isCurrentTeamRow(
         : team.name === identity.name;
 }
 
-function createTeamListItem(
-    team: TeamView,
-    isCurrent: (team: TeamView) => boolean,
-): TeamListItem {
-    return {
-        current: isCurrent(team),
-        id: team.id,
-        name: team.name,
-        role: team.role,
-    };
-}
-
 type TeamListTranslator = Pick<CliExecutionContext["translator"], "t">;
 
 // Renders the team listing as a color-coded, column-aligned table. The
-// effective default (the OO_TEAM_ID / OO_TEAM_NAME env override, or the
-// account's saved default) is marked so callers can see at a glance which
-// team `oo connector run` uses without `--team`.
+// backend default is shown separately from the effective current selection
+// used by `oo connector run` without `--team`.
 export function formatTeamsAsText(
     teams: readonly TeamListItem[],
     translator: TeamListTranslator,
@@ -166,6 +158,10 @@ function createTeamListColumns(
         },
         {
             header: translator.t("team.list.text.default"),
+            render: team => team.isDefault ? colors.green("✓") : colors.dim("-"),
+        },
+        {
+            header: translator.t("team.list.text.current"),
             render: team => team.current
                 ? colors.green("✓")
                 : colors.dim("-"),

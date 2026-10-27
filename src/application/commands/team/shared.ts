@@ -11,6 +11,7 @@ const teamResponseItemSchema = z.object({
     name: z.string().min(1),
     role: z.string(),
     system_created: z.boolean().default(false),
+    default_team: z.boolean().default(false),
 });
 
 // `GET /v1/me/teams` wraps the memberships in a `teams` array. The array is
@@ -27,6 +28,7 @@ export interface TeamView {
     name: string;
     role: TeamRole;
     systemCreated: boolean;
+    isDefault: boolean;
 }
 
 // Lists every team the account can authenticate as. Backed by
@@ -252,5 +254,6 @@ function toTeamView(
         name: item.name,
         role: item.role === "creator" ? "creator" : "member",
         systemCreated: item.system_created,
+        isDefault: item.default_team,
     };
 }
