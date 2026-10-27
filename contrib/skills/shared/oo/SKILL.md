@@ -130,8 +130,11 @@ These rules override every local heuristic.
    destination, or timing choices.
 9. Stop at real blockers. Stop and report clearly on auth, billing, catalog
    miss, unsupported input shape, missing required values, terminal task
-   failure, or an unsafe side effect. Connector authorization blockers are
-   terminal for the current turn: when evidence shows the selected connector is
+   failure, or an unsafe side effect. Before treating a discovery result as an
+   auth or catalog blocker, apply the one-time cross-team search fallback in
+   [references/search-and-selection.md](references/search-and-selection.md#team-scope)
+   when eligible. After discovery, connector authorization blockers are terminal
+   for the current turn: when evidence shows the selected connector is
    not connected, not authorized, missing scopes, expired, or otherwise blocked
    by connector authentication, return only a short blocker summary, the direct
    connection or re-authorization URL, and one concise next step. Do not inspect
@@ -168,8 +171,7 @@ proves its output.
    activate only the current unresolved external step.
 3. Discover
    Read [references/search-and-selection.md](references/search-and-selection.md)
-   before the first search. Preserve the current team; use `--all-teams` only
-   under the reference's explicit cross-team discovery rules.
+   before the first search. Follow its team scope and cross-team fallback rules.
    Run `oo search "<goal>" --json` unless a complete
    capability contract is already known from current evidence.
    A complete contract means connector schema already proves the callable id,
