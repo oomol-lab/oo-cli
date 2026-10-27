@@ -82,6 +82,9 @@ const connectorActionAccessStatusSchema = z.enum([
 ]);
 
 const connectorActionSearchResultSchema = z.object({
+    appId: z.string().optional(),
+    teamId: z.string().optional(),
+    teamName: z.string().optional(),
     accessStatus: connectorActionAccessStatusSchema.optional(),
     authenticated: z.boolean(),
     description: z.string().optional().default(""),
@@ -175,6 +178,7 @@ const connectorActionFailureResponseSchema = z.object({
 }).passthrough();
 
 export interface ConnectorConnectionSelector {
+    appId?: string;
     connectionName?: string;
 }
 
@@ -199,6 +203,7 @@ type ConnectorActionFailureResponse = z.output<typeof connectorActionFailureResp
 
 export async function searchConnectorActions(
     options: {
+        allTeams?: boolean;
         identity?: TeamIdentity | undefined;
         target: ConnectorRequestTarget;
         text: string;
@@ -220,7 +225,7 @@ export async function searchConnectorActions(
                 textLength: options.text.length,
             },
         },
-        path: "/v1/actions/search",
+        path: options.allTeams === true ? "/v1/actions/search/all-teams" : "/v1/actions/search",
         query: { q: options.text },
         schema: connectorActionSearchResponseSchema,
         unexpectedMessage: error => selfHostedConnectorUnreachableMessage(
@@ -388,6 +393,7 @@ export async function runConnectorAction(
         },
         method: "POST",
         path: connectorActionPath(options.serviceName, options.actionName),
+        query: options.connectionSelector?.appId === undefined ? undefined : { appId: options.connectionSelector.appId },
         schema: connectorActionRunResponseSchema,
         statusErrors: failure => createConnectorFailureError({
             failure,

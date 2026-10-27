@@ -520,16 +520,18 @@ oo flow
 列出当前活动账号可认证的团队。该命令是只读的。
 
 - 选项：`--format=json` 与 `--json` 输出 JSON 数组。
-- 输出：JSON 条目包含稳定的 CLI 字段 `name`、`id`、`role`、`current`。`role` 为
-  `creator` 或 `member`。`current` 对 connector 命令默认使用的团队为 `true`：
-  设置了 `OO_TEAM_ID`（按 id 匹配）或 `OO_TEAM_NAME`（按名称匹配）时为
-  env 指定的团队，否则为与账号默认团队匹配的团队。
-- 输出：将 `name` 的值传给 `--team <name>`（或 `oo team use <name>`），将 `id`
-  的值传给 `OO_TEAM_ID`。
-- 输出：文本输出为每个团队打印一行列对齐的记录，并标出当前默认团队。当账号没有任何
-  团队时，会提示团队相关命令不会发送团队选择。
-- 行为：当账号保存的默认团队缺少团队 id 时，该命令会用刚获取的成员关系列表补齐
-  它，不发送额外请求；写入失败会被忽略。
+- 输出：JSON 条目包含 `name`、`id`、`role`、`isDefault` 和 `current`；
+  `role` 为 `creator` 或 `member`。
+- `isDefault` 对应服务端的 `default_team` 标记，与本地选择独立；上游省略
+  该字段时为 `false`。
+- `current` 表示本次调用实际使用的团队，依次取 `--team`、`OO_TEAM_ID` /
+  `OO_TEAM_NAME`、账号保存的团队选择。没有本地选择时，服务端默认团队为 current。
+- 输出：将 `name` 传给 `--team <name>`（或 `oo team use <name>`），将 `id`
+  传给 `OO_TEAM_ID`。
+- 输出：文本表格分开显示“默认”和“当前”。账号没有团队时，会提示团队相关命令
+  不会发送团队选择。
+- 行为：列表不会更改已保存的团队选择。若保存的团队缺少 id，则用已有的成员关系
+  列表补齐，不发送额外请求；id 写入失败会被忽略。
 
 ### `oo team current`
 
@@ -906,7 +908,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   省略时有效身份依次取 `OO_TEAM_ID` / `OO_TEAM_NAME`、当前账号保存的默认团队，
   最后回退到服务端默认团队。
 - 输出：每条结果都会包含 `authenticated` 和 `accessStatus`。
-- 输出：JSON 条目只包含稳定的 CLI 字段：`service`、`name`、`description`、
+- 输出：JSON 条目包含稳定的 CLI 字段：`service`、`name`、`description`、
   `authenticated` 和 `accessStatus`。`accessStatus` 的值为 `available` 或
   `connection_required`。
 - 输出：文本输出会为每个 action 打印一个块，包含 service/action 标识、可选
@@ -919,6 +921,15 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 说明：搜索结果附带 schema 数据时还会更新本地 action schema 缓存，因此随后
   对返回 action 执行 `oo connector schema` 通常直接由本地缓存应答，无需重新
   请求 metadata。
+- `--all-teams` 搜索当前用户所属的全部团队，仅支持 OOMOL 托管 connector；
+  忽略保存的 currentTeam 和 `OO_TEAM_ID` / `OO_TEAM_NAME`，与 `--team` 互斥。
+  未传此选项时仍只搜索当前有效团队，自托管服务不支持此选项。
+- 搜索结果保留上游返回的 `appId`，跨团队可用结果还包含 `teamId` 和 `teamName`；
+  文本输出也展示这些信息。
+- 托管接口最多返回连接展开后的 10 条结果，而非 10 个不同动作；同一动作可占多条。
+  结果缺失不能证明某团队没有连接。
+- 执行选中的跨团队连接时，用返回的 `teamId` 设置本次调用的 `OO_TEAM_ID`，
+  并将 `appId` 传给 `oo connector run --app-id`。
 
 ### `oo connector schema <actionId...>`
 
@@ -962,6 +973,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 选项：`-d, --data <data>` 支持直接传入 JSON，或使用 `@路径` 读取 JSON 文件。
   `--input <data>` 是 `--data <data>` 的 alias。
 - 选项：`--dry-run` 只做 payload 校验，不真正执行 action。
+- 选项：`--app-id <app-id>` 精确选择搜索返回的连接，与 `--connection-name` 互斥，
+  不接受空值。当前选择的团队必须拥有该连接，app ID 本身不会切换团队。
 - 选项：`--connection-name <connection-name>` 使用指定 connector app 连接名称
   运行该 action。可用 `oo connector apps <serviceName>` 查看可用连接名称。
 - 选项：`--wait` 会轮询选中的 action，直到进入终态。只有选中 action 的
@@ -1100,7 +1113,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   省略时有效身份依次取 `OO_TEAM_ID` / `OO_TEAM_NAME`、当前账号保存的默认团队，
   最后回退到服务端默认团队。
 - 输出：每条结果都会包含 `authenticated` 和 `accessStatus`。
-- 输出：JSON 条目只包含稳定的 CLI 字段：`service`、`name`、`description`、
+- 输出：JSON 条目包含稳定的 CLI 字段：`service`、`name`、`description`、
   `authenticated` 和 `accessStatus`。`accessStatus` 的值为 `available` 或
   `connection_required`。
 - 输出：文本输出会为每个 action 打印一个块，包含 service/action 标识、可选
@@ -1113,6 +1126,15 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 说明：搜索结果附带 schema 数据时还会更新本地 action schema 缓存，因此随后
   对返回 action 执行 `oo connector schema` 通常直接由本地缓存应答，无需重新
   请求 metadata。
+- `--all-teams` 搜索当前用户所属的全部团队，仅支持 OOMOL 托管 connector；
+  忽略保存的 currentTeam 和 `OO_TEAM_ID` / `OO_TEAM_NAME`，与 `--team` 互斥。
+  未传此选项时仍只搜索当前有效团队，自托管服务不支持此选项。
+- 搜索结果保留上游返回的 `appId`，跨团队可用结果还包含 `teamId` 和 `teamName`；
+  文本输出也展示这些信息。
+- 托管接口最多返回连接展开后的 10 条结果，而非 10 个不同动作；同一动作可占多条。
+  结果缺失不能证明某团队没有连接。
+- 执行选中的跨团队连接时，用返回的 `teamId` 设置本次调用的 `OO_TEAM_ID`，
+  并将 `appId` 传给 `oo connector run --app-id`。
 
 ## AI Agent Skill
 

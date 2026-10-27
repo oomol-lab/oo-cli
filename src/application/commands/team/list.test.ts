@@ -72,6 +72,7 @@ describe("formatTeamsAsText", () => {
 function sampleTeam(overrides: Partial<TeamListRow> = {}): TeamListRow {
     return {
         current: false,
+        isDefault: false,
         id: "team-1",
         name: "acme",
         role: "member",

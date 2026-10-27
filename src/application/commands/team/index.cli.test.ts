@@ -88,8 +88,8 @@ describe("teamCommand CLI", () => {
             );
             expect(requests[0]?.headers.get("authorization")).toBe("secret-1");
             expect(JSON.parse(result.stdout)).toEqual([
-                { name: "acme", id: "team-1", role: "creator", current: true },
-                { name: "beta", id: "team-2", role: "member", current: false },
+                { name: "acme", id: "team-1", role: "creator", current: true, isDefault: false },
+                { name: "beta", id: "team-2", role: "member", current: false, isDefault: false },
             ]);
             expect(telemetryPayload).toMatchObject({
                 properties: {
@@ -594,8 +594,8 @@ describe("teamCommand CLI", () => {
             // The env override outranks the configured default, so the marker
             // follows the id from OO_TEAM_ID instead of the `acme` name.
             expect(JSON.parse(result.stdout)).toEqual([
-                { name: "acme", id: "team-1", role: "creator", current: false },
-                { name: "beta", id: "team-2", role: "member", current: true },
+                { name: "acme", id: "team-1", role: "creator", current: false, isDefault: false },
+                { name: "beta", id: "team-2", role: "member", current: true, isDefault: false },
             ]);
         }
         finally {
@@ -821,3 +821,26 @@ function createTeamLookupFetcher(requests: Request[]): Fetcher {
         return new Response(JSON.stringify(teamsResponse.teams[0]));
     };
 }
+
+test.each([false, true])("backend default is distinct from the current team (saved selection: %p)", async (savedSelection) => {
+    const sandbox = await createCliSandbox();
+    try {
+        const authPath = savedSelection
+            ? await writeAuthFileWithDefaultTeam(sandbox, "beta", { teamId: "team-2" })
+            : await writeAuthFile(sandbox);
+        const saved = await Bun.file(authPath).text();
+        const result = await sandbox.run(["team", "list", "--json"], {
+            fetcher: async () => Response.json({ teams: [
+                { id: "team-1", name: "acme", role: "creator", default_team: true },
+                { id: "team-2", name: "beta", role: "member", default_team: false },
+            ] }),
+        });
+        expect(result.exitCode).toBe(0);
+        expect(JSON.parse(result.stdout)).toEqual([
+            { id: "team-1", name: "acme", role: "creator", isDefault: true, current: !savedSelection },
+            { id: "team-2", name: "beta", role: "member", isDefault: false, current: savedSelection },
+        ]);
+        expect(await Bun.file(authPath).text()).toBe(saved);
+    }
+    finally { await sandbox.cleanup(); }
+});

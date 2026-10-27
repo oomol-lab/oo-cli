@@ -634,19 +634,20 @@ List the teams the active account can authenticate as. This command is
 read-only.
 
 - Options: `--format=json` and `--json` print a JSON array.
-- Output: JSON entries include the stable CLI fields `name`, `id`, `role`, and
-  `current`. `role` is `creator` or `member`. `current` is `true` for the team
-  selected by `--team` (matched by name), otherwise by `OO_TEAM_ID`
-  (matched by id) or `OO_TEAM_NAME` (matched by name) when set, otherwise the
-  team matching the account's default.
-- Output: pass the `name` value to `--team <name>` (or `oo team use <name>`),
-  and the `id` value to `OO_TEAM_ID`.
-- Output: text output prints one column-aligned row per team and marks the
-  current default. When the account has no teams, it reports that team-aware
-  commands send no team selection.
-- Behavior: when the account's default team was stored without its id, this
-  command fills the id in from the listing it already fetched. No extra
-  request is sent, and a failure to write is ignored.
+- Output: JSON entries include `name`, `id`, `role`, `isDefault`, and `current`.
+  `role` is `creator` or `member`.
+- `isDefault` reflects the backend `default_team` marker, independently of local
+  selection. Missing backend markers are reported as `false`.
+- `current` identifies the effective team: `--team` first, then `OO_TEAM_ID` /
+  `OO_TEAM_NAME`, then the account's saved team. Without a local selection,
+  the team marked as the backend default is current.
+- Output: pass `name` to `--team <name>` (or `oo team use <name>`), and `id`
+  to `OO_TEAM_ID`.
+- Output: the text table distinguishes Default and Current. When the account
+  has no teams, it reports that team-aware commands send no team selection.
+- Behavior: listing does not change the saved team selection. If the saved
+  team lacks an id, the command fills it in from the membership listing without
+  an extra request; a failure to write this id is ignored.
 
 ### `oo team current`
 
@@ -1107,6 +1108,17 @@ Search connector actions with free-form text.
 - Notes: search results also warm the local action schema cache when schema
   data is available, so a following `oo connector schema` for a returned
   action is usually answered locally without a fresh metadata request.
+- `--all-teams` searches all teams of the current user on the OOMOL-hosted
+  connector. It ignores the saved current team and `OO_TEAM_ID` / `OO_TEAM_NAME`,
+  conflicts with `--team`, and is unavailable for self-hosted connectors.
+  Without this option, search stays scoped to the effective current team.
+- Results retain `appId` when returned. Cross-team available entries also include
+  `teamId` and `teamName`. Text output shows these selectors too.
+- The hosted endpoint returns at most 10 entries after connection expansion,
+  not 10 distinct actions. One action may occupy multiple entries. Missing
+  results do not prove that a team lacks a connection.
+- To execute a selected cross-team connection, use its `teamId` in
+  `OO_TEAM_ID` and its `appId` with `oo connector run --app-id`.
 
 ### `oo connector schema <actionId...>`
 
@@ -1153,6 +1165,9 @@ Validate input data and run one connector action.
 - Options: `-d, --data <data>` accepts inline JSON or `@path` to a JSON file.
   `--input <data>` is an alias for `--data <data>`.
 - Options: `--dry-run` validates the payload without executing the action.
+- Options: `--app-id <app-id>` selects the exact connection from search.
+  It is mutually exclusive with `--connection-name`; empty IDs are rejected.
+  The selected team must own that connection; an app ID does not switch teams.
 - Options: `--connection-name <connection-name>` runs the action with the
   connector app connection name. Use `oo connector apps <serviceName>` to list
   available connection names.
@@ -1338,6 +1353,18 @@ Search connector actions with one free-form query.
 - Notes: search results also warm the local action schema cache when schema
   data is available, so a following `oo connector schema` for a returned
   action is usually answered locally without a fresh metadata request.
+- `--all-teams` searches all teams of the current user on the OOMOL-hosted
+  connector. It ignores the saved current team and `OO_TEAM_ID` / `OO_TEAM_NAME`,
+  conflicts with `--team`, and is unavailable for self-hosted connectors.
+  Without this option, search stays scoped to the effective current team.
+- Results retain `appId` when returned. Cross-team available entries also include
+  `teamId` and `teamName`. Text output shows these selectors too.
+- The hosted endpoint returns at most 10 entries after connection expansion,
+  not 10 distinct actions. One action may occupy multiple entries. Missing
+  results do not prove that a team lacks a connection.
+- To execute a selected cross-team connection, use its `teamId` in
+  `OO_TEAM_ID` and its `appId` with `oo connector run --app-id`.
+
 
 ## AI Agent Skills
 

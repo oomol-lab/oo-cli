@@ -193,7 +193,7 @@ const commandTelemetryDecisions = {
             "wait",
             "wait_result",
         ],
-        reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, identity source (none/flag/env_id/env_name/account), and none/connectionName selector mode without the team name/id or connection name value.",
+        reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, identity source (none/flag/env_id/env_name/account), and none/connectionName/appId selector mode without the team name/id, app ID or connection name value.",
     },
     "connector.proxy": {
         kind: "properties",
@@ -215,8 +215,9 @@ const commandTelemetryDecisions = {
             "identity_source",
             "query_length_bucket",
             "result_count_bucket",
+            "search_scope",
         ],
-        reason: "Records query and result buckets, the connector target kind (oomol/self_hosted), and the identity source (none/flag/env_id/env_name/account) whose connected apps set the authenticated flag, without query text, team name/id, or server URLs.",
+        reason: "Records team/all_teams search scope, query and result buckets, the connector target kind (oomol/self_hosted), and the identity source (none/flag/env_id/env_name/account) whose connected apps set the authenticated flag, without query text, team name/id, or server URLs.",
     },
     "connector.schema": {
         kind: "properties",
@@ -315,7 +316,7 @@ const commandTelemetryDecisions = {
     "team.list": {
         kind: "properties",
         properties: ["result_count_bucket"],
-        reason: "Records the bounded accessible-team count without team names or ids.",
+        reason: "Records only the bounded accessible-team count; current/default markers are display-only and no team names or ids are recorded.",
     },
     "team.current": {
         kind: "properties",
@@ -334,8 +335,9 @@ const commandTelemetryDecisions = {
             "identity_source",
             "query_length_bucket",
             "result_count_bucket",
+            "search_scope",
         ],
-        reason: "Records query and result buckets, the connector target kind (oomol/self_hosted), and the identity source (none/flag/env_id/env_name/account) whose connected apps set the authenticated flag, without query text, team name/id, or server URLs.",
+        reason: "Records team/all_teams search scope, query and result buckets, the connector target kind (oomol/self_hosted), and the identity source (none/flag/env_id/env_name/account) whose connected apps set the authenticated flag, without query text, team name/id, or server URLs.",
     },
     "skills": {
         kind: "generic",

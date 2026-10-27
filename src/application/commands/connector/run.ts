@@ -53,6 +53,7 @@ type ConnectorActionAsyncResultLifecycle = Extract<
 const connectorAsyncLifecycleDefaultTimeoutMs = 6 * 3_600_000;
 
 interface ConnectorRunInput {
+    appId?: string;
     action?: string;
     connectionName?: string;
     data?: string;
@@ -76,6 +77,12 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         },
     ],
     options: [
+        {
+            name: "appId",
+            longFlag: "--app-id",
+            valueName: "app-id",
+            descriptionKey: "options.connectorRunAppId",
+        },
         {
             name: "action",
             longFlag: "--action",
@@ -116,6 +123,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
     ],
     output: "standard",
     inputSchema: z.object({
+        appId: z.string().optional(),
         action: z.string().optional(),
         connectionName: z.string().optional(),
         data: z.string().optional(),
@@ -137,10 +145,16 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             throw new CliUserError("errors.connectorRun.connectionNameEmpty", 2);
         }
 
-        // The request layer sends this connection name on the wire as the
-        // legacy `x-oo-connector-alias` header.
-        const connectionSelector
-            = connectionName === undefined ? undefined : { connectionName };
+        const appId = input.appId?.trim();
+        if (input.appId !== undefined && appId === "") {
+            throw new CliUserError("errors.connectorRun.appIdEmpty", 2);
+        }
+        if (appId !== undefined && connectionName !== undefined) {
+            throw new CliUserError("errors.connectorRun.connectionSelectorConflict", 2);
+        }
+        const connectionSelector = appId !== undefined
+            ? { appId }
+            : connectionName === undefined ? undefined : { connectionName };
 
         const { identity, target } = await resolveConnectorSession(
             {
@@ -161,7 +175,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
 
         context.telemetry?.recordProperties({
             action: actionName,
-            connection_selector: connectionSelector === undefined ? "none" : "connectionName",
+            connection_selector: appId !== undefined ? "appId" : connectionName !== undefined ? "connectionName" : "none",
             data_size_bucket: bucketTelemetryBytes(
                 Buffer.byteLength(JSON.stringify(inputData)),
             ),

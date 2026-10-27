@@ -59,8 +59,8 @@ describe("listMemberTeams", () => {
         );
         expect(requests[0]?.headers.get("authorization")).toBe("api-secret-1");
         expect(teams).toEqual([
-            { id: "team-1", name: "acme", role: "creator", systemCreated: false },
-            { id: "team-2", name: "beta", role: "member", systemCreated: false },
+            { id: "team-1", name: "acme", role: "creator", systemCreated: false, isDefault: false },
+            { id: "team-2", name: "beta", role: "member", systemCreated: false, isDefault: false },
         ]);
     });
 
@@ -88,8 +88,8 @@ describe("listMemberTeams", () => {
         );
 
         expect(teams).toEqual([
-            { id: "team-1", name: "acme", role: "creator", systemCreated: true },
-            { id: "team-2", name: "beta", role: "member", systemCreated: false },
+            { id: "team-1", name: "acme", role: "creator", systemCreated: true, isDefault: false },
+            { id: "team-2", name: "beta", role: "member", systemCreated: false, isDefault: false },
         ]);
     });
 
@@ -107,8 +107,8 @@ describe("listMemberTeams", () => {
         );
 
         expect(teams).toEqual([
-            { id: "team-1", name: "acme", role: "member", systemCreated: false },
-            { id: "team-2", name: "beta", role: "member", systemCreated: false },
+            { id: "team-1", name: "acme", role: "member", systemCreated: false, isDefault: false },
+            { id: "team-2", name: "beta", role: "member", systemCreated: false, isDefault: false },
         ]);
     });
 
@@ -135,7 +135,7 @@ describe("listMemberTeams", () => {
         );
 
         expect(teams).toEqual([
-            { id: "team-1", name: "acme", role: "creator", systemCreated: false },
+            { id: "team-1", name: "acme", role: "creator", systemCreated: false, isDefault: false },
         ]);
     });
 
@@ -239,6 +239,7 @@ describe("fetchTeamById", () => {
                 name: "acme",
                 role: "creator",
                 systemCreated: true,
+                isDefault: false,
             },
         });
     });
@@ -416,7 +417,7 @@ describe("fetchTeamByName", () => {
         expect(requests[0]?.headers.get("authorization")).toBe("api-secret-1");
         expect(result).toEqual({
             status: "valid",
-            team: { id: "team-2", name: "beta", role: "member", systemCreated: false },
+            team: { id: "team-2", name: "beta", role: "member", systemCreated: false, isDefault: false },
         });
     });
 
@@ -486,3 +487,9 @@ function createRequestContext(options: {
         translator: createTranslator("en"),
     };
 }
+
+test.each([null, "true", 1])("rejects an invalid default_team marker: %p", async (marker) => {
+    await expect(listMemberTeams(testAccount, createRequestContext({
+        fetcher: async () => Response.json({ teams: [{ id: "t", name: "Team", role: "creator", default_team: marker }] }),
+    }))).rejects.toThrow();
+});
