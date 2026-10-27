@@ -378,7 +378,7 @@ export async function runConnectorAction(
         context,
         errors: { scope: "connectorRun" },
         headers: {
-            ...connectorConnectionSelectorHeaders(options.connectionSelector),
+            ...connectorConnectionSelectorHeaders(options.connectionSelector, options.target.kind),
             ...teamIdentityHeaders(options.identity),
         },
         host: { baseUrl: options.target.baseUrl },
@@ -393,7 +393,9 @@ export async function runConnectorAction(
         },
         method: "POST",
         path: connectorActionPath(options.serviceName, options.actionName),
-        query: options.connectionSelector?.appId === undefined ? undefined : { appId: options.connectionSelector.appId },
+        query: options.target.kind === "oomol" && options.connectionSelector?.appId !== undefined
+            ? { appId: options.connectionSelector.appId }
+            : undefined,
         schema: connectorActionRunResponseSchema,
         statusErrors: failure => createConnectorFailureError({
             failure,
@@ -470,8 +472,13 @@ function selfHostedConnectorUnreachableMessage(
 
 function connectorConnectionSelectorHeaders(
     selector: ConnectorConnectionSelector | undefined,
+    targetKind: ConnectorRequestTarget["kind"],
 ): Record<string, string> {
     const headers: Record<string, string> = {};
+
+    if (targetKind === "self_hosted" && selector?.appId !== undefined) {
+        headers["x-oo-connector-app-id"] = selector.appId;
+    }
 
     // The connection name is sent on the wire as the legacy `x-oo-connector-alias`
     // header; this is the only place the `alias` name survives.
