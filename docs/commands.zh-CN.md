@@ -972,7 +972,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 选项：`-a, --action <action>` 用于指定 action 名称，且为必填。
 - 选项：`-d, --data <data>` 支持直接传入 JSON，或使用 `@路径` 读取 JSON 文件。
   `--input <data>` 是 `--data <data>` 的 alias。
-- 选项：`--dry-run` 只做 payload 校验，不真正执行 action。
+- 选项：`--approval` 声明本次操作已有用户授权。调用方结合具体操作、参数、上下文
+  和用户已有指示，判断授权是否充分；不足时再询问用户。
+- 选项：`--dry-run` 只做 payload 校验，不执行 action。
 - 选项：`--app-id <app-id>` 精确选择搜索返回的连接，与 `--connection-name` 互斥，
   不接受空值。当前选择的团队必须拥有该连接，app ID 本身不会切换团队。
 - 选项：`--connection-name <connection-name>` 使用指定 connector app 连接名称
@@ -996,7 +998,16 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 输出：dry-run 的 JSON 输出返回 `{ dryRun, ok }`。
 - 错误：stderr 会打印 HTTP 状态；如果失败响应包含服务端 `message` 或
   `errorCode`，也会一并输出；两者都缺失时，会输出原始响应体（已去除首尾空白
-  并限制长度），以免丢失失败详情。
+  并限制长度），以免丢失失败详情。对于 `errorCode: approval_required`，
+  stderr 会说明被拦截的 action 尚未执行，满足用户授权后可用 `--approval` 重试。
+  保留 HTTP 状态，退出码为 `1`，不会自动重试。
+- 错误：`--wait-result` 成功提交任务后，如果结果查询返回 `approval_required`，
+  命令以 `1` 退出，并说明任务已提交、本次结果查询未执行。stderr 附恢复 JSON
+  `{ service, action, input, submitExecutionId }`，其中 `action` 和 `input`
+  描述结果查询，stdout 保持为空。满足授权后，保留原团队和连接选择，使用恢复参数
+  带 `--wait --approval` 继续查询，不要重新提交任务。
+- 说明：`--wait` 会将显式 `--approval` 声明传给所选 action 的每次轮询。
+  对于 `--wait-result`，声明只传给提交 action，派生结果 action 不会继承。
 - 说明：命令会在执行前根据选中 action 的 contract 校验输入。
 - 说明：text 模式下等待 async result action 时，交互式终端会在 stderr
   显示进度。JSON 输出不会混入进度文本。

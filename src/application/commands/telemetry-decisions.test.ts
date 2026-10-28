@@ -193,7 +193,7 @@ const commandTelemetryDecisions = {
             "wait",
             "wait_result",
         ],
-        reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, identity source (none/flag/env_id/env_name/account), and none/connectionName/appId selector mode without the team name/id, app ID or connection name value.",
+        reason: "Records connector product dimensions, bucketed payload size, async wait modes, stable error code, identity source (none/flag/env_id/env_name/account), and none/connectionName/appId selector mode without the team name/id, app ID or connection name value. Advisory approval uses the existing command event and error code; approval declarations, authorization text and recovery payloads are not recorded.",
     },
     "connector.proxy": {
         kind: "properties",

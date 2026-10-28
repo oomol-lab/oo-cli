@@ -55,6 +55,7 @@ const connectorAsyncLifecycleDefaultTimeoutMs = 6 * 3_600_000;
 interface ConnectorRunInput {
     appId?: string;
     action?: string;
+    approval?: boolean;
     connectionName?: string;
     data?: string;
     dryRun?: boolean;
@@ -105,6 +106,11 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             descriptionKey: "options.connectorRunConnectionName",
         },
         {
+            name: "approval",
+            longFlag: "--approval",
+            descriptionKey: "options.connectorRunApproval",
+        },
+        {
             name: "dryRun",
             longFlag: "--dry-run",
             descriptionKey: "options.dryRun",
@@ -125,6 +131,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
     inputSchema: z.object({
         appId: z.string().optional(),
         action: z.string().optional(),
+        approval: z.boolean().optional(),
         connectionName: z.string().optional(),
         data: z.string().optional(),
         dryRun: z.boolean().optional(),
@@ -263,6 +270,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             response = await runConnectorActionWithDefaultMode(
                 {
                     actionName,
+                    approval: input.approval,
                     connectionSelector,
                     identity,
                     inputData,
@@ -314,6 +322,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
 async function runConnectorActionWithDefaultMode(
     options: {
         actionName: string;
+        approval?: boolean;
         connectionSelector: ConnectorConnectionSelector | undefined;
         identity: TeamIdentity | undefined;
         inputData: unknown;
@@ -330,6 +339,7 @@ async function runConnectorActionWithDefaultMode(
         return await runConnectorAsyncSubmitAndWaitForResult(
             {
                 actionName: options.actionName,
+                approval: options.approval,
                 connectionSelector: options.connectionSelector,
                 identity: options.identity,
                 inputData: options.inputData,
@@ -348,6 +358,7 @@ async function runConnectorActionWithDefaultMode(
         return await waitForConnectorAsyncResult(
             {
                 actionName: options.actionName,
+                approval: options.approval,
                 connectionSelector: options.connectionSelector,
                 identity: options.identity,
                 inputData: options.inputData,
@@ -369,6 +380,7 @@ async function runConnectorActionWithDefaultMode(
     return await runConnectorAction(
         {
             actionName: options.actionName,
+            approval: options.approval,
             connectionSelector: options.connectionSelector,
             identity: options.identity,
             inputData: options.inputData,
@@ -382,6 +394,7 @@ async function runConnectorActionWithDefaultMode(
 async function runConnectorAsyncSubmitAndWaitForResult(
     options: {
         actionName: string;
+        approval?: boolean;
         connectionSelector: ConnectorConnectionSelector | undefined;
         identity: TeamIdentity | undefined;
         inputData: unknown;
@@ -402,6 +415,7 @@ async function runConnectorAsyncSubmitAndWaitForResult(
     const submitResponse = await runConnectorAction(
         {
             actionName: options.actionName,
+            approval: options.approval,
             connectionSelector: options.connectionSelector,
             identity: options.identity,
             inputData: options.inputData,
@@ -421,22 +435,38 @@ async function runConnectorAsyncSubmitAndWaitForResult(
         });
     }
 
-    const resultResponse = await waitForConnectorAsyncResult(
-        {
-            actionName: options.submitLifecycle.resultAction,
-            connectionSelector: options.connectionSelector,
-            identity: options.identity,
-            inputData: {
-                [options.submitLifecycle.handle.inputField]: handle,
+    const resultInput = { [options.submitLifecycle.handle.inputField]: handle };
+    let resultResponse: ConnectorActionRunResponse;
+    try {
+        resultResponse = await waitForConnectorAsyncResult(
+            {
+                actionName: options.submitLifecycle.resultAction,
+                connectionSelector: options.connectionSelector,
+                identity: options.identity,
+                inputData: resultInput,
+                lifecycle: options.resultLifecycle,
+                progressReporter: options.progressReporter,
+                serviceName: options.serviceName,
+                target: options.target,
             },
-            lifecycle: options.resultLifecycle,
-            progressReporter: options.progressReporter,
-            serviceName: options.serviceName,
-            target: options.target,
-        },
-        context,
-        setCurrentTarget,
-    );
+            context,
+            setCurrentTarget,
+        );
+    }
+    catch (error) {
+        if (error instanceof CliUserError && error.params?.errorCode === "approval_required") {
+            throw new CliUserError("errors.connectorRun.asyncApprovalRequired", 1, {
+                ...error.params,
+                recovery: JSON.stringify({
+                    service: options.serviceName,
+                    action: options.submitLifecycle.resultAction,
+                    input: resultInput,
+                    submitExecutionId: submitResponse.meta.executionId,
+                }),
+            });
+        }
+        throw error;
+    }
 
     return {
         data: resultResponse.data,
@@ -451,6 +481,7 @@ async function runConnectorAsyncSubmitAndWaitForResult(
 async function waitForConnectorAsyncResult(
     options: {
         actionName: string;
+        approval?: boolean;
         connectionSelector: ConnectorConnectionSelector | undefined;
         identity: TeamIdentity | undefined;
         inputData: unknown;
@@ -483,6 +514,7 @@ async function waitForConnectorAsyncResult(
         const pollResponse = await runConnectorAction(
             {
                 actionName: options.actionName,
+                approval: options.approval,
                 connectionSelector: options.connectionSelector,
                 identity: options.identity,
                 inputData: options.inputData,

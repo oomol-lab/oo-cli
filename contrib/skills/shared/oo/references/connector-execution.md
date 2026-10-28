@@ -79,9 +79,9 @@ unambiguous. Otherwise ask one focused question or confirmation. Do not use
 honor user requests to validate without executing.
 
 An explicit user instruction plus complete required payload values is sufficient
-confidence for non-destructive send, post, create, or invite actions. Ask before
-destructive actions, broad sharing, or ambiguous recipient, content, or
-destination choices.
+confidence for non-destructive send, post, create, or invite actions. For
+destructive actions or broad sharing, follow the host's confirmation rules. Ask
+when authorization, recipient, content, or destination choices remain unclear.
 
 ## Execute the connector path
 
@@ -117,6 +117,46 @@ Facts:
   `meta.executionId`, not a top-level field.
 - The schema returned by `oo connector schema` is the public contract used to
   build payloads and inspect the action result shape.
+
+## Advisory confirmation
+
+`errorCode: approval_required` means the server's effective policy requires
+advisory confirmation for this action. The blocked action was not executed.
+This requirement depends on the effective user, team and connection policy;
+it is not part of the static action schema. Do not reconnect, refresh the schema,
+or switch teams or connections to avoid it.
+
+Use your judgment to assess whether the user's authorization covers the concrete
+operation and input values in the conversation context. Consider the user's
+current request and any applicable standing instructions, including permission
+to proceed without further questions. If that authorization is sufficient,
+use `--approval` without asking again. If it is insufficient, ask the user to
+confirm the operation and relevant parameters. Follow the host's existing
+confirmation rules.
+
+When the confirmation requirement is already known and authorization is
+sufficient, you may include `--approval` on the initial call. After an
+`approval_required` response, apply the same judgment before retrying; the error
+itself does not supply authorization. Keep the original team, connection and
+operation parameters on retries. Never add the flag mechanically or put it in
+default command templates. It is a CLI option, not a field in the provider
+input. The CLI does not prompt or retry automatically. `--dry-run` only validates
+input and does not establish authorization.
+
+For async execution:
+
+- With `--wait`, an explicit `--approval` applies to every poll of the selected
+  result action.
+- With `--wait-result`, the flag applies to the submit action only. Its derived
+  result action does not inherit the declaration.
+- If submission succeeded but a result query requires confirmation, stderr
+  includes recovery JSON with `service`, result `action`, result-query `input`
+  and `submitExecutionId`. The task already exists. Do not submit it again.
+  Assess authorization for the result query, then resume using the recovery
+  service, action and input with `--wait` and, once authorized, `--approval`.
+  Retain the original team selection (including environment variables) and
+  `--app-id` or `--connection-name`. `submitExecutionId` identifies the original
+  submission; it is not an input parameter or a CLI option.
 
 ## Proxy a provider API request
 

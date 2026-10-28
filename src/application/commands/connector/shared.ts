@@ -335,10 +335,9 @@ export async function getConnectorActionMetadata(
     return parsed.data;
 }
 
-// The five requestFailed* keys of one connector POST namespace. The two
-// namespaces differ only here and in the subject param, so one ladder serves
-// both.
+// Connector POST namespaces share error mapping and provide their own messages.
 interface ConnectorFailureKeys {
+    approvalRequired?: string;
     requestFailed: string;
     requestFailedWithBody: string;
     requestFailedWithCode: string;
@@ -347,6 +346,7 @@ interface ConnectorFailureKeys {
 }
 
 const connectorRunFailureKeys: ConnectorFailureKeys = {
+    approvalRequired: "errors.connectorRun.approvalRequired",
     requestFailed: "errors.connectorRun.requestFailed",
     requestFailedWithBody: "errors.connectorRun.requestFailedWithBody",
     requestFailedWithCode: "errors.connectorRun.requestFailedWithCode",
@@ -365,6 +365,7 @@ const connectorProxyFailureKeys: ConnectorFailureKeys = {
 export async function runConnectorAction(
     options: {
         actionName: string;
+        approval?: boolean;
         connectionSelector?: ConnectorConnectionSelector;
         identity?: TeamIdentity | undefined;
         inputData: unknown;
@@ -382,7 +383,10 @@ export async function runConnectorAction(
             ...teamIdentityHeaders(options.identity),
         },
         host: { baseUrl: options.target.baseUrl },
-        jsonBody: { input: options.inputData },
+        jsonBody: {
+            input: options.inputData,
+            ...(options.approval === true ? { approval: true } : {}),
+        },
         label: "Connector action run",
         logFields: {
             common: {
@@ -690,8 +694,8 @@ function connectorFailureLogFields(failure: OoRequestFailure): Record<string, un
     };
 }
 
-// The five-branch failure ladder shared by run and proxy: credit detection,
-// then message+code / message / code / bounded body preview / status-only.
+// Recognize action approval and billing failures before the shared fallback:
+// message+code / message / code / bounded body preview / status-only.
 // Total by construction — every non-success status maps to an error, so the
 // generic requestFailed default (which lacks the subject param) is unreachable.
 function createConnectorFailureError(input: {
@@ -704,6 +708,14 @@ function createConnectorFailureError(input: {
     const responseMessage = failureResponse?.message;
     const errorCode = failureResponse?.errorCode;
     const status = input.failure.status;
+
+    if (errorCode === "approval_required" && input.keys.approvalRequired !== undefined) {
+        return new CliUserError(input.keys.approvalRequired, 1, {
+            ...input.subject,
+            errorCode,
+            status,
+        });
+    }
 
     if (isInsufficientCreditFailure({
         errorCode,
