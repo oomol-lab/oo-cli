@@ -1,12 +1,13 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import process from "node:process";
 import { describe, expect, test } from "bun:test";
 
 import { createTemporaryDirectory } from "../../../__tests__/helpers.ts";
 import { RollingFileDestination } from "./rolling-file-destination.ts";
 
 describe("RollingFileDestination", () => {
-    test("removes log files before the local date retention window", async () => {
+    test("removes log files before the UTC date retention window", async () => {
         const directoryPath = await createTemporaryDirectory("oo-log-retention");
 
         await Bun.write(join(directoryPath, "debug-2026-03-18_23-59-59-p123.log"), "expired\n");
@@ -57,11 +58,11 @@ describe("RollingFileDestination", () => {
         expect(logFileNames.length).toBe(26);
     });
 
-    test("prunes at most once per local retention window", async () => {
+    test("prunes at most once per UTC retention window", async () => {
         const directoryPath = await createTemporaryDirectory("oo-log-prune-cache");
         const boundaryFileName = "debug-2026-03-19_00-00-00-p123.log";
         const lateExpiredFileName = "debug-2026-03-18_23-59-59-p456.log";
-        let currentNow = new Date(2026, 2, 25, 15, 30, 12);
+        let currentNow = new Date(Date.UTC(2026, 2, 25, 15, 30, 12));
 
         await Bun.write(join(directoryPath, boundaryFileName), "boundary\n");
         const destination = createRetentionTestDestination(
@@ -75,7 +76,7 @@ describe("RollingFileDestination", () => {
 
         expect(await readdir(directoryPath)).toContain(lateExpiredFileName);
 
-        currentNow = new Date(2026, 2, 26, 0, 0, 0);
+        currentNow = new Date(Date.UTC(2026, 2, 26, 0, 0, 0));
         destination.write("third\n");
         destination.end();
 
@@ -103,7 +104,7 @@ describe("RollingFileDestination", () => {
 
         const nextDayDestination = createRetentionTestDestination(
             directoryPath,
-            () => new Date(2026, 2, 26, 9, 0, 0),
+            () => new Date(Date.UTC(2026, 2, 26, 9, 0, 0)),
         );
 
         nextDayDestination.write("third\n");
@@ -126,7 +127,7 @@ describe("RollingFileDestination", () => {
         const traceDestination = new RollingFileDestination({
             directoryPath,
             filePrefix: "trace",
-            now: () => new Date(2026, 2, 25, 15, 30, 12),
+            now: () => new Date(Date.UTC(2026, 2, 25, 15, 30, 12)),
             pid: 123,
         });
 
@@ -154,23 +155,38 @@ describe("RollingFileDestination", () => {
         expect(await readFile(destination.getFilePath(), "utf8")).toBe("current\n");
     });
 
-    test("uses a human-readable local timestamp and pid in the log file name", async () => {
+    test("uses a human-readable UTC timestamp and pid in the log file name", async () => {
         const directoryPath = await createTemporaryDirectory("oo-log-name");
-        const destination = new RollingFileDestination({
-            directoryPath,
-            now: () => new Date(2026, 2, 25, 6, 30, 12),
-            pid: 12345,
-        });
+        const originalTimeZone = process.env.TZ;
 
-        expect(destination.getFilePath()).toContain(
-            "debug-2026-03-25_06-30-12-p12345.log",
-        );
+        // A non-UTC zone proves the name ignores the local time zone.
+        process.env.TZ = "Asia/Shanghai";
+
+        try {
+            const destination = new RollingFileDestination({
+                directoryPath,
+                now: () => new Date(Date.UTC(2026, 2, 25, 6, 30, 12)),
+                pid: 12345,
+            });
+
+            expect(destination.getFilePath()).toContain(
+                "debug-2026-03-25_06-30-12-p12345.log",
+            );
+        }
+        finally {
+            if (originalTimeZone === undefined) {
+                delete process.env.TZ;
+            }
+            else {
+                process.env.TZ = originalTimeZone;
+            }
+        }
     });
 });
 
 function createRetentionTestDestination(
     directoryPath: string,
-    now = () => new Date(2026, 2, 25, 15, 30, 12),
+    now = () => new Date(Date.UTC(2026, 2, 25, 15, 30, 12)),
 ): RollingFileDestination {
     return new RollingFileDestination({
         directoryPath,

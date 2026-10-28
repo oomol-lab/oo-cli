@@ -200,7 +200,7 @@ interface LogFileEntry {
 }
 
 function createSessionId(now: Date, pid: number): string {
-    return `${formatLocalDateTime(now)}-p${pid}`;
+    return `${formatUtcDateTime(now)}-p${pid}`;
 }
 
 function resolveLogFileName(options: {
@@ -238,15 +238,11 @@ function readPruneMarker(markerPath: string): string | undefined {
 }
 
 function resolveRetentionStart(now: Date): Date {
-    const retentionStart = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-    );
-
-    retentionStart.setDate(retentionStart.getDate() - (defaultRetentionDays - 1));
-
-    return retentionStart;
+    return new Date(Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() - (defaultRetentionDays - 1),
+    ));
 }
 
 function parseLogFileTimestamp(
@@ -286,15 +282,15 @@ function parseLogFileTimestamp(
         return undefined;
     }
 
-    const parsed = new Date(year, month - 1, day, hour, minute, second);
+    const parsed = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
 
     if (
-        parsed.getFullYear() !== year
-        || parsed.getMonth() !== month - 1
-        || parsed.getDate() !== day
-        || parsed.getHours() !== hour
-        || parsed.getMinutes() !== minute
-        || parsed.getSeconds() !== second
+        parsed.getUTCFullYear() !== year
+        || parsed.getUTCMonth() !== month - 1
+        || parsed.getUTCDate() !== day
+        || parsed.getUTCHours() !== hour
+        || parsed.getUTCMinutes() !== minute
+        || parsed.getUTCSeconds() !== second
     ) {
         return undefined;
     }
@@ -330,13 +326,16 @@ function readFixedInteger(
     return parsed;
 }
 
-function formatLocalDateTime(date: Date): string {
-    const y = String(date.getFullYear()).padStart(4, "0");
-    const mo = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    const h = String(date.getHours()).padStart(2, "0");
-    const mi = String(date.getMinutes()).padStart(2, "0");
-    const s = String(date.getSeconds()).padStart(2, "0");
+// Log names and the retention window use UTC: the first local-time
+// calculation in a process loads the time zone database, which costs several
+// milliseconds of startup on every invocation.
+function formatUtcDateTime(date: Date): string {
+    const y = String(date.getUTCFullYear()).padStart(4, "0");
+    const mo = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(date.getUTCDate()).padStart(2, "0");
+    const h = String(date.getUTCHours()).padStart(2, "0");
+    const mi = String(date.getUTCMinutes()).padStart(2, "0");
+    const s = String(date.getUTCSeconds()).padStart(2, "0");
 
     return `${y}-${mo}-${d}_${h}-${mi}-${s}`;
 }
