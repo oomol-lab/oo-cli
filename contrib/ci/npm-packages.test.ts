@@ -1,7 +1,7 @@
 import type { CompileSpawnResult } from "./npm-packages.ts";
 import { chmod, mkdir, readdir, readFile, rm } from "node:fs/promises";
 
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 
 import { version as openFlowVersion } from "@oomol-lab/open-flow/package.json";
 import { describe, expect, test } from "bun:test";
@@ -624,9 +624,14 @@ describe("npm-packages", () => {
             );
 
             try {
+                // Relative, as the release build passes it (`dist/...`): the
+                // profiled runs use a different working directory.
                 const orderPaths = await recordBytecodeOrderProfiles({
                     buildMetadata,
-                    profileDir: join(temporaryDirectoryPath, "profile"),
+                    profileDir: relative(
+                        process.cwd(),
+                        join(temporaryDirectoryPath, "profile"),
+                    ),
                     rootDir: rootDirectoryPath,
                 });
 
