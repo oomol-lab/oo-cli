@@ -17,7 +17,8 @@ describe("createCliLogger", () => {
         loggerHandle.logger.debug("file-only log");
         loggerHandle.close();
 
-        const [fileName] = await readdir(logDirectoryPath);
+        const [fileName] = (await readdir(logDirectoryPath))
+            .filter(entry => entry.endsWith(".log"));
         const content = await readFile(loggerHandle.logFilePath, "utf8");
 
         expect(loggerHandle.logFilePath.endsWith(fileName!)).toBeTrue();

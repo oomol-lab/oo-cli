@@ -14,7 +14,7 @@ import {
 } from "../../../__tests__/helpers.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import { parseTelemetryRowPayload, readTelemetryRowsForTest } from "../telemetry/outbox.ts";
-import { resolveOpenFlowInvocation } from "./flow.ts";
+import { resolveOpenFlowInvocation } from "./flow-invocation.ts";
 
 describe("flow CLI", () => {
     test("recognizes flow after oo global options without consuming delegated options", () => {

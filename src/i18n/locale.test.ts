@@ -5,6 +5,7 @@ import {
     detectSystemLocale,
     normalizeLocale,
     parseExplicitLocale,
+    readLocaleEnv,
     resolvePreferredLocale,
     resolveRequestLanguage,
 } from "./locale.ts";
@@ -67,6 +68,14 @@ describe("locale helpers", () => {
             },
             systemLocale: "zh-TW",
         })).toBe("zh");
+    });
+
+    test("reads locale environment variables in precedence order", () => {
+        expect(readLocaleEnv({ LANG: "en_US.UTF-8", LC_ALL: "zh_CN.UTF-8", LC_MESSAGES: "fr_FR" }))
+            .toBe("zh_CN.UTF-8");
+        expect(readLocaleEnv({ LANG: "en_US.UTF-8", LC_MESSAGES: "zh_CN" })).toBe("zh_CN");
+        expect(readLocaleEnv({ LANG: "" })).toBe("");
+        expect(readLocaleEnv({})).toBeUndefined();
     });
 
     test("maps locales to request language values", () => {

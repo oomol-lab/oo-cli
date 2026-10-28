@@ -15,6 +15,9 @@ import { isSemver } from "../../semver.ts";
 import { isFileMissingError } from "../../shared/fs-errors.ts";
 import { getUnexpectedRequestErrorMessage } from "../shared/oo-request.ts";
 import {
+    isNonBlankString,
+} from "./blank-string.ts";
+import {
     managedSkillMetadataFileName,
 } from "./managed-skill-paths.ts";
 import skillPackageGitAttributesTemplate from "./package-template-files/gitattributes.template" with { type: "text" };
@@ -23,7 +26,6 @@ import { removeManagedOoSkillArtifacts } from "./registry-skill-markdown.ts";
 import { resolveRegistryPackageTarballPackageName } from "./registry-skill-source.ts";
 import {
     hasFrontmatter,
-    isNonBlankString,
     isSkillFrontmatterRecord,
     parseSkillMarkdownMatter,
     stringifySkillMarkdownMatter,

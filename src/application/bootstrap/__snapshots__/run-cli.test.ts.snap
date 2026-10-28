@@ -26,51 +26,6 @@ exports[`runCli bootstrap prints localized version metadata in Chinese 1`] = `
 }
 `;
 
-exports[`runCli bootstrap creates the sqlite cache file during cli startup 1`] = `
-{
-  "exitCode": 0,
-  "stderr": "",
-  "stdout": 
-"oo is OOMOL's CLI toolkit. Everything can be done in the CLI.
-
-Options:
-  -V, --version                Show the current version
-  --team <team>                Use this team name for the current invocation
-  --debug                      Print the current log file path when the CLI
-                               exits
-  --lang <lang>                Specify the display language
-  -h, --help                   Show help for command
-
-Commands:
-  auth                         Manage CLI authentication
-  check-update [options]       Check for CLI updates
-  connector                    Manage connector actions
-  file                         Manage temporary file transfers
-  flow [args...]               Run Open Flow
-  info [options]               Show CLI environment info
-  llm                          Manage LLM client config
-  login [options]              Log in with an OOMOL account (alias for auth
-                               login)
-  logout                       Log out the current account (alias for auth
-                               logout)
-  team                         Manage team identity
-  completion <shell>           Generate shell completion scripts
-  config                       Manage persisted configuration
-  skills                       Manage AI agent skills
-  log                          Manage persisted debug logs
-  search [options] <text>      Search connector actions
-  telemetry                    Manage CLI telemetry
-  uninstall [options]          Uninstall the CLI
-  update|upgrade [options]     Update the CLI
-  variables|variable|var|vars  Manage cloud-stored variables
-  version [options]            Print the CLI version
-  website                      Publish single-file websites
-  help [command]               Show help for a command
-"
-,
-}
-`;
-
 exports[`runCli bootstrap writes debug logs to the log directory during cli startup 1`] = `
 {
   "exitCode": 0,

@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
 
-import { createCliCatalog } from "../../application/commands/catalog.ts";
+import { loadCliCatalog } from "../../application/commands/catalog.ts";
 import { APP_NAME } from "../../application/config/app-config.ts";
 import { createTranslator } from "../../i18n/translator.ts";
 import { StaticCompletionRenderer } from "./static-completion-renderer.ts";
 
 describe("StaticCompletionRenderer", () => {
-    test("renders bash completion with commands and options", () => {
-        const { catalog, renderer } = createCompletionRendererFixture("en");
+    test("renders bash completion with commands and options", async () => {
+        const { catalog, renderer } = await createCompletionRendererFixture("en");
         const output = renderer.render("bash", catalog);
 
         expect(output).toContain("auth");
@@ -24,8 +24,8 @@ describe("StaticCompletionRenderer", () => {
         expect(output).toContain("en zh");
     });
 
-    test("renders zsh completion with the expected command hook", () => {
-        const { catalog, renderer } = createCompletionRendererFixture("en");
+    test("renders zsh completion with the expected command hook", async () => {
+        const { catalog, renderer } = await createCompletionRendererFixture("en");
         const output = renderer.render("zsh", catalog);
 
         expect(output).toContain(`#compdef ${APP_NAME}`);
@@ -38,8 +38,8 @@ describe("StaticCompletionRenderer", () => {
         expect(output).toContain(`compdef _${APP_NAME} ${APP_NAME}`);
     });
 
-    test("renders fish completion entries", () => {
-        const { catalog, renderer } = createCompletionRendererFixture("zh");
+    test("renders fish completion entries", async () => {
+        const { catalog, renderer } = await createCompletionRendererFixture("zh");
         const output = renderer.render("fish", catalog);
 
         expect(output).toContain(`complete -c ${APP_NAME} -f`);
@@ -60,16 +60,16 @@ describe("StaticCompletionRenderer", () => {
         expect(output).toContain("en zh");
     });
 
-    test("shows flow completion", () => {
-        const { catalog, renderer } = createCompletionRendererFixture("en");
+    test("shows flow completion", async () => {
+        const { catalog, renderer } = await createCompletionRendererFixture("en");
         const output = renderer.render("fish", catalog);
         const flowCompletion = `complete -c ${APP_NAME} -n '__fish_use_subcommand' -a 'flow'`;
 
         expect(output).toContain(flowCompletion);
     });
 
-    test("renders dynamic team name completion for every shell", () => {
-        const { catalog, renderer } = createCompletionRendererFixture("en");
+    test("renders dynamic team name completion for every shell", async () => {
+        const { catalog, renderer } = await createCompletionRendererFixture("en");
         const bashOutput = renderer.render("bash", catalog);
         const zshOutput = renderer.render("zsh", catalog);
         const fishOutput = renderer.render("fish", catalog);
@@ -91,9 +91,9 @@ describe("StaticCompletionRenderer", () => {
     });
 });
 
-function createCompletionRendererFixture(locale: "en" | "zh") {
+async function createCompletionRendererFixture(locale: "en" | "zh") {
     return {
-        catalog: createCliCatalog(),
+        catalog: await loadCliCatalog(),
         renderer: new StaticCompletionRenderer(createTranslator(locale)),
     };
 }

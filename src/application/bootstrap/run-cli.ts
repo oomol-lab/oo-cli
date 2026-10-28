@@ -3,6 +3,7 @@ import type { AuthStore } from "../contracts/auth-store.ts";
 import type { CacheStore } from "../contracts/cache.ts";
 
 import type {
+    CliCatalog,
     CliExecutionContext,
     CliTelemetryPropertyValue,
     Fetcher,
@@ -17,6 +18,7 @@ import type { LogCategory } from "../logging/log-categories.ts";
 import type { AppSettings } from "../schemas/settings.ts";
 import { rm } from "node:fs/promises";
 import process from "node:process";
+import { z } from "zod";
 import packageManifest from "../../../package.json" with { type: "json" };
 import { SqliteCacheStore } from "../../adapters/cache/sqlite-cache.ts";
 import { CommanderCliAdapter } from "../../adapters/commander/commander-cli-adapter.ts";
@@ -31,15 +33,13 @@ import { resolveStorePaths } from "../../adapters/store/store-path.ts";
 import {
     detectCliLanguageFlag,
     parseExplicitLocale,
+    readLocaleEnv,
     resolvePreferredLocale,
 } from "../../i18n/locale.ts";
 import { createTranslator } from "../../i18n/translator.ts";
 import { migrateLegacyDefaultTeam } from "../auth/default-team.ts";
-import { createCliCatalog } from "../commands/catalog.ts";
-import {
-    resolveOpenFlowInvocation,
-    runOpenFlowCommand,
-} from "../commands/flow.ts";
+import { loadCliCatalog } from "../commands/catalog.ts";
+import { resolveOpenFlowInvocation } from "../commands/flow-invocation.ts";
 import { synchronizeManagedSkillsForAvailableHosts } from "../commands/skills/auto-sync.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import {
@@ -50,7 +50,7 @@ import { CliUserError } from "../contracts/cli.ts";
 import { logCategory } from "../logging/log-categories.ts";
 import { withCategory, withErrorKey, withStorePath } from "../logging/log-fields.ts";
 import { sanitizeIfHttpUrl } from "../logging/url-sanitizer.ts";
-import { initializeCurrentVersionActiveMarker } from "../self-update/core.ts";
+import { initializeCurrentVersionActiveMarker } from "../self-update/active-version-marker.ts";
 import { readEnvBoolean } from "../shared/env-boolean.ts";
 import { createRetryingFetcher } from "../shared/retrying-fetcher.ts";
 import {
@@ -58,7 +58,6 @@ import {
     telemetryInternalEnvKey,
 } from "../telemetry/constants.ts";
 import { emitCliCommandTelemetry } from "../telemetry/emitter.ts";
-import { flushTelemetryOutbox } from "../telemetry/flusher.ts";
 import { createTelemetryInvocationRecorder } from "../telemetry/invocation.ts";
 
 export interface CliInvocation {
@@ -95,7 +94,7 @@ interface CreateCliExecutionContextOptions {
     authStore: AuthStore;
     buildInfo: ReturnType<typeof resolveCliBuildInfo>;
     cacheStore: CacheStore;
-    catalog: ReturnType<typeof createCliCatalog>;
+    catalog: CliCatalog;
     completionRenderer: StaticCompletionRenderer;
     connectorStore: ConnectorStore;
     fetcher: Fetcher;
@@ -137,6 +136,10 @@ const sensitiveCliPositionalRules = [
 ] as const;
 
 export async function runCli(argv: string[]): Promise<number> {
+    // A CLI process parses each schema only a handful of times, so zod's
+    // generated fast-path parsers cost more to compile than they save.
+    z.config({ jitless: true });
+
     return executeCli({
         argv,
         cwd: process.cwd(),
@@ -151,7 +154,7 @@ export async function runCli(argv: string[]): Promise<number> {
         stdin: createLazyStdin(),
         stdout: process.stdout,
         stderr: process.stderr,
-        systemLocale: getSystemLocale(),
+        systemLocale: getSystemLocale(process.env),
     });
 }
 
@@ -174,6 +177,8 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
     });
 
     if (isTelemetryFlushInvocation(invocation)) {
+        const { flushTelemetryOutbox } = await import("../telemetry/flusher.ts");
+
         await flushTelemetryOutbox({
             directoryPath: storePaths.telemetryDirectory,
             env: invocation.env,
@@ -199,8 +204,8 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
     let fileDownloadSessionStore: FileDownloadSessionStore | undefined;
     let fileUploadStore: FileUploadRecordStore | undefined;
     let settingsForTelemetry: AppSettings | undefined;
-    let currentVersionActiveMarkerResource:
-        | Awaited<ReturnType<typeof initializeCurrentVersionActiveMarker>>
+    let currentVersionActiveMarkerPromise:
+        | ReturnType<typeof initializeCurrentVersionActiveMarker>
         | undefined;
     const loggerHandle = createCliLogger({
         appName: APP_NAME,
@@ -236,17 +241,42 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             return exitCode;
         }
 
-        const initializedStores = await initializeCliStores(
-            invocation,
-            logger,
-            storePaths,
-        );
+        // Start the independent startup work together so module evaluation
+        // for the selected commands overlaps the store and marker file I/O.
+        // Their failures still surface through the awaits below; the no-op
+        // handlers only keep an early rejection from being reported as
+        // unhandled while other startup work is pending.
+        const catalogPromise = loadCliCatalog(invocation.argv);
+
+        catalogPromise.catch(() => {});
+
+        if (!shellCompletionInvocation) {
+            currentVersionActiveMarkerPromise = initializeCurrentVersionActiveMarker({
+                currentVersion: version,
+                runtime: {
+                    env: invocation.env,
+                    execPath: currentExecPath,
+                    logger,
+                    platform: process.platform,
+                    processId: process.pid,
+                },
+            });
+            currentVersionActiveMarkerPromise.catch(() => {});
+        }
+
+        const initializedStores = initializeCliStores(invocation, logger, storePaths);
 
         authStore = initializedStores.authStore;
         cacheStore = initializedStores.cacheStore;
         fileUploadStore = initializedStores.fileUploadStore;
         fileDownloadSessionStore = initializedStores.fileDownloadSessionStore;
-        const settings = await initializedStores.settingsStore.read();
+        const [settings] = await Promise.all([
+            initializedStores.settingsStore.read(),
+            deleteLegacyDownloadSessionFiles(
+                storePaths.legacyDownloadSessionsFilePath,
+                logger,
+            ),
+        ]);
         settingsForTelemetry = settings;
 
         // Every user-facing command runs behind this, not a hand-maintained
@@ -277,7 +307,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                 systemLocale: invocation.systemLocale,
             }),
         );
-        const catalog = createCliCatalog();
+        const catalog = await catalogPromise;
         const completionRenderer = new StaticCompletionRenderer(translator);
         const packageName = invocation.packageName ?? packageManifest.name;
 
@@ -290,18 +320,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             "CLI invocation started.",
         );
 
-        if (!shellCompletionInvocation) {
-            currentVersionActiveMarkerResource = await initializeCurrentVersionActiveMarker({
-                currentVersion: version,
-                runtime: {
-                    env: invocation.env,
-                    execPath: currentExecPath,
-                    logger,
-                    platform: process.platform,
-                    processId: process.pid,
-                },
-            });
-        }
+        await currentVersionActiveMarkerPromise;
 
         const invocationFetcher = invocation.fetcher ?? fetch;
         const fetcher = shellCompletionInvocation
@@ -352,6 +371,8 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                 flagsCount: 0,
                 outputFormat: "text",
             });
+            const { runOpenFlowCommand } = await import("../commands/flow.ts");
+
             exitCode = await runOpenFlowCommand(openFlowInvocation.args, {
                 ...context,
                 teamFlag: openFlowInvocation.teamFlag,
@@ -407,7 +428,9 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                 cacheStore,
                 fileUploadStore,
                 fileDownloadSessionStore,
-                currentVersionActiveMarkerResource,
+                // A rejected marker creation was already reported by the
+                // try block and left nothing to close.
+                await currentVersionActiveMarkerPromise?.catch(() => undefined),
             ],
             exitCode,
             logger,
@@ -461,16 +484,11 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
     return exitCode;
 }
 
-async function initializeCliStores(
+function initializeCliStores(
     invocation: CliInvocation,
     logger: Logger,
     storePaths: ReturnType<typeof resolveStorePaths>,
-): Promise<InitializedCliStores> {
-    await deleteLegacyDownloadSessionFiles(
-        storePaths.legacyDownloadSessionsFilePath,
-        logger,
-    );
-
+): InitializedCliStores {
     return {
         authStore: invocation.authStore
             ?? new FileAuthStore({
@@ -710,7 +728,15 @@ function createDetachedStdin(): InteractiveInput {
     };
 }
 
-function getSystemLocale(): string | undefined {
+function getSystemLocale(
+    env: Record<string, string | undefined>,
+): string | undefined {
+    // A locale environment variable wins over the system locale, so skip the
+    // comparatively slow Intl lookup when one is set.
+    if (readLocaleEnv(env) !== undefined) {
+        return undefined;
+    }
+
     try {
         return Intl.DateTimeFormat().resolvedOptions().locale;
     }

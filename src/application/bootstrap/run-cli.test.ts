@@ -205,7 +205,7 @@ describe("runCli bootstrap", () => {
         }
     });
 
-    test("creates the sqlite cache file during cli startup", async () => {
+    test("does not create the sqlite cache file when the command never uses the cache", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -217,9 +217,9 @@ describe("runCli bootstrap", () => {
             );
             const result = await sandbox.run(["--help"]);
 
-            expect(createCliSnapshot(result)).toMatchSnapshot();
-            await expect(stat(cacheFilePath)).resolves.toMatchObject({
-                isFile: expect.any(Function),
+            expect(result.exitCode).toBe(0);
+            await expect(stat(cacheFilePath)).rejects.toMatchObject({
+                code: "ENOENT",
             });
         }
         finally {
@@ -323,7 +323,8 @@ describe("runCli bootstrap", () => {
                 platform: process.platform,
             }).logDirectoryPath;
             const result = await sandbox.run(["--debug", "--help"]);
-            const logFileNames = await readdir(logDirectoryPath);
+            const logFileNames = (await readdir(logDirectoryPath))
+                .filter(fileName => fileName.endsWith(".log"));
             const logFilePath = join(logDirectoryPath, logFileNames.at(-1)!);
 
             expect(createCliSnapshot(result, {

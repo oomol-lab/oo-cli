@@ -1,3 +1,4 @@
+import type { Database } from "bun:sqlite";
 import type { Logger } from "pino";
 
 import type { CliInvocation } from "../bootstrap/run-cli.ts";
@@ -21,7 +22,6 @@ import { resolveTelemetryStatusFromSettingsFile } from "./control.ts";
 import {
     countTelemetryEvents,
     enqueueTelemetryBatchItem,
-    openTelemetryDatabase,
     readOrCreateTelemetryDeviceId,
     readTelemetryStateNumber,
     writeTelemetryStateNumber,
@@ -80,17 +80,16 @@ export async function emitCliCommandTelemetry(
         }
 
         const nowMs = Date.now();
-        const deviceId = await readOrCreateTelemetryDeviceId(
-            options.telemetryDirectoryPath,
-        );
+        const [deviceId, accountState, agentClient] = await Promise.all([
+            readOrCreateTelemetryDeviceId(options.telemetryDirectoryPath),
+            resolveTelemetryAccountState(options.authStore, options.env),
+            detectTelemetryAgentClient(),
+        ]);
         const ci = detectCiEnvironment(options.env);
         const uuid = Bun.randomUUIDv7();
         const payload = createCliCommandTelemetryPayload({
-            accountState: await resolveTelemetryAccountState(
-                options.authStore,
-                options.env,
-            ),
-            agentClient: await detectTelemetryAgentClient(),
+            accountState,
+            agentClient,
             arch: arch(),
             ciName: ci.name,
             cliCommit: options.buildCommit,
@@ -116,15 +115,21 @@ export async function emitCliCommandTelemetry(
             timestamp: new Date(nowMs),
             uuid,
         });
-        const inserted = enqueueTelemetryBatchItem({
+        let shouldSpawnFlusher = false;
+
+        enqueueTelemetryBatchItem({
+            // Reuse the insert's connection instead of reopening the outbox.
+            afterInsert: (database) => {
+                shouldSpawnFlusher = reserveTelemetryFlusherSpawn(database, nowMs);
+            },
             directoryPath: options.telemetryDirectoryPath,
             item: payload,
             logger: options.logger,
             nowMs,
         });
 
-        if (inserted) {
-            spawnTelemetryFlusherIfDue(options, nowMs);
+        if (shouldSpawnFlusher) {
+            spawnTelemetryFlusher(options);
         }
     }
     catch (error) {
@@ -137,45 +142,34 @@ export async function emitCliCommandTelemetry(
     }
 }
 
-function spawnTelemetryFlusherIfDue(
-    options: EmitCliTelemetryOptions,
-    nowMs: number,
-): void {
-    const database = openTelemetryDatabase(
-        options.telemetryDirectoryPath,
-        options.logger,
+// Returns whether a flusher should be spawned now, recording the next allowed
+// spawn time when it should.
+function reserveTelemetryFlusherSpawn(database: Database, nowMs: number): boolean {
+    const nextSpawnAfterMs = readTelemetryStateNumber(
+        database,
+        "next_spawn_after_ms",
     );
-    let shouldSpawn = false;
 
-    try {
-        const nextSpawnAfterMs = readTelemetryStateNumber(
-            database,
-            "next_spawn_after_ms",
-        );
+    if (nextSpawnAfterMs !== undefined && nextSpawnAfterMs > nowMs) {
+        return false;
+    }
 
-        if (nextSpawnAfterMs !== undefined && nextSpawnAfterMs > nowMs) {
-            return;
-        }
+    const eventCount = countTelemetryEvents(database);
+    const shouldSpawn = eventCount >= telemetrySpawnThresholdEvents
+        || nextSpawnAfterMs !== undefined;
 
-        const eventCount = countTelemetryEvents(database);
-
-        shouldSpawn = eventCount >= telemetrySpawnThresholdEvents
-            || nextSpawnAfterMs !== undefined;
-
-        if (!shouldSpawn) {
-            return;
-        }
-
+    if (shouldSpawn) {
         writeTelemetryStateNumber(
             database,
             "next_spawn_after_ms",
             nowMs + telemetrySpawnIntervalMs,
         );
     }
-    finally {
-        database.close();
-    }
 
+    return shouldSpawn;
+}
+
+function spawnTelemetryFlusher(options: EmitCliTelemetryOptions): void {
     try {
         const subprocess = Bun.spawn({
             cmd: [options.execPath, telemetryInternalCommand],

@@ -9,6 +9,9 @@ import { createHash } from "node:crypto";
 import { readdir, readFile, realpath } from "node:fs/promises";
 import { join, relative } from "node:path";
 import {
+    toNonBlankString,
+} from "./blank-string.ts";
+import {
     resolveBundledSkillCanonicalDirectoryPath,
 } from "./bundled-skill-paths.ts";
 import { readInstalledSkills } from "./installed-skills.ts";
@@ -22,7 +25,6 @@ import {
     hasFrontmatter,
     isSkillFrontmatterRecord,
     parseSkillMarkdownMatter,
-    toNonBlankString,
 } from "./skill-frontmatter.ts";
 
 export type SkillInventoryKind = InstalledSkillKind;

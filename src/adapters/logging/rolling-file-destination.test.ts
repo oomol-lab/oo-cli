@@ -51,9 +51,10 @@ describe("RollingFileDestination", () => {
         destination.write("current\n");
         destination.end();
 
-        const fileNames = await readdir(directoryPath);
+        const logFileNames = (await readdir(directoryPath))
+            .filter(fileName => fileName.endsWith(".log"));
 
-        expect(fileNames.length).toBe(26);
+        expect(logFileNames.length).toBe(26);
     });
 
     test("prunes at most once per local retention window", async () => {
@@ -82,6 +83,51 @@ describe("RollingFileDestination", () => {
 
         expect(fileNames).not.toContain(boundaryFileName);
         expect(fileNames).not.toContain(lateExpiredFileName);
+    });
+
+    test("skips pruning when another invocation already pruned the retention window", async () => {
+        const directoryPath = await createTemporaryDirectory("oo-log-prune-marker");
+        const expiredFileName = "debug-2026-03-18_23-59-59-p456.log";
+        const firstDestination = createRetentionTestDestination(directoryPath);
+
+        firstDestination.write("first\n");
+        firstDestination.end();
+        await Bun.write(join(directoryPath, expiredFileName), "expired\n");
+
+        const secondDestination = createRetentionTestDestination(directoryPath);
+
+        secondDestination.write("second\n");
+        secondDestination.end();
+
+        expect(await readdir(directoryPath)).toContain(expiredFileName);
+
+        const nextDayDestination = createRetentionTestDestination(
+            directoryPath,
+            () => new Date(2026, 2, 26, 9, 0, 0),
+        );
+
+        nextDayDestination.write("third\n");
+        nextDayDestination.end();
+
+        expect(await readdir(directoryPath)).not.toContain(expiredFileName);
+    });
+
+    test("appends a counter when the log file name is already taken", async () => {
+        const directoryPath = await createTemporaryDirectory("oo-log-name-taken");
+        const baseFileName = "debug-2026-03-25_15-30-12-p123.log";
+
+        await Bun.write(join(directoryPath, baseFileName), "existing\n");
+        const destination = createRetentionTestDestination(directoryPath);
+
+        destination.write("current\n");
+        destination.end();
+
+        expect(destination.getFilePath()).not.toBe(join(directoryPath, baseFileName));
+        expect(destination.getFilePath().startsWith(
+            join(directoryPath, "debug-2026-03-25_15-30-12-p123-"),
+        )).toBeTrue();
+        expect(await readFile(join(directoryPath, baseFileName), "utf8")).toBe("existing\n");
+        expect(await readFile(destination.getFilePath(), "utf8")).toBe("current\n");
     });
 
     test("uses a human-readable local timestamp and pid in the log file name", async () => {

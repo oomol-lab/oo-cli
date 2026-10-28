@@ -54,6 +54,36 @@ describe("SqliteCacheStore", () => {
         }
     });
 
+    test("does not open the sqlite file until a cache namespace is requested", async () => {
+        const root = await createTemporaryDirectory("sqlite-cache-lazy");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: {
+                HOME: root,
+                XDG_CONFIG_HOME: root,
+            },
+            platform: "linux",
+        });
+        const unusedCacheStore = new SqliteCacheStore(storePaths.cacheFilePath);
+
+        unusedCacheStore.close();
+
+        await expect(stat(storePaths.cacheFilePath)).rejects.toMatchObject({
+            code: "ENOENT",
+        });
+
+        const cacheStore = new SqliteCacheStore(storePaths.cacheFilePath);
+
+        try {
+            cacheStore.getCache<string>({ id: "search" }).set("key", "value");
+
+            expect(cacheStore.getCache<string>({ id: "search" }).get("key")).toBe("value");
+        }
+        finally {
+            cacheStore.close();
+        }
+    });
+
     test("warns and evicts invalid cached values during deserialization", async () => {
         const root = await createTemporaryDirectory("sqlite-cache-invalid-json");
         const logCapture = createLogCapture();
@@ -344,9 +374,6 @@ describe("SqliteCacheStore", () => {
             expect(logs).toContain(`"storePathExists":true`);
             expect(logs).toContain(`"parentDirectoryExists":true`);
             expect(logs).toContain(`"parentDirectoryWritable":true`);
-            expect(logs).toContain(
-                `"msg":"Sqlite cache store open was deferred because the database file cannot be opened."`,
-            );
             expect(logs).toContain(
                 `"msg":"Sqlite cache namespace is temporarily unavailable because the database file cannot be opened."`,
             );

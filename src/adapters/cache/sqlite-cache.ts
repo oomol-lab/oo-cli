@@ -77,41 +77,11 @@ export class SqliteCacheStore implements CacheStore {
     private readonly filePath: string;
     private readonly logger?: Logger;
 
+    // The database opens on first use: most invocations never read the cache,
+    // and opening it costs file I/O plus a checkpoint when it is closed.
     constructor(filePath: string, logger?: Logger) {
         this.filePath = filePath;
         this.logger = logger;
-
-        try {
-            this.database = openSqliteDatabase(filePath, { busyTimeoutMs: sqliteBusyTimeoutMs });
-            this.logger?.debug(
-                {
-                    ...withStorePath(this.filePath),
-                },
-                "Sqlite cache store opened.",
-            );
-        }
-        catch (error) {
-            const recoverableError = resolveRecoverableSqliteErrorContext(
-                error,
-                "always",
-            );
-
-            if (recoverableError === undefined) {
-                throw error;
-            }
-
-            this.database = undefined;
-            this.logger?.warn(
-                {
-                    ...withCategory(logCategory.recoverableCache),
-                    err: error,
-                    ...readStorePathDiagnostics(this.filePath),
-                    sqliteErrorCode: recoverableError.error.code,
-                    ...withStorePath(this.filePath),
-                },
-                `Sqlite cache store open was deferred because ${recoverableError.description}.`,
-            );
-        }
     }
 
     getFilePath(): string {
@@ -193,7 +163,7 @@ export class SqliteCacheStore implements CacheStore {
             {
                 ...withStorePath(this.filePath),
             },
-            "Sqlite cache store reopened.",
+            "Sqlite cache store opened.",
         );
 
         return this.database;

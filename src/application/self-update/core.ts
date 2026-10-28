@@ -6,9 +6,8 @@ import type {
 } from "../contracts/self-update.ts";
 import type { LegacyPackageManagerCleanupRuntime } from "./legacy-installation.ts";
 import type { SelfUpdateProgressEvent } from "./progress.ts";
-import { chmod, copyFile, lstat, mkdir, open, readdir, readlink, realpath, rename, rm, stat, symlink } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, normalize, relative, sep } from "node:path";
-import process from "node:process";
+import { chmod, copyFile, lstat, mkdir, open, readlink, realpath, rename, stat, symlink } from "node:fs/promises";
+import { dirname, isAbsolute, join, normalize, relative, sep } from "node:path";
 import { APP_NAME } from "../config/app-config.ts";
 import { CliUserError } from "../contracts/cli.ts";
 import { sanitizeUrlForLogging } from "../logging/url-sanitizer.ts";
@@ -21,9 +20,13 @@ import {
 } from "../update/release-metadata.ts";
 import { attemptManagedSkillInstall } from "./bundled-skills.ts";
 import { resolveSelfUpdateCommandResolution } from "./command-resolution.ts";
+import {
+    cleanupWindowsExecutableBackups,
+    readDirectoryEntries,
+    removePathBestEffort,
+} from "./fs-cleanup.ts";
 import { attemptLegacyPackageManagerUninstall } from "./legacy-installation.ts";
 import {
-    acquireActiveVersionMarker,
     acquireInstallVersionLock,
     cleanupStaleVersionLocks,
     findActiveVersionOwner,
@@ -31,7 +34,6 @@ import {
 } from "./lock.ts";
 import { ensureExecutableDirectoryOnPath } from "./path-configuration.ts";
 import {
-    resolveActiveVersionMarkerPath,
     resolveInstallVersionLockPath,
     resolveSelfUpdatePaths,
     resolveSelfUpdateStagingBinaryPath,
@@ -77,10 +79,6 @@ export type SelfUpdateOperationOutcome
             ownerPid?: number;
             status: "busy";
         };
-
-export interface CurrentVersionActiveMarkerResource {
-    close: () => Promise<void>;
-}
 
 interface TargetVersionMaterialization {
     backupPath?: string;
@@ -268,85 +266,6 @@ export async function ensureSelfUpdateExecutableDirectoryOnPath(options: {
         executableDirectory: paths.executableDirectory,
         pathConfiguration,
     };
-}
-
-export async function initializeCurrentVersionActiveMarker(options: {
-    currentVersion: string;
-    runtime: Pick<SelfUpdateRuntime, "env" | "execPath" | "logger" | "now" | "platform" | "processId">;
-}): Promise<CurrentVersionActiveMarkerResource | undefined> {
-    const paths = resolveSelfUpdatePaths({
-        env: options.runtime.env,
-        platform: options.runtime.platform,
-    });
-    const currentVersionPath = resolveSelfUpdateVersionExecutablePath(
-        paths,
-        options.currentVersion,
-    );
-    const legacyCurrentVersionPath = resolveSelfUpdateVersionDirectoryPath(
-        paths,
-        options.currentVersion,
-    );
-
-    if (options.runtime.platform === "win32") {
-        await cleanupWindowsExecutableBackups(paths, options.runtime.logger);
-    }
-
-    if (
-        !(await pathExists(currentVersionPath))
-        && !(await pathExists(legacyCurrentVersionPath))
-    ) {
-        return undefined;
-    }
-
-    try {
-        const markerId = Bun.randomUUIDv7();
-        const markerHandle = await acquireActiveVersionMarker({
-            execPath: options.runtime.execPath,
-            markerFilePath: resolveActiveVersionMarkerPath(
-                paths,
-                options.currentVersion,
-                options.runtime.processId,
-                markerId,
-            ),
-            markerId,
-            now: options.runtime.now,
-            processId: options.runtime.processId,
-            version: options.currentVersion,
-        });
-
-        if (!markerHandle) {
-            options.runtime.logger.warn(
-                {
-                    currentVersion: options.currentVersion,
-                },
-                "Current CLI version active marker could not be created; continuing without lifecycle marker.",
-            );
-            return undefined;
-        }
-
-        const closeOnExit = () => {
-            markerHandle.closeSync();
-        };
-
-        process.once("exit", closeOnExit);
-
-        return {
-            close: async () => {
-                process.off("exit", closeOnExit);
-                await markerHandle.close();
-            },
-        };
-    }
-    catch (error) {
-        options.runtime.logger.warn(
-            {
-                currentVersion: options.currentVersion,
-                err: error,
-            },
-            "Current CLI version active marker creation failed; continuing without lifecycle marker.",
-        );
-        return undefined;
-    }
 }
 
 export function renderSelfUpdateLockBusyMessage(options: {
@@ -1069,47 +988,6 @@ async function cleanupStagingDirectory(
         },
         "CLI self-update staging cleanup completed.",
     );
-}
-
-async function cleanupWindowsExecutableBackups(
-    paths: Pick<ReturnType<typeof resolveSelfUpdatePaths>, "executableDirectory" | "executablePath">,
-    logger: Logger,
-): Promise<void> {
-    const entries = await readDirectoryEntries(paths.executableDirectory);
-    const backupPrefix = `${basename(paths.executablePath)}.old.`;
-
-    await Promise.all(entries
-        .filter(entry => entry.startsWith(backupPrefix))
-        .map(entry =>
-            removePathBestEffort(join(paths.executableDirectory, entry)),
-        ));
-
-    logger.debug(
-        {
-            executableDirectory: paths.executableDirectory,
-        },
-        "CLI self-update executable-backup cleanup completed.",
-    );
-}
-
-async function readDirectoryEntries(path: string): Promise<string[]> {
-    try {
-        return await readdir(path);
-    }
-    catch (error) {
-        if (isFileMissingError(error)) {
-            return [];
-        }
-
-        throw error;
-    }
-}
-
-async function removePathBestEffort(path: string): Promise<void> {
-    await rm(path, {
-        force: true,
-        recursive: true,
-    }).catch(() => {});
 }
 
 function validateSelfUpdateTargetVersionOrThrow(version: string): void {

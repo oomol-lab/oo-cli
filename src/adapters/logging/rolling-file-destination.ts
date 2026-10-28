@@ -5,7 +5,10 @@ import {
     mkdirSync,
     openSync,
     readdirSync,
+    readFileSync,
+    statSync,
     unlinkSync,
+    writeFileSync,
     writeSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -14,6 +17,9 @@ import process from "node:process";
 const defaultFilePrefix = "debug";
 const defaultRetentionDays = 7;
 const logFileTimestampLength = "0000-00-00_00-00-00".length;
+// Records the retention window last pruned by any invocation, so pruning lists
+// the log directory (one file per invocation) at most once per window.
+const pruneMarkerFileName = ".last-prune";
 let sessionCounter = 0;
 
 export interface RollingFileDestinationOptions {
@@ -87,7 +93,8 @@ export class RollingFileDestination implements DestinationStream {
     }
 
     end(): void {
-        this.flushSync();
+        // Every write is already a synchronous write(2); skipping fsync at
+        // exit keeps a debug log from costing a disk flush per invocation.
         this.disableWrites();
     }
 
@@ -113,6 +120,13 @@ export class RollingFileDestination implements DestinationStream {
 
         this.lastPrunedRetentionStart = retentionStartTime;
 
+        const markerPath = join(this.directoryPath, pruneMarkerFileName);
+        const marker = String(retentionStartTime);
+
+        if (readPruneMarker(markerPath) === marker) {
+            return;
+        }
+
         for (const logFile of this.listLogFiles()) {
             if (
                 logFile.filePath === this.filePath
@@ -127,6 +141,12 @@ export class RollingFileDestination implements DestinationStream {
             }
             catch {
             }
+        }
+
+        try {
+            writeFileSync(markerPath, marker);
+        }
+        catch {
         }
     }
 
@@ -185,9 +205,8 @@ function resolveLogFileName(options: {
     sessionId: string;
 }): string {
     const baseFileName = `${options.filePrefix}-${options.sessionId}.log`;
-    const existingFileNames = listExistingLogFileNames(options.directoryPath);
 
-    if (!existingFileNames.includes(baseFileName)) {
+    if (!isExistingFile(join(options.directoryPath, baseFileName))) {
         return baseFileName;
     }
 
@@ -196,14 +215,21 @@ function resolveLogFileName(options: {
     return `${options.filePrefix}-${options.sessionId}-${String(sessionCounter).padStart(2, "0")}.log`;
 }
 
-function listExistingLogFileNames(directoryPath: string): string[] {
+function isExistingFile(filePath: string): boolean {
     try {
-        return readdirSync(directoryPath, { withFileTypes: true })
-            .filter(entry => entry.isFile())
-            .map(entry => entry.name);
+        return statSync(filePath).isFile();
     }
     catch {
-        return [];
+        return false;
+    }
+}
+
+function readPruneMarker(markerPath: string): string | undefined {
+    try {
+        return readFileSync(markerPath, "utf8");
+    }
+    catch {
+        return undefined;
     }
 }
 

@@ -14,8 +14,8 @@ import {
     useTemporaryDirectoryCleanup,
 } from "../../../__tests__/helpers.ts";
 import { createTranslator } from "../../i18n/translator.ts";
+import { initializeCurrentVersionActiveMarker } from "./active-version-marker.ts";
 import {
-    initializeCurrentVersionActiveMarker,
     performSelfUpdateOperation,
     renderSelfUpdateLockBusyMessage,
 } from "./core.ts";
