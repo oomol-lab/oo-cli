@@ -112,6 +112,30 @@ describe("RollingFileDestination", () => {
         expect(await readdir(directoryPath)).not.toContain(expiredFileName);
     });
 
+    test("keeps prune markers separate for destinations with different prefixes", async () => {
+        const directoryPath = await createTemporaryDirectory("oo-log-prune-prefix");
+        const expiredTraceFileName = "trace-2026-03-18_23-59-59-p456.log";
+        const debugDestination = createRetentionTestDestination(directoryPath);
+
+        await Bun.write(join(directoryPath, expiredTraceFileName), "expired\n");
+        debugDestination.write("debug\n");
+        debugDestination.end();
+
+        expect(await readdir(directoryPath)).toContain(expiredTraceFileName);
+
+        const traceDestination = new RollingFileDestination({
+            directoryPath,
+            filePrefix: "trace",
+            now: () => new Date(2026, 2, 25, 15, 30, 12),
+            pid: 123,
+        });
+
+        traceDestination.write("trace\n");
+        traceDestination.end();
+
+        expect(await readdir(directoryPath)).not.toContain(expiredTraceFileName);
+    });
+
     test("appends a counter when the log file name is already taken", async () => {
         const directoryPath = await createTemporaryDirectory("oo-log-name-taken");
         const baseFileName = "debug-2026-03-25_15-30-12-p123.log";

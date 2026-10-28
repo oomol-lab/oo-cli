@@ -18,8 +18,9 @@ const defaultFilePrefix = "debug";
 const defaultRetentionDays = 7;
 const logFileTimestampLength = "0000-00-00_00-00-00".length;
 // Records the retention window last pruned by any invocation, so pruning lists
-// the log directory (one file per invocation) at most once per window.
-const pruneMarkerFileName = ".last-prune";
+// the log directory (one file per invocation) at most once per window. Scoped
+// by file prefix because each destination prunes only its own prefix.
+const pruneMarkerFileSuffix = "last-prune";
 let sessionCounter = 0;
 
 export interface RollingFileDestinationOptions {
@@ -120,7 +121,10 @@ export class RollingFileDestination implements DestinationStream {
 
         this.lastPrunedRetentionStart = retentionStartTime;
 
-        const markerPath = join(this.directoryPath, pruneMarkerFileName);
+        const markerPath = join(
+            this.directoryPath,
+            `.${this.filePrefix}-${pruneMarkerFileSuffix}`,
+        );
         const marker = String(retentionStartTime);
 
         if (readPruneMarker(markerPath) === marker) {

@@ -292,7 +292,8 @@ describe("runCli bootstrap", () => {
                 platform: process.platform,
             }).logDirectoryPath;
             const result = await sandbox.run(["--help"]);
-            const logFileNames = await readdir(logDirectoryPath).catch(() => []);
+            const logFileNames = (await readdir(logDirectoryPath).catch(() => []))
+                .filter(fileName => fileName.endsWith(".log"));
 
             expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(logFileNames.length).toBeGreaterThan(0);
