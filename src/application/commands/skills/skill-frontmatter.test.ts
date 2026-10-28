@@ -2,10 +2,8 @@ import { describe, expect, test } from "bun:test";
 
 import {
     hasFrontmatter,
-    isNonBlankString,
     parseSkillMarkdownMatter,
     stringifySkillMarkdownMatter,
-    toNonBlankString,
 } from "./skill-frontmatter.ts";
 
 describe("skill frontmatter helpers", () => {
@@ -13,13 +11,6 @@ describe("skill frontmatter helpers", () => {
         expect(hasFrontmatter("---\nname: demo\n---\n")).toBeTrue();
         expect(hasFrontmatter("\n---\nname: demo\n---\n")).toBeTrue();
         expect(hasFrontmatter("# Demo\n")).toBeFalse();
-    });
-
-    test("identifies plain records and non-blank strings", () => {
-        expect(isNonBlankString(" demo ")).toBeTrue();
-        expect(isNonBlankString("   ")).toBeFalse();
-        expect(toNonBlankString(" demo ")).toBe("demo");
-        expect(toNonBlankString(undefined)).toBeUndefined();
     });
 
     test("serializes long frontmatter scalars without folded block markers", () => {

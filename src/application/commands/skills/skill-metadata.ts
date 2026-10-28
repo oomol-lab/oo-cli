@@ -1,4 +1,6 @@
-import { toNonBlankString } from "./skill-frontmatter.ts";
+import {
+    toNonBlankString,
+} from "./blank-string.ts";
 
 export const skillMetadataSchemaVersion = 1;
 

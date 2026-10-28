@@ -131,6 +131,8 @@ export async function readOrCreateTelemetryDeviceId(
 }
 
 export function enqueueTelemetryBatchItem(options: {
+    // Runs on the same connection right after a successful insert.
+    afterInsert?: (database: Database) => void;
     directoryPath: string;
     item: TelemetryBatchItem;
     logger?: Logger;
@@ -168,6 +170,7 @@ export function enqueueTelemetryBatchItem(options: {
             payloadBytes: Buffer.byteLength(payloadJson, "utf8"),
             payloadJson,
         });
+        options.afterInsert?.(database);
 
         return true;
     }

@@ -2,13 +2,15 @@ import type { SkillFrontmatterRecord } from "./skill-frontmatter.ts";
 
 import { join } from "node:path";
 import { CliUserError } from "../../contracts/cli.ts";
+import {
+    toNonBlankString,
+} from "./blank-string.ts";
 import { readSkillFileContent } from "./local-skill-ownership.ts";
 import { installedRegistrySkillCompatibility } from "./registry-skill-markdown.ts";
 import {
     isSkillFrontmatterRecord,
     parseSkillMarkdownMatter,
     stringifySkillMarkdownMatter,
-    toNonBlankString,
 } from "./skill-frontmatter.ts";
 import { renderSkillTitle } from "./skill-title.ts";
 

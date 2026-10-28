@@ -45,24 +45,24 @@
   },
   "dependencies": {
     "@oomol-lab/open-flow": "0.1.0-beta.69",
-    "@vercel/detect-agent": "^1.2.5",
+    "@vercel/detect-agent": "^1.2.7",
     "@wopjs/cast": "^0.1.16",
-    "agentic-markdown": "^0.0.4",
-    "ajv": "^8.18.0",
+    "agentic-markdown": "^0.0.5",
+    "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "ajv-i18n": "^4.2.0",
-    "commander": "^14.0.3",
+    "commander": "^15.0.0",
     "gray-matter": "^4.0.3",
-    "ignore": "^7.0.5",
-    "pino": "^10.3.1",
-    "smol-toml": "^1.6.0",
-    "zod": "^4.6.5"
+    "ignore": "^7.0.14",
+    "pino": "^10.4.0",
+    "smol-toml": "^1.9.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^7.7.3",
     "@types/bun": "latest",
-    "eslint": "^10.0.3",
+    "eslint": "^10.13.0",
     "eslint-plugin-format": "^2.0.1",
-    "knip": "^6.16.1"
+    "knip": "^6.43.0"
   }
 }

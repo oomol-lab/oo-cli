@@ -2,7 +2,6 @@ import type { CliCommandDefinition, CliExecutionContext } from "../contracts/cli
 
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { runOpenFlowCommand as runBundledOpenFlowCommand } from "@oomol-lab/open-flow/command";
 import { resolveRequestLanguage } from "../../i18n/locale.ts";
 import { readDefaultTeam } from "../auth/default-team.ts";
 import { readTrimmedEnv, requireIdentity } from "../auth/identity.ts";
@@ -26,12 +25,6 @@ interface CommandModule {
     readonly runOpenFlowCommand: unknown;
 }
 
-interface OpenFlowInvocation {
-    readonly args: readonly string[];
-    readonly commandIndex: number;
-    readonly teamFlag?: string;
-}
-
 interface HostedSession {
     readonly apiKey: string;
     readonly consoleOrigin: URL;
@@ -49,6 +42,11 @@ interface ServerSession {
 }
 
 type OpenFlowSession = HostedSession | ServerSession;
+
+type RunOpenFlowCommand = (
+    args: readonly string[],
+    host: OpenFlowCommandHost,
+) => Promise<number>;
 
 interface OpenFlowCommandHost {
     readonly cloudRequest: (path: string, init?: RequestInit) => Promise<Response>;
@@ -69,49 +67,6 @@ export const flowCommand = {
         },
     ],
 } satisfies CliCommandDefinition;
-
-export function resolveOpenFlowInvocation(argv: readonly string[]): OpenFlowInvocation | undefined {
-    let commandIndex = 0;
-    let teamFlag: string | undefined;
-
-    while (commandIndex < argv.length) {
-        const argument = argv[commandIndex];
-
-        if (argument === "--debug" || argument?.startsWith("--lang=")) {
-            commandIndex += 1;
-            continue;
-        }
-
-        if (argument === "--lang") {
-            commandIndex += 2;
-            continue;
-        }
-
-        if (argument === "--team") {
-            teamFlag = argv[commandIndex + 1];
-            commandIndex += 2;
-            continue;
-        }
-
-        if (argument?.startsWith("--team=")) {
-            teamFlag = argument.slice("--team=".length);
-            commandIndex += 1;
-            continue;
-        }
-
-        break;
-    }
-
-    if (argv[commandIndex] !== "flow") {
-        return undefined;
-    }
-
-    return {
-        args: argv.slice(commandIndex + 1),
-        commandIndex,
-        ...(teamFlag === undefined ? {} : { teamFlag }),
-    };
-}
 
 export async function runOpenFlowCommand(
     args: readonly string[],
@@ -161,9 +116,13 @@ export async function runOpenFlowCommand(
     const hostContext = { ...context, teamFlag: readTeamFlag({ team }) };
 
     const configuredDirectory = context.env[commandDirectoryEnvName]?.trim();
-    let runCommand = runBundledOpenFlowCommand;
+    let runCommand: RunOpenFlowCommand;
 
-    if (configuredDirectory) {
+    if (!configuredDirectory) {
+        // The bundled Open Flow command is large; load it only when it runs.
+        ({ runOpenFlowCommand: runCommand } = await import("@oomol-lab/open-flow/command"));
+    }
+    else {
         const entryPath = join(resolve(context.cwd, configuredDirectory), "entry.js");
         let loaded: unknown;
 

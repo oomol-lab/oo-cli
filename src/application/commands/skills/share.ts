@@ -16,6 +16,9 @@ import { withPackageIdentity } from "../../logging/log-fields.ts";
 import { requestOo } from "../shared/oo-request.ts";
 import { writeLine } from "../shared/output.ts";
 import { loadPackageInfo, parsePackageSpecifier } from "../shared/package-info.ts";
+import {
+    toNonBlankString,
+} from "./blank-string.ts";
 import { isNodeNotFoundError } from "./bundled-skill-filesystem.ts";
 import {
     confirmInteractiveValue,
@@ -34,7 +37,6 @@ import {
 import {
     isSkillFrontmatterRecord,
     parseSkillMarkdownMatter,
-    toNonBlankString,
 } from "./skill-frontmatter.ts";
 import { isSkillIdReference } from "./skill-id.ts";
 

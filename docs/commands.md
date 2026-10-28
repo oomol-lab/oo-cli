@@ -289,9 +289,11 @@ conventions:
   failures, system failures, and recoverable cache issues can be filtered
   quickly.
   Values include `user_error`, `system_error`, and `recoverable_cache`.
-- The CLI keeps debug log files from the current local calendar day and the
-  previous six local calendar days. Logs outside this seven-day local date
-  window are removed first. There is no fixed file-count cap.
+- Debug log file names carry a UTC timestamp, for example
+  `debug-2026-03-25_06-30-12-p12345.log`.
+- The CLI keeps debug log files from the current UTC calendar day and the
+  previous six UTC calendar days. Logs outside this seven-day UTC date window
+  are removed first. There is no fixed file-count cap.
 
 ## Authentication
 

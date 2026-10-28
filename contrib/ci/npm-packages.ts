@@ -1,4 +1,4 @@
-import { chmodSync, copyFileSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { mkdtemp, rename, rm } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
@@ -94,6 +94,15 @@ const platformTargets = platformTargetsData as PlatformTarget[];
 const compileAssetNamingPattern = "[name]-[hash].[ext]";
 export const releasePackagesDirectoryName = "release-packages";
 const wrapperPackageDirectoryName = "wrapper";
+// Invocations recorded for `--bytecode-order`, most common first. Bun places
+// the bytecode they load at the front of the executable so startup reads and
+// decodes less of it; the profile applies to every `--target`.
+const bytecodeOrderProfileArgs = [
+    ["config", "list"],
+    ["--version"],
+    ["--help"],
+] as const;
+const bytecodeOrderProfileTimeoutMs = 30_000;
 const transientCompileRetryCount = 5;
 const transientCompileRetryDelayMs = 1_000;
 const bunBaselineExtractionErrorFragments = [
@@ -201,8 +210,16 @@ export async function stagePlatformReleasePackages(options: {
     rmSync(releaseBuildOptions.stagingDir, { force: true, recursive: true });
     mkdirSync(releaseBuildOptions.stagingDir, { recursive: true });
 
+    const profileDir = join(releaseBuildOptions.stagingDir, ".bytecode-order");
+    const bytecodeOrderPaths = await recordBytecodeOrderProfiles({
+        buildMetadata: compileBuildMetadata,
+        profileDir,
+        rootDir: releaseBuildOptions.rootDir,
+    });
+
     for (const target of selectedTargets) {
         await stagePlatformPackage({
+            bytecodeOrderPaths,
             packageManifestContent: releaseBuildOptions.packageManifestContent,
             releaseVersion: releaseBuildOptions.releaseVersion,
             rootDir: releaseBuildOptions.rootDir,
@@ -210,6 +227,107 @@ export async function stagePlatformReleasePackages(options: {
             target,
             buildMetadata: compileBuildMetadata,
         });
+    }
+
+    rmSync(profileDir, { force: true, recursive: true });
+}
+
+/**
+ * Compiles an executable for the running platform, runs the profiled
+ * invocations in an isolated home directory, and returns the recorded
+ * `--bytecode-order` profile paths, most common invocation first.
+ */
+export async function recordBytecodeOrderProfiles(options: {
+    buildMetadata: CompileBuildMetadata;
+    profileDir: string;
+    rootDir: string;
+}): Promise<string[]> {
+    const executablePath = join(
+        options.profileDir,
+        resolveCurrentPlatformTarget().executableFileName,
+    );
+    const homeDirectoryPath = join(options.profileDir, "home");
+
+    rmSync(options.profileDir, { force: true, recursive: true });
+    mkdirSync(homeDirectoryPath, { recursive: true });
+    await compileExecutableWithTransientRetry({
+        outputPath: executablePath,
+        runCompile: () =>
+            Bun.spawnSync(
+                buildCompileCommandArgs(
+                    resolveCurrentPlatformTarget(),
+                    options.buildMetadata,
+                    executablePath,
+                    { includeTarget: false },
+                ),
+                {
+                    cwd: options.rootDir,
+                    stderr: "pipe",
+                    stdin: "ignore",
+                    stdout: "pipe",
+                },
+            ),
+    });
+
+    if (process.platform !== "win32") {
+        chmodSync(executablePath, 0o755);
+    }
+
+    // An unrecorded first run performs one-time setup (bundled skills, device
+    // id), so the recorded runs follow the steady-state startup path.
+    runBytecodeOrderProfileInvocation(executablePath, ["--version"], homeDirectoryPath);
+
+    return bytecodeOrderProfileArgs.map((args, index) => {
+        const orderPath = join(options.profileDir, `profile-${index}.order`);
+
+        runBytecodeOrderProfileInvocation(
+            executablePath,
+            args,
+            homeDirectoryPath,
+            orderPath,
+        );
+
+        if (!existsSync(orderPath)) {
+            throw new Error(`Bun did not write a bytecode order profile for "oo ${args.join(" ")}".`);
+        }
+
+        return orderPath;
+    });
+}
+
+function runBytecodeOrderProfileInvocation(
+    executablePath: string,
+    args: readonly string[],
+    homeDirectoryPath: string,
+    orderPath?: string,
+): void {
+    const result = Bun.spawnSync([executablePath, ...args], {
+        cwd: homeDirectoryPath,
+        env: {
+            ...process.env,
+            APPDATA: join(homeDirectoryPath, "app-data"),
+            HOME: homeDirectoryPath,
+            LOCALAPPDATA: join(homeDirectoryPath, "local-app-data"),
+            USERPROFILE: homeDirectoryPath,
+            XDG_CACHE_HOME: join(homeDirectoryPath, "cache"),
+            XDG_CONFIG_HOME: join(homeDirectoryPath, "config"),
+            XDG_DATA_HOME: join(homeDirectoryPath, "data"),
+            XDG_STATE_HOME: join(homeDirectoryPath, "state"),
+            ...(orderPath === undefined ? {} : { BUN_BYTECODE_ORDER_OUT: orderPath }),
+        },
+        stderr: "pipe",
+        stdin: "ignore",
+        stdout: "pipe",
+        timeout: bytecodeOrderProfileTimeoutMs,
+    });
+
+    if (result.exitCode !== 0) {
+        throw new Error(
+            [
+                `Failed to run "oo ${args.join(" ")}" for the bytecode order profile.`,
+                decodeOutput(result.stderr),
+            ].join("\n"),
+        );
     }
 }
 
@@ -409,6 +527,7 @@ function preparePackageDirectory(packageDir: string): void {
 }
 
 async function stagePlatformPackage(options: {
+    bytecodeOrderPaths: readonly string[];
     packageManifestContent: string;
     releaseVersion: string;
     rootDir: string;
@@ -433,6 +552,7 @@ async function stagePlatformPackage(options: {
         packageDir,
         options.target,
         options.buildMetadata,
+        options.bytecodeOrderPaths,
     );
 }
 
@@ -498,13 +618,16 @@ async function compilePlatformBinary(
     packageDir: string,
     target: PlatformTarget,
     buildMetadata: CompileBuildMetadata,
+    bytecodeOrderPaths: readonly string[],
 ): Promise<void> {
     const outputPath = join(packageDir, "bin", target.executableFileName);
     await compileExecutableWithTransientRetry({
         outputPath,
         runCompile: () =>
             Bun.spawnSync(
-                buildCompileCommandArgs(target, buildMetadata, outputPath),
+                buildCompileCommandArgs(target, buildMetadata, outputPath, {
+                    bytecodeOrderPaths,
+                }),
                 {
                     cwd: rootDir,
                     stderr: "pipe",
@@ -556,7 +679,10 @@ export function buildCompileCommandArgs(
     target: PlatformTarget,
     buildMetadata: CompileBuildMetadata,
     outputPath: string,
-    options?: { includeTarget?: boolean },
+    options?: {
+        bytecodeOrderPaths?: readonly string[];
+        includeTarget?: boolean;
+    },
 ): string[] {
     const includeTarget = options?.includeTarget ?? true;
     // Keep embedded asset filenames unique across bundled skills.
@@ -572,6 +698,8 @@ export function buildCompileCommandArgs(
         "--no-compile-autoload-bunfig",
         `--asset-naming=${compileAssetNamingPattern}`,
         ...(includeTarget ? [`--target=${target.bunTarget}`] : []),
+        // Repeated rather than comma-joined so paths may contain commas.
+        ...(options?.bytecodeOrderPaths ?? []).map(path => `--bytecode-order=${path}`),
         ...buildCompileDefineArgs(buildMetadata),
         "./index.ts",
         "--outfile",

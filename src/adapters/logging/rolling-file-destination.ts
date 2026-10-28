@@ -5,7 +5,10 @@ import {
     mkdirSync,
     openSync,
     readdirSync,
+    readFileSync,
+    statSync,
     unlinkSync,
+    writeFileSync,
     writeSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -14,6 +17,10 @@ import process from "node:process";
 const defaultFilePrefix = "debug";
 const defaultRetentionDays = 7;
 const logFileTimestampLength = "0000-00-00_00-00-00".length;
+// Records the retention window last pruned by any invocation, so pruning lists
+// the log directory (one file per invocation) at most once per window. Scoped
+// by file prefix because each destination prunes only its own prefix.
+const pruneMarkerFileSuffix = "last-prune";
 let sessionCounter = 0;
 
 export interface RollingFileDestinationOptions {
@@ -87,7 +94,8 @@ export class RollingFileDestination implements DestinationStream {
     }
 
     end(): void {
-        this.flushSync();
+        // Every write is already a synchronous write(2); skipping fsync at
+        // exit keeps a debug log from costing a disk flush per invocation.
         this.disableWrites();
     }
 
@@ -113,6 +121,16 @@ export class RollingFileDestination implements DestinationStream {
 
         this.lastPrunedRetentionStart = retentionStartTime;
 
+        const markerPath = join(
+            this.directoryPath,
+            `.${this.filePrefix}-${pruneMarkerFileSuffix}`,
+        );
+        const marker = String(retentionStartTime);
+
+        if (readPruneMarker(markerPath) === marker) {
+            return;
+        }
+
         for (const logFile of this.listLogFiles()) {
             if (
                 logFile.filePath === this.filePath
@@ -127,6 +145,12 @@ export class RollingFileDestination implements DestinationStream {
             }
             catch {
             }
+        }
+
+        try {
+            writeFileSync(markerPath, marker);
+        }
+        catch {
         }
     }
 
@@ -176,7 +200,7 @@ interface LogFileEntry {
 }
 
 function createSessionId(now: Date, pid: number): string {
-    return `${formatLocalDateTime(now)}-p${pid}`;
+    return `${formatUtcDateTime(now)}-p${pid}`;
 }
 
 function resolveLogFileName(options: {
@@ -185,9 +209,8 @@ function resolveLogFileName(options: {
     sessionId: string;
 }): string {
     const baseFileName = `${options.filePrefix}-${options.sessionId}.log`;
-    const existingFileNames = listExistingLogFileNames(options.directoryPath);
 
-    if (!existingFileNames.includes(baseFileName)) {
+    if (!isExistingFile(join(options.directoryPath, baseFileName))) {
         return baseFileName;
     }
 
@@ -196,27 +219,30 @@ function resolveLogFileName(options: {
     return `${options.filePrefix}-${options.sessionId}-${String(sessionCounter).padStart(2, "0")}.log`;
 }
 
-function listExistingLogFileNames(directoryPath: string): string[] {
+function isExistingFile(filePath: string): boolean {
     try {
-        return readdirSync(directoryPath, { withFileTypes: true })
-            .filter(entry => entry.isFile())
-            .map(entry => entry.name);
+        return statSync(filePath).isFile();
     }
     catch {
-        return [];
+        return false;
+    }
+}
+
+function readPruneMarker(markerPath: string): string | undefined {
+    try {
+        return readFileSync(markerPath, "utf8");
+    }
+    catch {
+        return undefined;
     }
 }
 
 function resolveRetentionStart(now: Date): Date {
-    const retentionStart = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-    );
-
-    retentionStart.setDate(retentionStart.getDate() - (defaultRetentionDays - 1));
-
-    return retentionStart;
+    return new Date(Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() - (defaultRetentionDays - 1),
+    ));
 }
 
 function parseLogFileTimestamp(
@@ -256,15 +282,15 @@ function parseLogFileTimestamp(
         return undefined;
     }
 
-    const parsed = new Date(year, month - 1, day, hour, minute, second);
+    const parsed = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
 
     if (
-        parsed.getFullYear() !== year
-        || parsed.getMonth() !== month - 1
-        || parsed.getDate() !== day
-        || parsed.getHours() !== hour
-        || parsed.getMinutes() !== minute
-        || parsed.getSeconds() !== second
+        parsed.getUTCFullYear() !== year
+        || parsed.getUTCMonth() !== month - 1
+        || parsed.getUTCDate() !== day
+        || parsed.getUTCHours() !== hour
+        || parsed.getUTCMinutes() !== minute
+        || parsed.getUTCSeconds() !== second
     ) {
         return undefined;
     }
@@ -300,13 +326,16 @@ function readFixedInteger(
     return parsed;
 }
 
-function formatLocalDateTime(date: Date): string {
-    const y = String(date.getFullYear()).padStart(4, "0");
-    const mo = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    const h = String(date.getHours()).padStart(2, "0");
-    const mi = String(date.getMinutes()).padStart(2, "0");
-    const s = String(date.getSeconds()).padStart(2, "0");
+// Log names and the retention window use UTC: the first local-time
+// calculation in a process loads the time zone database, which costs several
+// milliseconds of startup on every invocation.
+function formatUtcDateTime(date: Date): string {
+    const y = String(date.getUTCFullYear()).padStart(4, "0");
+    const mo = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(date.getUTCDate()).padStart(2, "0");
+    const h = String(date.getUTCHours()).padStart(2, "0");
+    const mi = String(date.getUTCMinutes()).padStart(2, "0");
+    const s = String(date.getUTCSeconds()).padStart(2, "0");
 
     return `${y}-${mo}-${d}_${h}-${mi}-${s}`;
 }

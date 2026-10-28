@@ -1,9 +1,4 @@
-import {
-    isNonEmptyString,
-    isPlainObject,
-    isString,
-    toNonEmptyString,
-} from "@wopjs/cast";
+import { isPlainObject } from "@wopjs/cast";
 import matter from "gray-matter";
 
 export type SkillFrontmatterRecord = Record<PropertyKey, unknown>;
@@ -46,14 +41,4 @@ export function stringifySkillMarkdownMatter(
     data: object,
 ): string {
     return matter.stringify(content, data, skillMarkdownMatterStringifyOptions);
-}
-
-export function isNonBlankString(value: unknown): value is string {
-    return isString(value) && isNonEmptyString(value.trim());
-}
-
-export function toNonBlankString(value: unknown): string | undefined {
-    if (isString(value)) {
-        return toNonEmptyString(value.trim());
-    }
 }

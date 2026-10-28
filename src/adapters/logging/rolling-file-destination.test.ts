@@ -1,12 +1,13 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import process from "node:process";
 import { describe, expect, test } from "bun:test";
 
 import { createTemporaryDirectory } from "../../../__tests__/helpers.ts";
 import { RollingFileDestination } from "./rolling-file-destination.ts";
 
 describe("RollingFileDestination", () => {
-    test("removes log files before the local date retention window", async () => {
+    test("removes log files before the UTC date retention window", async () => {
         const directoryPath = await createTemporaryDirectory("oo-log-retention");
 
         await Bun.write(join(directoryPath, "debug-2026-03-18_23-59-59-p123.log"), "expired\n");
@@ -51,16 +52,17 @@ describe("RollingFileDestination", () => {
         destination.write("current\n");
         destination.end();
 
-        const fileNames = await readdir(directoryPath);
+        const logFileNames = (await readdir(directoryPath))
+            .filter(fileName => fileName.endsWith(".log"));
 
-        expect(fileNames.length).toBe(26);
+        expect(logFileNames.length).toBe(26);
     });
 
-    test("prunes at most once per local retention window", async () => {
+    test("prunes at most once per UTC retention window", async () => {
         const directoryPath = await createTemporaryDirectory("oo-log-prune-cache");
         const boundaryFileName = "debug-2026-03-19_00-00-00-p123.log";
         const lateExpiredFileName = "debug-2026-03-18_23-59-59-p456.log";
-        let currentNow = new Date(2026, 2, 25, 15, 30, 12);
+        let currentNow = new Date(Date.UTC(2026, 2, 25, 15, 30, 12));
 
         await Bun.write(join(directoryPath, boundaryFileName), "boundary\n");
         const destination = createRetentionTestDestination(
@@ -74,7 +76,7 @@ describe("RollingFileDestination", () => {
 
         expect(await readdir(directoryPath)).toContain(lateExpiredFileName);
 
-        currentNow = new Date(2026, 2, 26, 0, 0, 0);
+        currentNow = new Date(Date.UTC(2026, 2, 26, 0, 0, 0));
         destination.write("third\n");
         destination.end();
 
@@ -84,23 +86,107 @@ describe("RollingFileDestination", () => {
         expect(fileNames).not.toContain(lateExpiredFileName);
     });
 
-    test("uses a human-readable local timestamp and pid in the log file name", async () => {
-        const directoryPath = await createTemporaryDirectory("oo-log-name");
-        const destination = new RollingFileDestination({
+    test("skips pruning when another invocation already pruned the retention window", async () => {
+        const directoryPath = await createTemporaryDirectory("oo-log-prune-marker");
+        const expiredFileName = "debug-2026-03-18_23-59-59-p456.log";
+        const firstDestination = createRetentionTestDestination(directoryPath);
+
+        firstDestination.write("first\n");
+        firstDestination.end();
+        await Bun.write(join(directoryPath, expiredFileName), "expired\n");
+
+        const secondDestination = createRetentionTestDestination(directoryPath);
+
+        secondDestination.write("second\n");
+        secondDestination.end();
+
+        expect(await readdir(directoryPath)).toContain(expiredFileName);
+
+        const nextDayDestination = createRetentionTestDestination(
             directoryPath,
-            now: () => new Date(2026, 2, 25, 6, 30, 12),
-            pid: 12345,
+            () => new Date(Date.UTC(2026, 2, 26, 9, 0, 0)),
+        );
+
+        nextDayDestination.write("third\n");
+        nextDayDestination.end();
+
+        expect(await readdir(directoryPath)).not.toContain(expiredFileName);
+    });
+
+    test("keeps prune markers separate for destinations with different prefixes", async () => {
+        const directoryPath = await createTemporaryDirectory("oo-log-prune-prefix");
+        const expiredTraceFileName = "trace-2026-03-18_23-59-59-p456.log";
+        const debugDestination = createRetentionTestDestination(directoryPath);
+
+        await Bun.write(join(directoryPath, expiredTraceFileName), "expired\n");
+        debugDestination.write("debug\n");
+        debugDestination.end();
+
+        expect(await readdir(directoryPath)).toContain(expiredTraceFileName);
+
+        const traceDestination = new RollingFileDestination({
+            directoryPath,
+            filePrefix: "trace",
+            now: () => new Date(Date.UTC(2026, 2, 25, 15, 30, 12)),
+            pid: 123,
         });
 
-        expect(destination.getFilePath()).toContain(
-            "debug-2026-03-25_06-30-12-p12345.log",
-        );
+        traceDestination.write("trace\n");
+        traceDestination.end();
+
+        expect(await readdir(directoryPath)).not.toContain(expiredTraceFileName);
+    });
+
+    test("appends a counter when the log file name is already taken", async () => {
+        const directoryPath = await createTemporaryDirectory("oo-log-name-taken");
+        const baseFileName = "debug-2026-03-25_15-30-12-p123.log";
+
+        await Bun.write(join(directoryPath, baseFileName), "existing\n");
+        const destination = createRetentionTestDestination(directoryPath);
+
+        destination.write("current\n");
+        destination.end();
+
+        expect(destination.getFilePath()).not.toBe(join(directoryPath, baseFileName));
+        expect(destination.getFilePath().startsWith(
+            join(directoryPath, "debug-2026-03-25_15-30-12-p123-"),
+        )).toBeTrue();
+        expect(await readFile(join(directoryPath, baseFileName), "utf8")).toBe("existing\n");
+        expect(await readFile(destination.getFilePath(), "utf8")).toBe("current\n");
+    });
+
+    test("uses a human-readable UTC timestamp and pid in the log file name", async () => {
+        const directoryPath = await createTemporaryDirectory("oo-log-name");
+        const originalTimeZone = process.env.TZ;
+
+        // A non-UTC zone proves the name ignores the local time zone.
+        process.env.TZ = "Asia/Shanghai";
+
+        try {
+            const destination = new RollingFileDestination({
+                directoryPath,
+                now: () => new Date(Date.UTC(2026, 2, 25, 6, 30, 12)),
+                pid: 12345,
+            });
+
+            expect(destination.getFilePath()).toContain(
+                "debug-2026-03-25_06-30-12-p12345.log",
+            );
+        }
+        finally {
+            if (originalTimeZone === undefined) {
+                delete process.env.TZ;
+            }
+            else {
+                process.env.TZ = originalTimeZone;
+            }
+        }
     });
 });
 
 function createRetentionTestDestination(
     directoryPath: string,
-    now = () => new Date(2026, 2, 25, 15, 30, 12),
+    now = () => new Date(Date.UTC(2026, 2, 25, 15, 30, 12)),
 ): RollingFileDestination {
     return new RollingFileDestination({
         directoryPath,

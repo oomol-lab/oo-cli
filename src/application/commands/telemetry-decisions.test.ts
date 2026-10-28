@@ -2,7 +2,7 @@ import type { CliCommandDefinition } from "../contracts/cli.ts";
 
 import { describe, expect, test } from "bun:test";
 import { createCliCommandTelemetryPayload } from "../telemetry/payload.ts";
-import { createCliCatalog } from "./catalog.ts";
+import { loadCliCatalog } from "./catalog.ts";
 
 type TelemetryDecision
     = | {
@@ -651,16 +651,16 @@ const commandTelemetryDecisions = {
 } as const satisfies Record<string, TelemetryDecision>;
 
 describe("command telemetry decisions", () => {
-    test("covers every registered command with an explicit telemetry decision", () => {
-        const commandPaths = collectCommandPaths(createCliCatalog().commands);
+    test("covers every registered command with an explicit telemetry decision", async () => {
+        const commandPaths = collectCommandPaths((await loadCliCatalog()).commands);
         const actualPaths = commandPaths.map(command => command.path).sort();
         const decisionPaths = Object.keys(commandTelemetryDecisions).sort();
 
         expect(decisionPaths).toEqual(actualPaths);
     });
 
-    test("keeps exclusion metadata aligned with telemetry decisions", () => {
-        const commandPaths = collectCommandPaths(createCliCatalog().commands);
+    test("keeps exclusion metadata aligned with telemetry decisions", async () => {
+        const commandPaths = collectCommandPaths((await loadCliCatalog()).commands);
 
         for (const command of commandPaths) {
             const decision = commandTelemetryDecisions[command.path];

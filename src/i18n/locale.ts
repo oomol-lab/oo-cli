@@ -61,13 +61,18 @@ export function detectCliLanguageFlag(argv: readonly string[]): string | undefin
     return value;
 }
 
+// Locale environment variables take precedence over the OS locale setting.
+export function readLocaleEnv(
+    env: Record<string, string | undefined>,
+): string | undefined {
+    return env.LC_ALL ?? env.LC_MESSAGES ?? env.LANG;
+}
+
 export function detectSystemLocale(
     env: Record<string, string | undefined>,
     systemLocale?: string,
 ): SupportedLocale {
-    return normalizeLocale(
-        env.LC_ALL ?? env.LC_MESSAGES ?? env.LANG ?? systemLocale,
-    );
+    return normalizeLocale(readLocaleEnv(env) ?? systemLocale);
 }
 
 export function resolvePreferredLocale(
