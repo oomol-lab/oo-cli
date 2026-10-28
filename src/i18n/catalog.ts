@@ -450,6 +450,10 @@ export const enMessages = {
         "The async connector action returned unsupported state {state}.",
     "errors.connectorRun.requestError":
         "The connector action run request failed: {message}",
+    "errors.connectorRun.approvalRequired":
+        "Action {action} was not executed (HTTP {status}, errorCode: {errorCode}). This action requires advisory confirmation. Obtain or rely on existing applicable user authorization, then retry the same action with --approval.",
+    "errors.connectorRun.asyncApprovalRequired":
+        "Task submission succeeded, but this result query for {action} was not executed (HTTP {status}, errorCode: {errorCode}). Once user authorization is satisfied, resume the result action with --wait and --approval using the same team and connection. Do not resubmit the task.\nRecovery JSON:\n{recovery}",
     "errors.connectorRun.requestFailed":
         "Connector action {action} returned HTTP {status}.",
     "errors.connectorRun.requestFailedWithBody":
@@ -988,6 +992,7 @@ export const enMessages = {
     "options.action": "Specify the target action name",
     "options.data": "Provide JSON input values or @path to a JSON file",
     "options.dryRun": "Validate the request without creating a task",
+    "options.connectorRunApproval": "Declare that user authorization for this action is satisfied",
     "options.connectorRunWait":
         "Poll until an async result action reaches a terminal state",
     "options.connectorRunWaitResult":
@@ -1839,6 +1844,10 @@ export const zhMessages = {
         "异步 connector action 返回了不支持的状态 {state}。",
     "errors.connectorRun.requestError":
         "运行 connector action 失败：{message}",
+    "errors.connectorRun.approvalRequired":
+        "Action {action} 尚未执行（HTTP {status}，errorCode: {errorCode}）。该操作设置了执行前询问。获得用户授权或确认已有明确授权适用于本次操作后，使用 --approval 重试相同操作。",
+    "errors.connectorRun.asyncApprovalRequired":
+        "任务已成功提交，但本次结果查询 {action} 尚未执行（HTTP {status}，errorCode: {errorCode}）。满足用户授权要求后，使用原团队和连接，带 --wait 和 --approval 继续结果查询。不要重新提交任务。\n恢复 JSON：\n{recovery}",
     "errors.connectorRun.requestFailed":
         "Connector action {action} 返回了 HTTP {status}。",
     "errors.connectorRun.requestFailedWithBody":
@@ -2372,6 +2381,7 @@ export const zhMessages = {
     "options.action": "指定目标 action 名称",
     "options.data": "提供 JSON 输入值，或使用 @路径 读取 JSON 文件",
     "options.dryRun": "仅校验请求，不真正创建任务",
+    "options.connectorRunApproval": "声明用户对本次操作的授权已满足",
     "options.connectorRunWait":
         "轮询异步结果 action，直到进入终态",
     "options.connectorRunWaitResult":

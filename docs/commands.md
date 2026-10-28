@@ -1164,6 +1164,9 @@ Validate input data and run one connector action.
 - Options: `-a, --action <action>` selects the action name and is required.
 - Options: `-d, --data <data>` accepts inline JSON or `@path` to a JSON file.
   `--input <data>` is an alias for `--data <data>`.
+- Options: `--approval` declares that the user has authorized this operation.
+  The caller assesses whether existing authorization covers the action and its
+  parameters in context. Ask the user only when authorization is insufficient.
 - Options: `--dry-run` validates the payload without executing the action.
 - Options: `--app-id <app-id>` selects the exact connection from search.
   It is mutually exclusive with `--connection-name`; empty IDs are rejected.
@@ -1196,7 +1199,20 @@ Validate input data and run one connector action.
 - Errors: stderr prints the HTTP status and includes the server `message`
   and `errorCode` when the failure response provides them. When the response
   carries neither, the raw response body is included (trimmed and length
-  bounded) so the failure detail is not lost.
+  bounded) so the failure detail is not lost. For `errorCode: approval_required`,
+  stderr explains that the blocked action was not executed and that it can be
+  retried with `--approval` once user authorization is satisfied. The HTTP status
+  is retained and the exit code is `1`. The CLI does not retry automatically.
+- Errors: if `--wait-result` successfully submits a task but a result query
+  returns `approval_required`, the command exits `1` and explains that the task
+  was submitted but that result query was not executed. Stderr includes recovery
+  JSON `{ service, action, input, submitExecutionId }`, where `action` and
+  `input` describe the result query. Stdout remains empty. After authorization,
+  resume that result query with `--wait --approval`, preserving the original
+  team and connection selection. Do not resubmit the task.
+- Notes: `--wait` passes an explicit `--approval` declaration on every poll of
+  the selected action. With `--wait-result`, it applies only to submission;
+  the derived result action does not inherit it.
 - Notes: the command validates the input against the selected action contract
   before executing.
 - Notes: while waiting for an async result action in text mode, interactive

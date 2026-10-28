@@ -624,6 +624,22 @@ describe("connectorCommand CLI", () => {
         }
     });
 
+    test.each([
+        { lang: "en", description: "Declare that user authorization for this action is satisfied" },
+        { lang: "zh", description: "声明用户对本次操作的授权已满足" },
+    ])("renders the approval option in $lang help", async ({ lang, description }) => {
+        const sandbox = await createCliSandbox();
+        try {
+            const result = await sandbox.run(["--lang", lang, "connector", "run", "--help"]);
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toContain("--approval");
+            expect(collapseWhitespace(result.stdout)).toContain(description);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("renders connector proxy help with request and identity options", async () => {
         const sandbox = await createCliSandbox();
 
@@ -1913,6 +1929,266 @@ describe("connectorCommand CLI", () => {
         }
     });
 
+    test.each([false, true])("sends approval only when explicitly requested and keeps provider input separate: %s", async (approval) => {
+        const sandbox = await createCliSandbox();
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox);
+            const requests: Request[] = [];
+            const inputData = { approval: "provider-value", to: "foo@bar.com" };
+            const result = await sandbox.run([
+                "connector",
+                "run",
+                "gmail",
+                "-a",
+                "send_mail",
+                "-d",
+                JSON.stringify(inputData),
+                "--json",
+                ...(approval ? ["--approval"] : []),
+            ], {
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+                    return new Response(JSON.stringify({ data: {}, meta: { executionId: "exec-1" } }));
+                },
+            });
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(requests).toHaveLength(1);
+            await expect(requests[0]!.json()).resolves.toEqual({
+                input: inputData,
+                ...(approval ? { approval: true } : {}),
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test.each(["en", "zh"])("reports approval_required without retrying or evicting cached schema in %s", async (lang) => {
+        const sandbox = await createCliSandbox();
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox);
+            const requests: Request[] = [];
+            const argv = ["connector", "run", "gmail", "-a", "send_mail", "--json", "--lang", lang];
+            for (const flags of [[], ["--approval"]]) {
+                const result = await sandbox.run([...argv, ...flags], {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+                        return new Response(JSON.stringify({
+                            errorCode: "approval_required",
+                            message: "Server requires advisory confirmation",
+                        }), { status: 409 });
+                    },
+                });
+                expect(result.exitCode).toBe(1);
+                expect(result.stdout).toBe("");
+                expect(result.stderr).toContain("409");
+                expect(result.stderr).toContain("approval_required");
+                expect(result.stderr).toContain("--approval");
+                expect(result.stderr).toContain(lang === "en" ? "was not executed" : "尚未执行");
+                expect(result.stderr).toContain(lang === "en" ? "user authorization" : "用户授权");
+            }
+            expect(requests).toHaveLength(2);
+            expect(requests.every(request => request.method === "POST")).toBe(true);
+            const rows = readTelemetryRowsForTest(join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"));
+            expect(rows).toHaveLength(2);
+            for (const row of rows) {
+                const payload = parseTelemetryRowPayload(row);
+                expect(payload).toMatchObject({ properties: { error_code: "approval_required", http_status: 409 } });
+                expect(payload?.properties).not.toHaveProperty("approval");
+            }
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("does not execute or declare approval during dry-run", async () => {
+        const sandbox = await createCliSandbox();
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox);
+            let requestCount = 0;
+            const result = await sandbox.run([
+                "connector",
+                "run",
+                "gmail",
+                "-a",
+                "send_mail",
+                "--dry-run",
+                "--approval",
+                "--json",
+            ], {
+                fetcher: async () => {
+                    requestCount += 1;
+                    return new Response(null, { status: 500 });
+                },
+            });
+            expect(result.exitCode).toBe(0);
+            expect(JSON.parse(result.stdout)).toEqual({ dryRun: true, ok: true });
+            expect(requestCount).toBe(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test.each([false, true])("forwards explicit approval on every selected result poll: %s", async (approval) => {
+        const sandbox = await createCliSandbox();
+        const sleepMock = createBunSleepMock();
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+            const requests: Request[] = [];
+            const result = await sandbox.run([
+                "connector",
+                "run",
+                "fusion-api",
+                "-a",
+                "openai_image_async_result",
+                "-d",
+                JSON.stringify({ sessionID: "session-1" }),
+                "--wait",
+                "--json",
+                ...(approval ? ["--approval"] : []),
+            ], {
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init));
+                    return new Response(JSON.stringify({
+                        data: requests.length === 1 ? { state: "processing" } : { state: "completed", data: { images: [] } },
+                        meta: { executionId: `poll-${requests.length}` },
+                    }));
+                },
+            });
+            expect(result.exitCode).toBe(0);
+            expect(requests).toHaveLength(2);
+            for (const request of requests) {
+                await expect(request.json()).resolves.toEqual({
+                    input: { sessionID: "session-1" },
+                    ...(approval ? { approval: true } : {}),
+                });
+            }
+        }
+        finally {
+            sleepMock.restore();
+            await sandbox.cleanup();
+        }
+    });
+
+    test.each([
+        { selector: "--app-id", runningPolls: 0 },
+        { selector: "--app-id", runningPolls: 1 },
+        { selector: "--connection-name", runningPolls: 0 },
+        { selector: "--connection-name", runningPolls: 1 },
+    ])("recovers a submitted task with $selector after $runningPolls running polls without resubmitting", async ({ selector, runningPolls }) => {
+        const sandbox = await createCliSandbox();
+        const sleepMock = createBunSleepMock();
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncSubmitActionSchema());
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+            sandbox.env.OO_TEAM_ID = "original-team-id";
+            const requests: Request[] = [];
+            const bodies: unknown[] = [];
+            const result = await sandbox.run([
+                "connector",
+                "run",
+                "fusion-api",
+                "-a",
+                "openai_image_async_submit",
+                "-d",
+                JSON.stringify({ prompt: "a cat" }),
+                selector,
+                "original-connection",
+                "--wait-result",
+                "--approval",
+                "--json",
+            ], {
+                fetcher: async (input, init) => {
+                    const request = toRequest(input, init);
+                    if (request.url === "https://relation-control.oomol.com/v1/teams/original-team-id") {
+                        return Response.json({ id: "original-team-id", name: "Original", role: "member" });
+                    }
+                    requests.push(request);
+                    bodies.push(await request.json());
+                    if (requests.length === 1) {
+                        return new Response(JSON.stringify({ data: { sessionId: "private-session-1" }, meta: { executionId: "submit-exec" } }));
+                    }
+                    if (requests.length <= runningPolls + 1) {
+                        return new Response(JSON.stringify({ data: { state: "processing" }, meta: { executionId: "poll-1" } }));
+                    }
+                    return new Response(JSON.stringify({ errorCode: "approval_required" }), { status: 409 });
+                },
+            });
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(result.stderr).toContain("Task submission succeeded");
+            expect(result.stderr).toContain("was not executed");
+            expect(result.stderr).toContain("409");
+            expect(result.stderr).toContain("approval_required");
+            expect(result.stderr).toContain("same team and connection");
+            expect(result.stderr).toContain("Do not resubmit");
+            const recovery = JSON.parse(result.stderr.split("Recovery JSON:\n")[1]!);
+            expect(recovery).toEqual({
+                service: "fusion-api",
+                action: "openai_image_async_result",
+                input: { sessionID: "private-session-1" },
+                submitExecutionId: "submit-exec",
+            });
+            expect(result.stderr).not.toContain("secret-1");
+            expect(requests).toHaveLength(runningPolls + 2);
+            expect(bodies).toEqual([
+                { input: { prompt: "a cat" }, approval: true },
+                ...Array.from({ length: runningPolls + 1 }).fill({ input: recovery.input }),
+            ]);
+            const payload = parseTelemetryRowPayload(readTelemetryRowsForTest(
+                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+            )[0]!);
+            expect(payload).toMatchObject({ properties: { error_code: "approval_required", http_status: 409 } });
+            for (const value of ["private-session-1", "submit-exec", "recovery", "\"approval\"", "a cat", "original-connection"]) {
+                expect(JSON.stringify(payload)).not.toContain(value);
+            }
+            const resumed = await sandbox.run([
+                "connector",
+                "run",
+                recovery.service,
+                "-a",
+                recovery.action,
+                "-d",
+                JSON.stringify(recovery.input),
+                selector,
+                "original-connection",
+                "--wait",
+                "--approval",
+                "--json",
+            ], {
+                fetcher: async (input, init) => {
+                    const request = toRequest(input, init);
+                    if (request.url === "https://relation-control.oomol.com/v1/teams/original-team-id") {
+                        return Response.json({ id: "original-team-id", name: "Original", role: "member" });
+                    }
+                    requests.push(request);
+                    bodies.push(await request.json());
+                    return new Response(JSON.stringify({ data: { state: "completed", data: { images: [] } }, meta: { executionId: "resumed-poll" } }));
+                },
+            });
+            expect(resumed.exitCode).toBe(0);
+            expect(requests).toHaveLength(runningPolls + 3);
+            expect(bodies.at(-1)).toEqual({ input: recovery.input, approval: true });
+            for (const [index, request] of requests.entries()) {
+                expect(new URL(request.url).pathname).toBe(`/v1/actions/fusion-api.${index === 0 ? "openai_image_async_submit" : "openai_image_async_result"}`);
+                expect(request.headers.get("x-oo-team-id")).toBe("original-team-id");
+                expect(selector === "--app-id" ? new URL(request.url).searchParams.get("appId") : request.headers.get("x-oo-connector-alias")).toBe("original-connection");
+            }
+        }
+        finally {
+            sleepMock.restore();
+            await sandbox.cleanup();
+        }
+    });
+
     test("supports connector run with cached schema and json output", async () => {
         const sandbox = await createCliSandbox();
 
@@ -2432,7 +2708,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("submits async actions and waits for result action completion when --wait-result is enabled", async () => {
+    test.each([false, true])("submits async actions without inheriting approval on derived result polls: %s", async (approval) => {
         const sandbox = await createCliSandbox();
         const sleepMock = createBunSleepMock();
 
@@ -2481,6 +2757,7 @@ describe("connectorCommand CLI", () => {
                     "-d",
                     "{\"prompt\":\"a cat\"}",
                     "--wait-result",
+                    ...(approval ? ["--approval"] : []),
                     "--json",
                 ],
                 {
@@ -2530,6 +2807,7 @@ describe("connectorCommand CLI", () => {
                 "https://connector.oomol.com/v1/actions/fusion-api.openai_image_async_result",
             ]);
             await expect(requests[0]?.json()).resolves.toEqual({
+                ...(approval ? { approval: true } : {}),
                 input: {
                     prompt: "a cat",
                 },

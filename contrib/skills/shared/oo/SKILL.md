@@ -195,12 +195,17 @@ proves its output.
    [references/file-transfer.md](references/file-transfer.md).
 6. Build payload
    Use only fields exposed by the selected contract. Prefer user-provided values
-   over defaults, samples, and placeholders. Ask one focused follow-up only when
-   a required value is missing, risky to infer, destructive, broadly shared, or
-   externally visible but ambiguous.
+   over defaults, samples, and placeholders. Ask one focused follow-up when a
+   required value is missing or risky to infer, a recipient, content or
+   destination choice is ambiguous, or authorization is insufficient under the
+   host's confirmation rules.
 7. Execute
    Execute the selected connector path through `oo`, using only the canonical
-   shape documented in the reference read at step 5.
+   shape documented in the reference read at step 5. For advisory confirmation,
+   assess the operation, context and existing user instructions using the
+   [advisory confirmation rules](references/connector-execution.md#advisory-confirmation).
+   Ask only when authorization is insufficient. An `approval_required` error
+   does not itself authorize `--approval`.
 8. Materialize
    Save outputs locally only when doing so helps the user and the selected path
    exposes an explicit artifact URL.

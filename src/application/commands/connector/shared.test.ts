@@ -437,6 +437,38 @@ describe("connector shared requests", () => {
         expect(request.headers.get("x-oo-connector-alias")).toBeNull();
     });
 
+    test.each([undefined, false, true])("runConnectorAction serializes only a true approval declaration: %s", async (approval) => {
+        let body: unknown;
+        await runConnectorAction({
+            actionName: "send_mail",
+            approval,
+            inputData: { approval: false },
+            serviceName: "gmail",
+            target: createConnectorTargetFixture(),
+        }, createRequestContext({
+            fetcher: async (input, init) => {
+                body = await toRequest(input, init).json();
+                return new Response(JSON.stringify({ data: {}, meta: { executionId: "exec-1" } }));
+            },
+        }));
+        expect(body).toEqual({ input: { approval: false }, ...(approval === true ? { approval: true } : {}) });
+    });
+
+    test.each([undefined, insufficientCreditErrorCode])("recognizes approval_required by code before message heuristics: %s", async (message) => {
+        const error = await expectCliUserError(runConnectorAction({
+            actionName: "send_mail",
+            inputData: {},
+            serviceName: "gmail",
+            target: createConnectorTargetFixture(),
+        }, createRequestContext({
+            fetcher: async () => Response.json({ errorCode: "approval_required", message }, { status: 409 }),
+        })));
+
+        expect(error.key).toBe("errors.connectorRun.approvalRequired");
+        expect(error.exitCode).toBe(1);
+        expect(error.params).toEqual({ action: "send_mail", errorCode: "approval_required", status: 409 });
+    });
+
     test("runConnectorAction sends the connection-name selector as a header without query params", async () => {
         const requests: Request[] = [];
         await runConnectorAction(
