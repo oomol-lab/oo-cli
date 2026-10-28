@@ -36,7 +36,6 @@ import {
     readManagedSkillAgent,
 } from "./managed-skill-agents.ts";
 
-export { availableBundledSkillAgentNames } from "./managed-skill-agents.ts";
 export type { BundledSkillAgentName } from "./managed-skill-agents.ts";
 
 export const availableBundledSkillNames = ["oo", "oo-find-skills", "oo-create-skill", "oo-publish-skill"] as const;

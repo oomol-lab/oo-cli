@@ -8,11 +8,11 @@ import {
     resolveSkillAutoTriggerPolicy,
 } from "./auto-trigger-policy.ts";
 import {
-    availableBundledSkillAgentNames,
     availableBundledSkillNames,
     getBundledSkillFiles,
     readBundledSkillFileContent,
 } from "./embedded-assets.ts";
+import { availableBundledSkillAgentNames } from "./managed-skill-agents.ts";
 
 describe("skill auto-trigger policy", () => {
     test("leaves every bundled skill auto-triggering by default", () => {

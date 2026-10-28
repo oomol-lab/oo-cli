@@ -5,12 +5,12 @@ import { join, posix } from "node:path";
 import { describe, expect, test } from "bun:test";
 
 import {
-    availableBundledSkillAgentNames,
     availableBundledSkillNames,
     getBundledSkillFiles,
     materializeBundledSkillToDirectory,
     readBundledSkillFileContent,
 } from "./embedded-assets.ts";
+import { availableBundledSkillAgentNames } from "./managed-skill-agents.ts";
 
 describe("embedded skill assets", () => {
     test("keeps the bundled skill file registry aligned with the bundled skill names", () => {

@@ -7,7 +7,8 @@ export interface SelfUpdateCommandRunOptions {
 
 export interface SelfUpdateCommandRunResult {
     exitCode: number;
-    signalCode: NodeJS.Signals | null;
+    // Bun reports a numeric code for signals without a Node.js name.
+    signalCode: NodeJS.Signals | number | null;
     stderr: string;
     stdout: string;
 }
