@@ -22,6 +22,7 @@ import {
     decodeOutput,
     getPlatformTargets,
     parseBuildTargetIds,
+    recordBytecodeOrderProfiles,
     releasePackagesDirectoryName,
     resolveBuildTargetIdsForPreset,
     resolveCurrentPlatformTarget,
@@ -102,6 +103,7 @@ const reorderedBaseManifest = JSON.stringify({
 const transientCompileRetryCount = 5;
 const transientCompileRetryDelayMs = 1_000;
 const compiledBinaryInstallTestTimeoutMs = 20_000;
+const bytecodeOrderProfileTestTimeoutMs = 60_000;
 const compiledBinaryInstallTest = process.platform === "win32" ? test.skip : test;
 
 describe("npm-packages", () => {
@@ -347,6 +349,27 @@ describe("npm-packages", () => {
         expect(args.filter(arg => arg.startsWith("--target"))).toHaveLength(0);
     });
 
+    test("passes each bytecode order profile as its own flag after the target", () => {
+        const target = getRequiredTarget("linux-x64-gnu");
+        const args = buildCompileCommandArgs(
+            target,
+            {
+                buildTimestamp: 1_742_867_323_456,
+                gitCommit: "1234567890abcdef",
+                version: "1.2.3",
+            },
+            "dist/bin/oo",
+            { bytecodeOrderPaths: [join("profiles", "a,b.order"), join("profiles", "c.order")] },
+        );
+        const targetIndex = args.indexOf(`--target=${target.bunTarget}`);
+
+        expect(targetIndex).toBeGreaterThan(-1);
+        expect(args.slice(targetIndex + 1, targetIndex + 3)).toEqual([
+            `--bytecode-order=${join("profiles", "a,b.order")}`,
+            `--bytecode-order=${join("profiles", "c.order")}`,
+        ]);
+    });
+
     test("assembles staged platform packages into release artifacts", async () => {
         const rootDirectoryPath = process.cwd();
         const temporaryDirectoryPath = await createTemporaryDirectory(
@@ -580,6 +603,79 @@ describe("npm-packages", () => {
             }
         },
         compiledBinaryInstallTestTimeoutMs,
+    );
+
+    compiledBinaryInstallTest(
+        "records bytecode order profiles that a profiled build accepts",
+        async () => {
+            const rootDirectoryPath = process.cwd();
+            const temporaryDirectoryPath = await createTemporaryDirectory(
+                "oo-bytecode-order",
+            );
+            const buildMetadata = {
+                buildTimestamp: 1_742_867_323_456,
+                gitCommit: "1234567890abcdef",
+                version: "1.2.3",
+            };
+            const currentTarget = resolveCurrentPlatformTarget();
+            const executablePath = join(
+                temporaryDirectoryPath,
+                currentTarget.executableFileName,
+            );
+
+            try {
+                const orderPaths = await recordBytecodeOrderProfiles({
+                    buildMetadata,
+                    profileDir: join(temporaryDirectoryPath, "profile"),
+                    rootDir: rootDirectoryPath,
+                });
+
+                expect(orderPaths).toHaveLength(3);
+
+                for (const orderPath of orderPaths) {
+                    expect((await readFile(orderPath)).byteLength).toBeGreaterThan(0);
+                }
+
+                await compileExecutableWithTransientRetry({
+                    outputPath: executablePath,
+                    runCompile: () =>
+                        Bun.spawnSync(
+                            buildCompileCommandArgs(currentTarget, buildMetadata, executablePath, {
+                                bytecodeOrderPaths: orderPaths,
+                                includeTarget: false,
+                            }),
+                            {
+                                cwd: rootDirectoryPath,
+                                stderr: "pipe",
+                                stdin: "ignore",
+                                stdout: "pipe",
+                            },
+                        ),
+                });
+                await chmod(executablePath, 0o755);
+
+                const versionResult = Bun.spawnSync([executablePath, "--version"], {
+                    env: {
+                        ...process.env,
+                        HOME: join(temporaryDirectoryPath, "home"),
+                        OO_SKILLS_SYNC_DISABLED: "1",
+                        OO_TELEMETRY_DISABLED: "1",
+                        XDG_CONFIG_HOME: join(temporaryDirectoryPath, "config"),
+                        XDG_STATE_HOME: join(temporaryDirectoryPath, "state"),
+                    },
+                    stderr: "pipe",
+                    stdin: "ignore",
+                    stdout: "pipe",
+                });
+
+                expect(versionResult.exitCode).toBe(0);
+                expect(decodeOutput(versionResult.stdout)).toContain("1.2.3");
+            }
+            finally {
+                await rm(temporaryDirectoryPath, { force: true, recursive: true });
+            }
+        },
+        bytecodeOrderProfileTestTimeoutMs,
     );
 
     test("retries transient Bun baseline extraction failures before succeeding", async () => {
