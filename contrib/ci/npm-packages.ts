@@ -242,13 +242,16 @@ export async function recordBytecodeOrderProfiles(options: {
     profileDir: string;
     rootDir: string;
 }): Promise<string[]> {
+    // Absolute because the profiled runs use the home directory as their
+    // working directory, which a relative `dist/...` path would miss.
+    const profileDir = resolve(options.profileDir);
     const executablePath = join(
-        options.profileDir,
+        profileDir,
         resolveCurrentPlatformTarget().executableFileName,
     );
-    const homeDirectoryPath = join(options.profileDir, "home");
+    const homeDirectoryPath = join(profileDir, "home");
 
-    rmSync(options.profileDir, { force: true, recursive: true });
+    rmSync(profileDir, { force: true, recursive: true });
     mkdirSync(homeDirectoryPath, { recursive: true });
     await compileExecutableWithTransientRetry({
         outputPath: executablePath,
@@ -278,7 +281,7 @@ export async function recordBytecodeOrderProfiles(options: {
     runBytecodeOrderProfileInvocation(executablePath, ["--version"], homeDirectoryPath);
 
     return bytecodeOrderProfileArgs.map((args, index) => {
-        const orderPath = join(options.profileDir, `profile-${index}.order`);
+        const orderPath = join(profileDir, `profile-${index}.order`);
 
         runBytecodeOrderProfileInvocation(
             executablePath,
