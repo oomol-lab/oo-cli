@@ -20,9 +20,9 @@ import { resolveConnectorSession } from "./session.ts";
 import { resolveConnectorTarget } from "./target.ts";
 
 interface ConnectorSearchInput {
+    text: string;
     allTeams?: boolean;
     team?: string;
-    text: string;
 }
 
 export const connectorSearchCommand: CliCommandDefinition<ConnectorSearchInput> = {
@@ -47,9 +47,9 @@ export const connectorSearchCommand: CliCommandDefinition<ConnectorSearchInput> 
     ],
     output: "standard",
     inputSchema: z.object({
-        ...teamIdentityInputShape,
-        allTeams: z.boolean().optional(),
         text: z.string(),
+        allTeams: z.boolean().optional(),
+        ...teamIdentityInputShape,
     }),
     handler: async (input, context) => {
         context.telemetry?.recordProperties({

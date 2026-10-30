@@ -54,16 +54,16 @@ type ConnectorActionAsyncResultLifecycle = Extract<
 const connectorAsyncLifecycleDefaultTimeoutMs = 6 * 3_600_000;
 
 interface ConnectorRunInput {
-    appId?: string;
-    action?: string;
-    approval?: boolean;
-    connectionName?: string;
-    data?: string;
-    dryRun?: boolean;
-    team?: string;
     serviceName: string;
+    action?: string;
+    data?: string;
+    appId?: string;
+    connectionName?: string;
+    approval?: boolean;
+    dryRun?: boolean;
     wait?: boolean;
     waitResult?: boolean;
+    team?: string;
 }
 
 export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
@@ -130,16 +130,16 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
     ],
     output: "standard",
     inputSchema: z.object({
-        appId: z.string().optional(),
-        action: z.string().optional(),
-        approval: z.boolean().optional(),
-        connectionName: z.string().optional(),
-        data: z.string().optional(),
-        dryRun: z.boolean().optional(),
-        ...teamIdentityInputShape,
         serviceName: z.string(),
+        action: z.string().optional(),
+        data: z.string().optional(),
+        appId: z.string().optional(),
+        connectionName: z.string().optional(),
+        approval: z.boolean().optional(),
+        dryRun: z.boolean().optional(),
         wait: z.boolean().optional(),
         waitResult: z.boolean().optional(),
+        ...teamIdentityInputShape,
     }),
     handler: async (input, context) => {
         const actionName = requireConnectorActionName(input.action);

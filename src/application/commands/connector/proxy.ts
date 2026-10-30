@@ -49,15 +49,15 @@ const proxyRequestSchema = z.object({
 type ConnectorProxyRequest = z.output<typeof proxyRequestSchema>;
 
 interface ConnectorProxyInput {
-    body?: string;
-    connectionName?: string;
+    serviceName: string;
     data?: string;
     endpoint?: string;
-    headers?: string;
     method?: string;
-    team?: string;
     query?: string;
-    serviceName: string;
+    headers?: string;
+    body?: string;
+    connectionName?: string;
+    team?: string;
 }
 
 export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = {
@@ -121,15 +121,15 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
     ],
     output: "standard",
     inputSchema: z.object({
-        body: z.string().optional(),
-        connectionName: z.string().optional(),
+        serviceName: z.string(),
         data: z.string().optional(),
         endpoint: z.string().optional(),
-        headers: z.string().optional(),
         method: z.string().optional(),
-        ...teamIdentityInputShape,
         query: z.string().optional(),
-        serviceName: z.string(),
+        headers: z.string().optional(),
+        body: z.string().optional(),
+        connectionName: z.string().optional(),
+        ...teamIdentityInputShape,
     }),
     handler: async (input, context) => {
         // Payload parsing must stay ahead of the session: proxy usage errors

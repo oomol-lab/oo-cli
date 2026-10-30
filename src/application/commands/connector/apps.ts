@@ -34,8 +34,8 @@ const connectorAppStatusColors = {
 type ConnectorAppsListScope = "all" | "service";
 
 interface ConnectorAppsInput {
-    team?: string;
     serviceName?: string;
+    team?: string;
 }
 
 interface ConnectorAppListItem {
@@ -65,8 +65,8 @@ export const connectorAppsCommand: CliCommandDefinition<ConnectorAppsInput> = {
     ],
     output: "standard",
     inputSchema: z.object({
-        ...teamIdentityInputShape,
         serviceName: z.string().optional(),
+        ...teamIdentityInputShape,
     }),
     handler: async (input, context) => {
         const serviceName = input.serviceName?.trim();
