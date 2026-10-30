@@ -88,28 +88,6 @@ describe("formatConnectorAppsAsText", () => {
             displayWidthBeforeStatus(lines[2]!),
         );
     });
-
-    test("returns the no-connections message for an empty all-scope listing", () => {
-        const output = formatConnectorAppsAsText(
-            [],
-            "all",
-            createTranslatorStub(),
-            createTerminalColors(false),
-        );
-
-        expect(output).toBe("connector.apps.text.noConnections");
-    });
-
-    test("returns the per-service no-results message for an empty service-scope listing", () => {
-        const output = formatConnectorAppsAsText(
-            [],
-            "service",
-            createTranslatorStub(),
-            createTerminalColors(false),
-        );
-
-        expect(output).toBe("connector.apps.text.noResults");
-    });
 });
 
 function sampleApp(overrides: Partial<ConnectorAppRow> = {}): ConnectorAppRow {

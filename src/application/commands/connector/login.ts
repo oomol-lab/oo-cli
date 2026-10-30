@@ -23,8 +23,8 @@ const connectorHealthResponseSchema = z.object({
 }).passthrough();
 
 interface ConnectorLoginInput {
-    token?: string;
     url: string;
+    token?: string;
 }
 
 export const connectorLoginCommand: CliCommandDefinition<ConnectorLoginInput> = {
@@ -48,8 +48,8 @@ export const connectorLoginCommand: CliCommandDefinition<ConnectorLoginInput> = 
         },
     ],
     inputSchema: z.object({
-        token: z.string().optional(),
         url: z.string(),
+        token: z.string().optional(),
     }),
     handler: async (input, context) => {
         const baseUrl = normalizeSelfHostedConnectorUrl(input.url);

@@ -14,7 +14,7 @@ import {
 } from "../team/identity.ts";
 import { formatConnectorExecutionResultAsText } from "./result-text.ts";
 import { resolveConnectorSession } from "./session.ts";
-import { runConnectorProxy } from "./shared.ts";
+import { parseConnectorConnectionSelector, runConnectorProxy } from "./shared.ts";
 import { recordConnectorFailureTelemetry } from "./telemetry.ts";
 
 const connectorProxyDataErrorKeys = {
@@ -49,14 +49,15 @@ const proxyRequestSchema = z.object({
 type ConnectorProxyRequest = z.output<typeof proxyRequestSchema>;
 
 interface ConnectorProxyInput {
-    body?: string;
+    serviceName: string;
     data?: string;
     endpoint?: string;
-    headers?: string;
     method?: string;
-    team?: string;
     query?: string;
-    serviceName: string;
+    headers?: string;
+    body?: string;
+    connectionName?: string;
+    team?: string;
 }
 
 export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = {
@@ -110,23 +111,32 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
             valueName: "body",
             descriptionKey: "options.connectorProxyBody",
         },
+        {
+            name: "connectionName",
+            longFlag: "--connection-name",
+            valueName: "connection-name",
+            descriptionKey: "options.connectorProxyConnectionName",
+        },
         teamOption("options.connectorProxyTeam"),
     ],
     output: "standard",
     inputSchema: z.object({
-        body: z.string().optional(),
+        serviceName: z.string(),
         data: z.string().optional(),
         endpoint: z.string().optional(),
-        headers: z.string().optional(),
         method: z.string().optional(),
-        ...teamIdentityInputShape,
         query: z.string().optional(),
-        serviceName: z.string(),
+        headers: z.string().optional(),
+        body: z.string().optional(),
+        connectionName: z.string().optional(),
+        ...teamIdentityInputShape,
     }),
     handler: async (input, context) => {
         // Payload parsing must stay ahead of the session: proxy usage errors
         // are reported before any login requirement.
         const proxyRequest = await buildConnectorProxyRequest(input, context);
+        const connectionSelector = parseConnectorConnectionSelector(input);
+
         const { identity, target } = await resolveConnectorSession(
             {
                 team: input.team,
@@ -135,6 +145,7 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
         );
 
         context.telemetry?.recordProperties({
+            connection_selector: connectionSelector === undefined ? "none" : "connectionName",
             data_size_bucket: bucketTelemetryBytes(
                 Buffer.byteLength(JSON.stringify(proxyRequest)),
             ),
@@ -146,6 +157,7 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
         try {
             response = await runConnectorProxy(
                 {
+                    connectionSelector,
                     identity,
                     proxyRequest,
                     serviceName: input.serviceName,

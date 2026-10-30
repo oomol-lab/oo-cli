@@ -25,6 +25,7 @@ import {
 } from "./schema-cache.ts";
 import { resolveConnectorSession } from "./session.ts";
 import {
+    parseConnectorConnectionSelector,
     requireConnectorActionName,
     runConnectorAction,
 } from "./shared.ts";
@@ -53,16 +54,16 @@ type ConnectorActionAsyncResultLifecycle = Extract<
 const connectorAsyncLifecycleDefaultTimeoutMs = 6 * 3_600_000;
 
 interface ConnectorRunInput {
-    appId?: string;
-    action?: string;
-    approval?: boolean;
-    connectionName?: string;
-    data?: string;
-    dryRun?: boolean;
-    team?: string;
     serviceName: string;
+    action?: string;
+    data?: string;
+    appId?: string;
+    connectionName?: string;
+    approval?: boolean;
+    dryRun?: boolean;
     wait?: boolean;
     waitResult?: boolean;
+    team?: string;
 }
 
 export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
@@ -79,12 +80,6 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
     ],
     options: [
         {
-            name: "appId",
-            longFlag: "--app-id",
-            valueName: "app-id",
-            descriptionKey: "options.connectorRunAppId",
-        },
-        {
             name: "action",
             longFlag: "--action",
             shortFlag: "-a",
@@ -98,6 +93,12 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             aliasFlags: ["--input"],
             valueName: "data",
             descriptionKey: "options.data",
+        },
+        {
+            name: "appId",
+            longFlag: "--app-id",
+            valueName: "app-id",
+            descriptionKey: "options.connectorRunAppId",
         },
         {
             name: "connectionName",
@@ -129,16 +130,16 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
     ],
     output: "standard",
     inputSchema: z.object({
-        appId: z.string().optional(),
-        action: z.string().optional(),
-        approval: z.boolean().optional(),
-        connectionName: z.string().optional(),
-        data: z.string().optional(),
-        dryRun: z.boolean().optional(),
-        ...teamIdentityInputShape,
         serviceName: z.string(),
+        action: z.string().optional(),
+        data: z.string().optional(),
+        appId: z.string().optional(),
+        connectionName: z.string().optional(),
+        approval: z.boolean().optional(),
+        dryRun: z.boolean().optional(),
         wait: z.boolean().optional(),
         waitResult: z.boolean().optional(),
+        ...teamIdentityInputShape,
     }),
     handler: async (input, context) => {
         const actionName = requireConnectorActionName(input.action);
@@ -147,21 +148,14 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             throw new CliUserError("errors.connectorRun.waitModeConflict", 2);
         }
 
-        const connectionName = input.connectionName?.trim();
-        if (input.connectionName !== undefined && connectionName === "") {
-            throw new CliUserError("errors.connectorRun.connectionNameEmpty", 2);
+        const connectionSelector = parseConnectorConnectionSelector(input);
+        let selectorMode: "none" | "appId" | "connectionName" = "none";
+        if (connectionSelector?.appId !== undefined) {
+            selectorMode = "appId";
         }
-
-        const appId = input.appId?.trim();
-        if (input.appId !== undefined && appId === "") {
-            throw new CliUserError("errors.connectorRun.appIdEmpty", 2);
+        else if (connectionSelector?.connectionName !== undefined) {
+            selectorMode = "connectionName";
         }
-        if (appId !== undefined && connectionName !== undefined) {
-            throw new CliUserError("errors.connectorRun.connectionSelectorConflict", 2);
-        }
-        const connectionSelector = appId !== undefined
-            ? { appId }
-            : connectionName === undefined ? undefined : { connectionName };
 
         const { identity, target } = await resolveConnectorSession(
             {
@@ -182,7 +176,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
 
         context.telemetry?.recordProperties({
             action: actionName,
-            connection_selector: appId !== undefined ? "appId" : connectionName !== undefined ? "connectionName" : "none",
+            connection_selector: selectorMode,
             data_size_bucket: bucketTelemetryBytes(
                 Buffer.byteLength(JSON.stringify(inputData)),
             ),

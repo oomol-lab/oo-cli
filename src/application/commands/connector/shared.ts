@@ -182,6 +182,30 @@ export interface ConnectorConnectionSelector {
     connectionName?: string;
 }
 
+export function parseConnectorConnectionSelector(
+    input: ConnectorConnectionSelector,
+): ConnectorConnectionSelector | undefined {
+    const connectionName = input.connectionName?.trim();
+    if (connectionName === "") {
+        throw new CliUserError("errors.connectorRun.connectionNameEmpty", 2);
+    }
+
+    const appId = input.appId?.trim();
+    if (appId === "") {
+        throw new CliUserError("errors.connectorRun.appIdEmpty", 2);
+    }
+    if (appId !== undefined && connectionName !== undefined) {
+        throw new CliUserError("errors.connectorRun.connectionSelectorConflict", 2);
+    }
+    if (appId !== undefined) {
+        return { appId };
+    }
+    if (connectionName !== undefined) {
+        return { connectionName };
+    }
+    return undefined;
+}
+
 export function requireConnectorActionName(rawAction: string | undefined): string {
     const trimmed = rawAction?.trim();
 
@@ -416,6 +440,7 @@ export async function runConnectorAction(
 
 export async function runConnectorProxy(
     options: {
+        connectionSelector?: ConnectorConnectionSelector;
         identity?: TeamIdentity | undefined;
         proxyRequest: unknown;
         serviceName: string;
@@ -427,7 +452,10 @@ export async function runConnectorProxy(
         authorization: options.target.authorization,
         context,
         errors: { scope: "connectorProxy" },
-        headers: teamIdentityHeaders(options.identity),
+        headers: {
+            ...connectorConnectionSelectorHeaders(options.connectionSelector, options.target.kind),
+            ...teamIdentityHeaders(options.identity),
+        },
         host: { baseUrl: options.target.baseUrl },
         jsonBody: options.proxyRequest,
         label: "Connector proxy",

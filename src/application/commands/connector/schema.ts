@@ -10,8 +10,8 @@ import { requireConnectorActionName } from "./shared.ts";
 import { resolveConnectorTarget } from "./target.ts";
 
 interface ConnectorSchemaInput {
-    action?: string;
     actionId?: string[];
+    action?: string;
     refresh?: boolean;
 }
 
@@ -52,8 +52,8 @@ export const connectorSchemaCommand: CliCommandDefinition<ConnectorSchemaInput> 
     ],
     output: "json-only",
     inputSchema: z.object({
-        action: z.string().optional(),
         actionId: z.array(z.string()).optional(),
+        action: z.string().optional(),
         refresh: z.boolean().optional(),
     }),
     handler: async (input, context) => {

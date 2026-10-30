@@ -1166,16 +1166,16 @@ Validate input data and run one connector action.
 - Options: `-a, --action <action>` selects the action name and is required.
 - Options: `-d, --data <data>` accepts inline JSON or `@path` to a JSON file.
   `--input <data>` is an alias for `--data <data>`.
-- Options: `--approval` declares that the user has authorized this operation.
-  The caller assesses whether existing authorization covers the action and its
-  parameters in context. Ask the user only when authorization is insufficient.
-- Options: `--dry-run` validates the payload without executing the action.
 - Options: `--app-id <app-id>` selects the exact connection from search.
   It is mutually exclusive with `--connection-name`; empty IDs are rejected.
   The selected team must own that connection; an app ID does not switch teams.
 - Options: `--connection-name <connection-name>` runs the action with the
   connector app connection name. Use `oo connector apps <serviceName>` to list
   available connection names.
+- Options: `--approval` declares that the user has authorized this operation.
+  The caller assesses whether existing authorization covers the action and its
+  parameters in context. Ask the user only when authorization is insufficient.
+- Options: `--dry-run` validates the payload without executing the action.
 - Options: `--wait` polls the selected action until it reaches a terminal state.
   This option is only valid when the selected action schema declares an async
   result lifecycle.
@@ -1281,6 +1281,9 @@ Proxy a provider API request through a connected connector app.
   options.
 - Options: `--body` is parsed as JSON. To send a text body, pass a JSON string
   such as `"hello"`.
+- Options: `--connection-name <name>` selects a named connection within the selected
+  identity. Leading and trailing whitespace is removed; empty names are rejected.
+  It works with both `--data` and split request options.
 - Options: `--team <name>` runs the proxy request under the given team
   identity. When omitted, the request runs under the team selected by
   `OO_TEAM_ID` / `OO_TEAM_NAME` if set, then the active account's default team,
