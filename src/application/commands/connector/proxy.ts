@@ -14,7 +14,7 @@ import {
 } from "../team/identity.ts";
 import { formatConnectorExecutionResultAsText } from "./result-text.ts";
 import { resolveConnectorSession } from "./session.ts";
-import { runConnectorProxy } from "./shared.ts";
+import { parseConnectorConnectionSelector, runConnectorProxy } from "./shared.ts";
 import { recordConnectorFailureTelemetry } from "./telemetry.ts";
 
 const connectorProxyDataErrorKeys = {
@@ -135,12 +135,7 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
         // Payload parsing must stay ahead of the session: proxy usage errors
         // are reported before any login requirement.
         const proxyRequest = await buildConnectorProxyRequest(input, context);
-        const connectionName = input.connectionName?.trim();
-        if (input.connectionName !== undefined && connectionName === "") {
-            throw new CliUserError("errors.connectorRun.connectionNameEmpty", 2);
-        }
-        const connectionSelector
-            = connectionName === undefined ? undefined : { connectionName };
+        const connectionSelector = parseConnectorConnectionSelector(input);
 
         const { identity, target } = await resolveConnectorSession(
             {

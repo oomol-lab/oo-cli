@@ -25,6 +25,7 @@ import {
 } from "./schema-cache.ts";
 import { resolveConnectorSession } from "./session.ts";
 import {
+    parseConnectorConnectionSelector,
     requireConnectorActionName,
     runConnectorAction,
 } from "./shared.ts";
@@ -147,21 +148,14 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             throw new CliUserError("errors.connectorRun.waitModeConflict", 2);
         }
 
-        const connectionName = input.connectionName?.trim();
-        if (input.connectionName !== undefined && connectionName === "") {
-            throw new CliUserError("errors.connectorRun.connectionNameEmpty", 2);
+        const connectionSelector = parseConnectorConnectionSelector(input);
+        let selectorMode: "none" | "appId" | "connectionName" = "none";
+        if (connectionSelector?.appId !== undefined) {
+            selectorMode = "appId";
         }
-
-        const appId = input.appId?.trim();
-        if (input.appId !== undefined && appId === "") {
-            throw new CliUserError("errors.connectorRun.appIdEmpty", 2);
+        else if (connectionSelector?.connectionName !== undefined) {
+            selectorMode = "connectionName";
         }
-        if (appId !== undefined && connectionName !== undefined) {
-            throw new CliUserError("errors.connectorRun.connectionSelectorConflict", 2);
-        }
-        const connectionSelector = appId !== undefined
-            ? { appId }
-            : connectionName === undefined ? undefined : { connectionName };
 
         const { identity, target } = await resolveConnectorSession(
             {
@@ -182,7 +176,7 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
 
         context.telemetry?.recordProperties({
             action: actionName,
-            connection_selector: appId !== undefined ? "appId" : connectionName !== undefined ? "connectionName" : "none",
+            connection_selector: selectorMode,
             data_size_bucket: bucketTelemetryBytes(
                 Buffer.byteLength(JSON.stringify(inputData)),
             ),
