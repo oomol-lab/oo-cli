@@ -973,13 +973,13 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 选项：`-a, --action <action>` 用于指定 action 名称，且为必填。
 - 选项：`-d, --data <data>` 支持直接传入 JSON，或使用 `@路径` 读取 JSON 文件。
   `--input <data>` 是 `--data <data>` 的 alias。
-- 选项：`--approval` 声明本次操作已有用户授权。调用方结合具体操作、参数、上下文
-  和用户已有指示，判断授权是否充分；不足时再询问用户。
-- 选项：`--dry-run` 只做 payload 校验，不执行 action。
 - 选项：`--app-id <app-id>` 精确选择搜索返回的连接，与 `--connection-name` 互斥，
   不接受空值。当前选择的团队必须拥有该连接，app ID 本身不会切换团队。
 - 选项：`--connection-name <connection-name>` 使用指定 connector app 连接名称
   运行该 action。可用 `oo connector apps <serviceName>` 查看可用连接名称。
+- 选项：`--approval` 声明本次操作已有用户授权。调用方结合具体操作、参数、上下文
+  和用户已有指示，判断授权是否充分；不足时再询问用户。
+- 选项：`--dry-run` 只做 payload 校验，不执行 action。
 - 选项：`--wait` 会轮询选中的 action，直到进入终态。只有选中 action 的
   schema 声明了异步结果 lifecycle 时，这个选项才有效。
 - 选项：`--wait-result` 会提交异步 submit action，然后轮询它配置的结果
@@ -1044,8 +1044,6 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 
 通过已连接的 connector app 代理 provider API 请求。
 
-- 选项：`--connection-name <name>` 选择当前身份下的指定连接。名称会去除首尾
-  空白，空名称会被拒绝。可与 `--data` 或拆分请求选项一起使用。
 - 参数：`<serviceName>` 为服务名。
 - 选项：`-d, --data <data>` 接收完整 proxy request JSON object，或使用
   `@路径` 读取 JSON 文件。对象形状为
@@ -1066,6 +1064,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   credential。
 - 选项：`--body` 会按 JSON 解析。如需发送文本 body，请传 JSON string，例如
   `"hello"`。
+- 选项：`--connection-name <name>` 选择当前身份下的指定连接。名称会去除首尾
+  空白，空名称会被拒绝。可与 `--data` 或拆分请求选项一起使用。
 - 选项：`--team <name>` 以指定团队身份运行该 proxy 请求。省略时，若设置了
   `OO_TEAM_ID` / `OO_TEAM_NAME` 则使用 env 选定的团队，其次使用
   当前账号保存的默认团队，否则使用服务端默认团队。

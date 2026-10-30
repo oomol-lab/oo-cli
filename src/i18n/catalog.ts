@@ -420,8 +420,10 @@ export const enMessages = {
         "The connector action metadata request failed: {message}",
     "errors.connectorMetadata.requestFailed":
         "The connector action metadata request returned HTTP {status}.",
+    "errors.connectorRun.appIdEmpty": "--app-id must not be empty.",
     "errors.connectorRun.actionRequired":
         "The --action option is required.",
+    "errors.connectorRun.connectionSelectorConflict": "--app-id cannot be combined with --connection-name.",
     "errors.connectorRun.connectionNameEmpty":
         "The --connection-name value cannot be empty.",
     "errors.connectorRun.dataFilePathRequired":
@@ -510,6 +512,8 @@ export const enMessages = {
         "Invalid action id \"{actionId}\". Use the form <service>.<action>, for example cal.create_schedule.",
     "errors.connectorSchema.legacyActionSingleService":
         "The --action option accepts exactly one bare service name. To look up one or more actions by identifier, omit --action and pass <service>.<action> arguments instead.",
+    "errors.connectorSearch.teamConflict": "--all-teams cannot be combined with --team.",
+    "errors.connectorSearch.allTeamsUnsupported": "--all-teams requires the OOMOL-hosted connector and a user identity.",
     "errors.connectorSearch.invalidResponse":
         "The connector action search response body is unsupported.",
     "errors.connectorSearch.requestError":
@@ -997,18 +1001,12 @@ export const enMessages = {
         "Poll until an async result action reaches a terminal state",
     "options.connectorRunWaitResult":
         "Submit an async action and wait for its result action",
+    "options.connectorRunAppId": "Run with the exact app ID returned by search; conflicts with --connection-name",
     "options.connectorRunConnectionName":
         "Run the action with the connector app connection name",
-    "options.connectorProxyConnectionName":
-        "Run the proxy request with the connector app connection name",
     "options.connectorAppsTeam":
         "List connected apps under the given team identity",
     "options.searchAllTeams": "Search all your teams (ignores the current team; conflicts with --team; hosted only)",
-    "options.connectorRunAppId": "Run with the exact app ID returned by search; conflicts with --connection-name",
-    "errors.connectorSearch.teamConflict": "--all-teams cannot be combined with --team.",
-    "errors.connectorSearch.allTeamsUnsupported": "--all-teams requires the OOMOL-hosted connector and a user identity.",
-    "errors.connectorRun.appIdEmpty": "--app-id must not be empty.",
-    "errors.connectorRun.connectionSelectorConflict": "--app-id cannot be combined with --connection-name.",
     "connector.search.text.team": "Team",
     "connector.search.text.appId": "App ID",
     "options.searchTeam":
@@ -1021,6 +1019,8 @@ export const enMessages = {
         "Runtime API token for the self-hosted connector (created on the server's /access page)",
     "options.connectorProxyBody":
         "Specify the upstream request body as JSON",
+    "options.connectorProxyConnectionName":
+        "Run the proxy request with the connector app connection name",
     "options.connectorProxyData":
         "Provide the full proxy request as JSON or @path to a JSON file",
     "options.connectorProxyEndpoint":
@@ -1816,8 +1816,10 @@ export const zhMessages = {
         "获取 connector action 元数据失败：{message}",
     "errors.connectorMetadata.requestFailed":
         "获取 connector action 元数据返回了 HTTP {status}。",
+    "errors.connectorRun.appIdEmpty": "--app-id 不能为空。",
     "errors.connectorRun.actionRequired":
         "--action 选项为必填。",
+    "errors.connectorRun.connectionSelectorConflict": "--app-id 不能与 --connection-name 同时使用。",
     "errors.connectorRun.connectionNameEmpty":
         "--connection-name 的值不能为空。",
     "errors.connectorRun.dataFilePathRequired":
@@ -1906,6 +1908,8 @@ export const zhMessages = {
         "无效的 action id “{actionId}”。请使用 <service>.<action> 形式，例如 cal.create_schedule。",
     "errors.connectorSchema.legacyActionSingleService":
         "--action 选项只接受一个纯服务名（不含点号）。若要按标识查询一个或多个 action，请省略 --action 并改用 <service>.<action> 形式的参数。",
+    "errors.connectorSearch.teamConflict": "--all-teams 不能与 --team 同时使用。",
+    "errors.connectorSearch.allTeamsUnsupported": "--all-teams 需要 OOMOL 托管 connector 和用户身份。",
     "errors.connectorSearch.invalidResponse":
         "connector action 搜索返回了不受支持的响应内容。",
     "errors.connectorSearch.requestError":
@@ -2388,18 +2392,12 @@ export const zhMessages = {
         "轮询异步结果 action，直到进入终态",
     "options.connectorRunWaitResult":
         "提交异步 action，并等待它的结果 action",
+    "options.connectorRunAppId": "使用搜索返回的精确 app ID 执行，与 --connection-name 互斥",
     "options.connectorRunConnectionName":
         "使用指定 connector app 连接名称运行该 action",
-    "options.connectorProxyConnectionName":
-        "使用指定 connector app 连接名称运行该 proxy 请求",
     "options.connectorAppsTeam":
         "以指定团队身份列出已连接的 app",
     "options.searchAllTeams": "搜索所属的全部团队（忽略当前团队，与 --team 互斥，仅限托管服务）",
-    "options.connectorRunAppId": "使用搜索返回的精确 app ID 执行，与 --connection-name 互斥",
-    "errors.connectorSearch.teamConflict": "--all-teams 不能与 --team 同时使用。",
-    "errors.connectorSearch.allTeamsUnsupported": "--all-teams 需要 OOMOL 托管 connector 和用户身份。",
-    "errors.connectorRun.appIdEmpty": "--app-id 不能为空。",
-    "errors.connectorRun.connectionSelectorConflict": "--app-id 不能与 --connection-name 同时使用。",
     "connector.search.text.team": "团队",
     "connector.search.text.appId": "应用 ID",
     "options.searchTeam":
@@ -2412,6 +2410,8 @@ export const zhMessages = {
         "自部署 Connector 的 Runtime API 令牌（在服务的 /access 页面创建）",
     "options.connectorProxyBody":
         "以 JSON 指定上游请求体",
+    "options.connectorProxyConnectionName":
+        "使用指定 connector app 连接名称运行该 proxy 请求",
     "options.connectorProxyData":
         "提供完整 proxy request JSON，或使用 @路径读取 JSON 文件",
     "options.connectorProxyEndpoint":

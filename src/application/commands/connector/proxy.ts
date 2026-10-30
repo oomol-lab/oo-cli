@@ -74,12 +74,6 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
     ],
     options: [
         {
-            name: "connectionName",
-            longFlag: "--connection-name",
-            valueName: "connection-name",
-            descriptionKey: "options.connectorProxyConnectionName",
-        },
-        {
             name: "data",
             longFlag: "--data",
             shortFlag: "-d",
@@ -116,6 +110,12 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
             longFlag: "--body",
             valueName: "body",
             descriptionKey: "options.connectorProxyBody",
+        },
+        {
+            name: "connectionName",
+            longFlag: "--connection-name",
+            valueName: "connection-name",
+            descriptionKey: "options.connectorProxyConnectionName",
         },
         teamOption("options.connectorProxyTeam"),
     ],

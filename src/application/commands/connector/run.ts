@@ -80,12 +80,6 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
     ],
     options: [
         {
-            name: "appId",
-            longFlag: "--app-id",
-            valueName: "app-id",
-            descriptionKey: "options.connectorRunAppId",
-        },
-        {
             name: "action",
             longFlag: "--action",
             shortFlag: "-a",
@@ -99,6 +93,12 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             aliasFlags: ["--input"],
             valueName: "data",
             descriptionKey: "options.data",
+        },
+        {
+            name: "appId",
+            longFlag: "--app-id",
+            valueName: "app-id",
+            descriptionKey: "options.connectorRunAppId",
         },
         {
             name: "connectionName",
