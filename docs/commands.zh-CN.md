@@ -1044,6 +1044,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 
 通过已连接的 connector app 代理 provider API 请求。
 
+- 选项：`--connection-name <name>` 选择当前身份下的指定连接。名称会去除首尾
+  空白，空名称会被拒绝。可与 `--data` 或拆分请求选项一起使用。
 - 参数：`<serviceName>` 为服务名。
 - 选项：`-d, --data <data>` 接收完整 proxy request JSON object，或使用
   `@路径` 读取 JSON 文件。对象形状为

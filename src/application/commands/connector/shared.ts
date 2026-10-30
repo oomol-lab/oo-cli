@@ -416,6 +416,7 @@ export async function runConnectorAction(
 
 export async function runConnectorProxy(
     options: {
+        connectionSelector?: ConnectorConnectionSelector;
         identity?: TeamIdentity | undefined;
         proxyRequest: unknown;
         serviceName: string;
@@ -427,7 +428,10 @@ export async function runConnectorProxy(
         authorization: options.target.authorization,
         context,
         errors: { scope: "connectorProxy" },
-        headers: teamIdentityHeaders(options.identity),
+        headers: {
+            ...connectorConnectionSelectorHeaders(options.connectionSelector, options.target.kind),
+            ...teamIdentityHeaders(options.identity),
+        },
         host: { baseUrl: options.target.baseUrl },
         jsonBody: options.proxyRequest,
         label: "Connector proxy",

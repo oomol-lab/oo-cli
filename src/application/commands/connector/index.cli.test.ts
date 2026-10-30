@@ -688,6 +688,8 @@ describe("connectorCommand CLI", () => {
                     "{\"accept\":\"application/json\"}",
                     "--body",
                     "{\"query\":\"hello\"}",
+                    "--connection-name",
+                    "  private-work  ",
                     "--team",
                     "acme",
                     "--json",
@@ -741,6 +743,7 @@ describe("connectorCommand CLI", () => {
             expect(requests[0]?.method).toBe("POST");
             expect(requests[0]?.url).toBe("https://connector.oomol.com/v1/proxy/tavily");
             expect(requests[0]?.headers.get("x-oo-team-name")).toBe("acme");
+            expect(requests[0]?.headers.get("x-oo-connector-alias")).toBe("private-work");
             await expect(requests[0]?.json()).resolves.toEqual({
                 body: {
                     query: "hello",
@@ -757,12 +760,14 @@ describe("connectorCommand CLI", () => {
             expect(telemetryPayload).toMatchObject({
                 properties: {
                     command_full: "connector.proxy",
+                    connection_selector: "connectionName",
                     data_size_bucket: "<1KB",
                     has_body: true,
                     identity_source: "flag",
                     method: "POST",
                 },
             });
+            expect(JSON.stringify(telemetryPayload)).not.toContain("private-work");
             expect(telemetryPayload?.properties).not.toHaveProperty("body");
             expect(telemetryPayload?.properties).not.toHaveProperty("endpoint");
             expect(telemetryPayload?.properties).not.toHaveProperty("headers");
@@ -1142,6 +1147,10 @@ describe("connectorCommand CLI", () => {
 
         try {
             const cases = [
+                {
+                    argv: ["connector", "proxy", "tavily", "--data", "{\"endpoint\":\"/search\",\"method\":\"GET\"}", "--connection-name", "   "],
+                    message: "The --connection-name value cannot be empty.",
+                },
                 {
                     argv: ["connector", "proxy", "tavily"],
                     message: "The --endpoint option is required when --data is omitted.",

@@ -198,6 +198,7 @@ const commandTelemetryDecisions = {
     "connector.proxy": {
         kind: "properties",
         properties: [
+            "connection_selector",
             "connector_kind",
             "data_size_bucket",
             "error_code",
@@ -206,7 +207,7 @@ const commandTelemetryDecisions = {
             "identity_source",
             "method",
         ],
-        reason: "Records connector proxy bucketed payload size, method enum, identity source (none/flag/env_id/env_name/account), stable error code, and HTTP status without service name, endpoint, headers, body, or team name/id.",
+        reason: "Records connector proxy none/connectionName selector mode without the connection name value, bucketed payload size, method enum, identity source (none/flag/env_id/env_name/account), stable error code, and HTTP status without service name, endpoint, headers, body, or team name/id.",
     },
     "connector.search": {
         kind: "properties",

@@ -999,6 +999,8 @@ export const enMessages = {
         "Submit an async action and wait for its result action",
     "options.connectorRunConnectionName":
         "Run the action with the connector app connection name",
+    "options.connectorProxyConnectionName":
+        "Run the proxy request with the connector app connection name",
     "options.connectorAppsTeam":
         "List connected apps under the given team identity",
     "options.searchAllTeams": "Search all your teams (ignores the current team; conflicts with --team; hosted only)",
@@ -2388,6 +2390,8 @@ export const zhMessages = {
         "提交异步 action，并等待它的结果 action",
     "options.connectorRunConnectionName":
         "使用指定 connector app 连接名称运行该 action",
+    "options.connectorProxyConnectionName":
+        "使用指定 connector app 连接名称运行该 proxy 请求",
     "options.connectorAppsTeam":
         "以指定团队身份列出已连接的 app",
     "options.searchAllTeams": "搜索所属的全部团队（忽略当前团队，与 --team 互斥，仅限托管服务）",

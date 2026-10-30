@@ -1259,6 +1259,9 @@ read-only.
 
 Proxy a provider API request through a connected connector app.
 
+- Options: `--connection-name <name>` selects a named connection within the selected
+  identity. Leading and trailing whitespace is removed; empty names are rejected.
+  It works with both `--data` and split request options.
 - Arguments: `<serviceName>` is the service name.
 - Options: `-d, --data <data>` accepts a complete proxy request JSON object or
   `@path` to a JSON file. The object shape is

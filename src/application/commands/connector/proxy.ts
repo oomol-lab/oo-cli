@@ -50,6 +50,7 @@ type ConnectorProxyRequest = z.output<typeof proxyRequestSchema>;
 
 interface ConnectorProxyInput {
     body?: string;
+    connectionName?: string;
     data?: string;
     endpoint?: string;
     headers?: string;
@@ -72,6 +73,12 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
         },
     ],
     options: [
+        {
+            name: "connectionName",
+            longFlag: "--connection-name",
+            valueName: "connection-name",
+            descriptionKey: "options.connectorProxyConnectionName",
+        },
         {
             name: "data",
             longFlag: "--data",
@@ -115,6 +122,7 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
     output: "standard",
     inputSchema: z.object({
         body: z.string().optional(),
+        connectionName: z.string().optional(),
         data: z.string().optional(),
         endpoint: z.string().optional(),
         headers: z.string().optional(),
@@ -127,6 +135,13 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
         // Payload parsing must stay ahead of the session: proxy usage errors
         // are reported before any login requirement.
         const proxyRequest = await buildConnectorProxyRequest(input, context);
+        const connectionName = input.connectionName?.trim();
+        if (input.connectionName !== undefined && connectionName === "") {
+            throw new CliUserError("errors.connectorRun.connectionNameEmpty", 2);
+        }
+        const connectionSelector
+            = connectionName === undefined ? undefined : { connectionName };
+
         const { identity, target } = await resolveConnectorSession(
             {
                 team: input.team,
@@ -135,6 +150,7 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
         );
 
         context.telemetry?.recordProperties({
+            connection_selector: connectionSelector === undefined ? "none" : "connectionName",
             data_size_bucket: bucketTelemetryBytes(
                 Buffer.byteLength(JSON.stringify(proxyRequest)),
             ),
@@ -146,6 +162,7 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
         try {
             response = await runConnectorProxy(
                 {
+                    connectionSelector,
                     identity,
                     proxyRequest,
                     serviceName: input.serviceName,
