@@ -1425,6 +1425,12 @@ missing), and for every other supported host directory that already exists.
 
 ### `oo skills info`
 
+This command inspects local skills, not all packages published or maintained
+by the account in the cloud. Use
+`oo connector run oomol_console --action list_my_skill_packages --json` for
+personal cloud packages and `list_team_skill_packages` for team configuration.
+Inspect `oo connector schema` for their input and pagination contracts.
+
 Show bundled and registry skills by default. Local skills are listed only when
 requested. `oo skills list` is accepted as an alias for backwards compatibility.
 
@@ -1793,6 +1799,14 @@ Search published skills with free-form text.
 - Notes: every invocation requests at most `5` results.
 
 ### `oo skills install [packageName...]`
+
+Installing a private package requires access for the current identity. For team
+access, the package must be added to the team’s Skills configuration; membership
+alone does not share members’ private packages with other members or bots.
+Adding requires package access and team write permission, through Console with
+the target team selected or `oomol_console.add_skill_package_to_team`. The grant
+covers the entire package without changing visibility or installing it locally.
+Removing a team binding does not uninstall local skills or revoke other grants.
 
 Install bundled or published skills into supported local skill directories.
 
