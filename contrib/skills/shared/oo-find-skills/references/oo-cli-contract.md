@@ -123,10 +123,23 @@ matches and is not a complete list of personal publications. The
 the authenticated identity, with pagination. A bot's empty list does not mean
 its owner has no published packages.
 
+Check the original install specifier before diagnosing a team-access failure.
+For `<packageName>#<shareID>`, diagnose the temporary share separately, using
+the failing request and response to check for an invalid or expired share or
+an exhausted download limit. Preserve the share ID. Do not add the package to
+the team, strip the share ID, or retry as a team repair unless the failure is
+established to result from missing team configuration. A failed share download
+or an absent team binding alone does not establish that cause.
+
 Use `oo connector schema` to inspect the relevant `oomol_console` actions:
 `get_current_scope`, `list_members`, `list_my_skill_packages`,
 `list_team_skill_packages`, and `add_skill_package_to_team`. Call them through
 `oo connector run "oomol_console" --action "<action>" --data '<json>' --json`.
+For `add_skill_package_to_team`, append `--approval` when existing authorization
+covers the exact package and team access change. If it returns
+`approval_required`, retry the same mutation with `--approval` only when that
+authorization is sufficient, preserving the team and input. The error itself
+does not supply authorization. Do not add the flag to read actions.
 Select the intended team with `oo --team "<team-name>" connector run ...`, or
 use a verified team ID through `OO_TEAM_ID="<team-id>" oo connector run ...`.
 Keep this team selection for the diagnosis, change, and readback. These are
@@ -139,10 +152,11 @@ distinguish missing authorization, a wrong package name, or another failure.
 If the package is already configured, investigate the failing identity and
 membership rather than adding it again or changing Connection permissions.
 
-If the user asked to fix the installation and the package and team are clear,
-use existing authorization to add the missing package when the caller has the
-necessary access. Do not require another confirmation solely because this is
-a repair. If the user only asked why installation failed, report the cause
+When missing team configuration is established as the cause, the user asked to
+fix the installation, and the package and team are clear, use existing
+authorization to add the missing package when the caller has the necessary
+access. Do not require another confirmation solely because this is a repair.
+If the user only asked why installation failed, report the cause
 without changing access. Ask only for unresolved package, team, or authorization
 choices that affect the change.
 
