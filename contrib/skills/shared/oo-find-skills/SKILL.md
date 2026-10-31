@@ -1,6 +1,6 @@
 ---
 name: oo-find-skills
-description: Find, compare, and install published OOMOL/oo skills. Use when the user asks to find, search for, discover, recommend, compare, choose, or install an existing skill for a task; asks whether there is a skill that can do something; or explicitly mentions the OOMOL/oo skill catalog. Do not use for creating or editing local skills, generic skill design, or non-OOMOL skill catalogs.
+description: Find, compare, install, and troubleshoot access to published OOMOL/oo skills. Use when the user asks to find, search for, discover, recommend, compare, choose, or install an existing skill for a task; asks whether there is a skill that can do something; reports a private skill that a bot or team member cannot install; or explicitly mentions the OOMOL/oo skill catalog. Do not use for creating or editing local skills, generic skill design, or non-OOMOL skill catalogs.
 disable-model-invocation: <!-- agentic:var disableModelInvocation -->
 <!-- agentic:if agent=claude|hermes -->
 allowed-tools: [Bash(oo *)]
@@ -16,6 +16,12 @@ existing published skills from the OOMOL or `oo` skill catalog through
 Read [references/oo-cli-contract.md](references/oo-cli-contract.md) when you
 need exact `oo skills search` or `oo skills install` command forms, JSON
 expectations, output-shape rules, or failure-handling details.
+
+For a known private package that cannot be found or installed, or a request to
+repair a failed installation, read
+[Private package access](references/oo-cli-contract.md#private-package-access).
+Keep the exact failed package and existing install authorization. The discovery
+and selection workflow below applies when choosing a new skill.
 
 ## Workflow
 
@@ -72,8 +78,9 @@ Then:
 - Keep one primary skill.
 - Keep one fallback skill only if it is genuinely plausible.
 
-If the returned array is empty, tell the user there is no matching skill
-available right now and stop. Do not present a menu.
+If the returned array is empty, report that this search found no matching skill.
+For an expected private package, follow the private package access guidance;
+otherwise stop. Do not present a menu or conclude the package was never published.
 
 ### 3. Filter installable results
 
@@ -165,7 +172,7 @@ with one of the displayed numbers.
   different packages and a later command fails after an earlier one succeeded,
   report the partial completion accurately: say which package/skill
   installation(s) succeeded, say which command failed, say that no rollback was
-  attempted, and then stop.
+  attempted, and follow the failure-handling rules below.
 
 Install examples:
 
@@ -191,10 +198,11 @@ oo skills install "<packageName2>" -s "<skillName2>"
 11. Use each search result's `name` field as the `-s` value. Use
    `skillDisplayName` only for display text.
 12. Never invent package names, skill names, versions, or extra metadata.
-13. If `oo skills search` or `oo skills install` fails for any reason other
-   than the explicit HTTP `402` billing case, stop immediately and report the
-   exact command failure. Do not invent recommendations, do not claim an
-   install succeeded, and do not continue silently.
+13. Report the exact failure from `oo skills search` or `oo skills install`.
+   When there are private-package or team-access clues, follow
+   [Private package access](references/oo-cli-contract.md#private-package-access)
+   for read-only diagnosis and an authorized repair. For other failures, stop.
+   Do not invent recommendations or claim an install succeeded.
 14. If the command output shows HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`,
    stop immediately, tell the user their current account has insufficient
    credit or is overdue, and direct them to

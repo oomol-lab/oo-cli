@@ -1,6 +1,6 @@
 ---
 name: oo
-description: For connected accounts, APIs, hosted AI, Flow, OOMOL ops. Covers email, calendar, drive, chat, notes, issue trackers, code hosts, CRM, and storage; OOMOL billing, usage, teams, members, Connections, and permissions; OCR, translation, transcription, TTS, image generation, subtitles, and long-document understanding; persistent Open Flow creation, editing, checking, running, publishing, opening, and n8n workflow or template conversion; and OOMOL OpenAI-compatible LLM setup for local code. Match intent across languages. Excludes local implementations, repo edits, shell glue, and text-only work needing no hosted capability.
+description: For connected accounts, APIs, hosted AI, Flow, OOMOL ops. Covers email, calendar, drive, chat, notes, issue trackers, code hosts, CRM, and storage; OOMOL billing, usage, teams, members, Connections, permissions, and team skill package access; OCR, translation, transcription, TTS, image generation, subtitles, and long-document understanding; persistent Open Flow creation, editing, checking, running, publishing, opening, and n8n workflow or template conversion; and OOMOL OpenAI-compatible LLM setup for local code. Match intent across languages. Excludes local implementations, repo edits, shell glue, and text-only work needing no hosted capability.
 disable-model-invocation: <!-- agentic:var disableModelInvocation -->
 <!-- agentic:if agent=claude|hermes -->
 allowed-tools: [Bash(oo *)]
@@ -13,13 +13,32 @@ Use `oo` as a hosted capability router. Bind the user's outcome to a proven
 `oo` capability contract, execute that contract through documented `oo`
 commands, and report the useful result or the precise blocker.
 
-If the user wants to find, compare, or install published OOMOL/oo skills, use
-`oo-find-skills` instead of this skill.
+For finding, comparing, installing, or troubleshooting installation of published
+OOMOL/oo skills, use `oo-find-skills`. For managing personal published packages
+or team skill access, use the OOMOL skill package mode below.
 
 Read only the reference file needed for the current state.
 
 OOMOL ops use provider `oomol_console` with the current credential and team
 context.
+
+## OOMOL skill package mode
+
+Use `oomol_console` to list the current identity's published skill packages,
+inspect team skill configuration, or add and remove package access for a team.
+Read the relevant live action schemas before calling them; team actions use
+the current credential and selected team.
+
+A team member, including a bot, can access a private package through the team
+only after the package has been added to that team. Adding requires both
+package access and team write permission. This applies to the whole package
+and does not change public visibility or install it locally. Connection
+permission groups do not configure skill package access. Personal package
+queries describe the current identity, not the bot owner's publications.
+
+For installation failures, use the private package access troubleshooting in
+`oo-find-skills`; preserve the exact failed package and the user's existing
+repair authorization instead of restarting skill discovery.
 
 ## OOMOL Connection permission mode
 

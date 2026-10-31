@@ -768,7 +768,6 @@ describe("embedded skill assets", () => {
             expect(content).toContain("Do not package manually");
             expect(content).toContain("Report the published package name");
             expect(content).not.toContain("default private");
-            expect(content).not.toContain("private visibility");
             expect(content).not.toContain("OOMOL/oo skill");
             expect(content).not.toContain("oo skills preflight");
             expect(content).not.toContain("oo skills publish <skill-id> --agent");

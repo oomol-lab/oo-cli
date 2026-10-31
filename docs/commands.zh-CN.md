@@ -1182,6 +1182,11 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 
 ### `oo skills info`
 
+该命令查看本机 skill 清单，不会列出当前账号在云端发布或维护的全部 skill。
+云端个人包可通过 `oo connector run oomol_console --action list_my_skill_packages --json`
+查询，团队已配置的包使用 `list_team_skill_packages`；调用前可用
+`oo connector schema` 查看参数及分页约定。
+
 默认列出 bundled 和 registry skill。只有显式请求时才列出 local skill。为兼容
 旧版用法，`oo skills list` 作为别名仍然可用。
 
@@ -1483,6 +1488,12 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 说明：每次调用最多请求 `5` 条结果。
 
 ### `oo skills install [packageName...]`
+
+安装私有包需要当前身份具备访问权。团队成员（包括机器人）通过团队访问私有包时，
+该包须先添加到团队的 Skills 配置；仅加入团队不会自动共享成员的私有包。
+添加需要包访问权和团队写权限，可在 Console 选择目标团队后配置，或使用
+`oomol_console.add_skill_package_to_team` action。授权作用于整个包，不会改变
+公开性或在本地安装。移除团队绑定不会卸载已有的本地 skill，也不会撤销其他访问授权。
 
 将内置或已发布 skill 安装到受支持的本地 skill 目录。
 

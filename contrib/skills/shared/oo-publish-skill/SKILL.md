@@ -15,6 +15,16 @@ directory with a `SKILL.md`; it does not need to be an oo-specific skill.
 
 ## Workflow
 
+### Give a team access to a private skill
+
+For ongoing access by team members or a bot, use `oo` with the `oomol_console`
+provider to add the package to the intended team's skill configuration. Team
+membership alone does not share private packages. Adding requires package
+access and team write permission, covers the whole package, and preserves its
+private visibility. For a failed installation, use `oo-find-skills` to diagnose
+access. A temporary share is a separate mechanism; do not create one as a
+workaround for missing team authorization.
+
 ### Share a published skill
 
 If the user asks to share a published skill, run:
