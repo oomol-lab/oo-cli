@@ -1291,6 +1291,11 @@ Proxy a provider API request through a connected connector app.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: JSON output keeps the stable shape
   `{ data: { status, headers, data }, meta: { executionId, service } }`.
+- Errors: upstream HTTP `4xx` or `5xx` responses exit `1`, even when the
+  connector successfully forwarded the request. stdout still contains the
+  upstream response and execution ID in the selected output format; stderr
+  reports the HTTP status. HTTP `2xx` and `3xx` responses exit `0`; provider
+  business errors inside an HTTP `2xx` body require caller interpretation.
 - Errors: stderr prints the connector proxy HTTP status and includes the server
   `message` and `errorCode` when the failure response provides them. When the
   response carries neither, the raw response body is included (trimmed and

@@ -152,16 +152,18 @@ These rules override every local heuristic.
    failure, or an unsafe side effect. Before treating a discovery result as an
    auth or catalog blocker, apply the one-time cross-team search fallback in
    [references/search-and-selection.md](references/search-and-selection.md#team-scope)
-   when eligible. After discovery, connector authorization blockers are terminal
-   for the current turn: when evidence shows the selected connector is
-   not connected, not authorized, missing scopes, expired, or otherwise blocked
-   by connector authentication, return only a short blocker summary, the direct
-   connection or re-authorization URL, and one concise next step. Do not inspect
-   more schemas, enumerate actions, browse provider docs, provide usage
-   examples, or run more connector commands until the user confirms the service
-   is connected, unless the user explicitly asks for offline docs or setup
-   details. If a shortlisted fallback directly avoids a non-auth blocker without
-   changing the user's intent, try that fallback once. Otherwise do not retry
+   when eligible. After discovery, stop operations on a disconnected or expired
+   connection until authorization is repaired. A missing scope blocks the
+   affected operation and steps that depend on it. Continue independent,
+   already-authorized work only when existing schema and successful execution
+   evidence establish that it does not need the missing permission. Do not
+   bypass a required permission check or retry the blocked operation. Preserve
+   successful results and report completed work, blocked work, the direct
+   connection or re-authorization URL, and one concise next step. Follow
+   [references/connector-execution.md](references/connector-execution.md#authorization-blockers)
+   for the authorization boundary. If a shortlisted fallback directly avoids a
+   non-auth blocker without changing the user's intent, try that fallback once.
+   Otherwise do not retry
    blindly, and do not replace a remote `oo` capability with local code or
    direct third-party APIs.
 10. Reference reads are non-negotiable. Before invoking the first command in

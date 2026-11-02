@@ -153,9 +153,8 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
             method: proxyRequest.method,
         });
 
-        let response: ConnectorProxyResponse;
         try {
-            response = await runConnectorProxy(
+            const response = await runConnectorProxy(
                 {
                     connectionSelector,
                     identity,
@@ -165,15 +164,22 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
                 },
                 context,
             );
+
+            context.output.emit(response, () => {
+                context.stdout.write(`${formatConnectorProxyResponseAsText(response, context)}\n`);
+            });
+
+            if (response.data.status >= 400) {
+                throw new CliUserError("errors.connectorProxy.requestFailed", 1, {
+                    service: input.serviceName,
+                    status: response.data.status,
+                });
+            }
         }
         catch (error) {
             recordConnectorFailureTelemetry(error, context.telemetry);
             throw error;
         }
-
-        context.output.emit(response, () => {
-            context.stdout.write(`${formatConnectorProxyResponseAsText(response, context)}\n`);
-        });
     },
 };
 
@@ -276,8 +282,7 @@ function formatConnectorProxyResponseAsText(
     ].join("\n");
 }
 
-// The upstream HTTP status is colored by its class so a proxied 4xx/5xx is
-// visible at a glance even though the CLI command itself succeeded.
+// Color the upstream HTTP status by its class, including redirects and failures.
 function formatConnectorProxyStatus(status: number, colors: TerminalColors): string {
     if (status >= 400) {
         return colors.red(status);

@@ -193,6 +193,11 @@ Facts:
 - Do not pass provider credentials, `Authorization`, cookies, or API keys in
   proxy headers. The connector service injects authentication from the
   connected app.
+- Check both `data.status` and the provider response in `data.data`. Upstream
+  HTTP `4xx`/`5xx` exits `1` while preserving the response and execution ID.
+  HTTP `2xx` can also
+  contain provider-specific business errors; exit `0` alone is not proof of
+  success.
 - JSON output has this stable shape:
 
 ```json
@@ -358,16 +363,15 @@ If the same connector offers several find-style actions, prefer the one whose
 filters match the user's locator by name, id, folder, type, or time range so
 the result is as narrow as possible.
 
-## Authorization blocker fast exit
+## Authorization blockers
 
-Inspect `errorCode` before broader troubleshooting. These error codes are
-terminal for the current connector workflow:
+Inspect `errorCode` before broader troubleshooting. These error codes block
+operations on the selected connection until it is connected or reauthorized:
 
 - `connection_required`
 - `app_not_found`
 - `app_not_ready`
 - `credential_expired`
-- `scope_missing`
 
 On a self-hosted connector these error codes are also terminal:
 
@@ -378,15 +382,30 @@ On a self-hosted connector these error codes are also terminal:
 - `credential_verification_failed`
 - `unknown_service`
 
-When one appears, stop immediately. Do not inspect additional schemas, run
-adjacent actions, enumerate capabilities, produce usage examples, or browse
-third-party docs unless the user explicitly asks for offline docs.
+Stop affected operations without probing adjacent actions or retrying. A
+`scope_missing` error, or an explicit provider missing-permission error in a
+proxy response, blocks the operation requiring that scope and its dependent
+steps. It does not establish that the whole connection is unusable. Continue
+independent, already-authorized work only when existing schemas and successful
+execution evidence show it does not require that permission. If the failed
+check is required to satisfy the user's task or authorize a later action, keep
+those dependent steps blocked.
 
-Return only:
+For example, failure to read file sharing settings does not undo a successful
+upload. Preserve uploaded file IDs; do not upload them again. Continue other
+uploads only if reading those settings was optional, and report any unverified
+download or sharing permissions. Do not claim a file is publicly downloadable
+without evidence.
 
-- one short blocker sentence
+Report:
+
+- completed work and the operation or dependent steps still blocked
 - the connection or re-authorization URL
 - one concise next step
+
+Do not enumerate capabilities or browse third-party docs to work around an
+authorization failure. Read-only investigation is appropriate when the user
+explicitly asks to diagnose or repair authorization.
 
 Use this URL:
 

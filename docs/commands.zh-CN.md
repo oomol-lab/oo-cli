@@ -1072,6 +1072,10 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 选项：`--format=json` 和 `--json` 会输出 JSON 对象。
 - 输出：JSON 输出保持稳定结构
   `{ data: { status, headers, data }, meta: { executionId, service } }`。
+- 错误：上游返回 HTTP `4xx` 或 `5xx` 时退出码为 `1`，即使 connector 已成功转发
+  请求。stdout 仍按所选格式输出上游响应和执行 ID，stderr 报告 HTTP 状态。
+  HTTP `2xx` 和 `3xx` 的退出码为 `0`；HTTP `2xx` 响应体中的 provider 业务错误
+  仍需调用方判断。
 - 错误：stderr 会打印 connector proxy HTTP 状态；如果失败响应提供了
   `message` 和 `errorCode`，也会一并包含；两者都缺失时，会输出原始响应体
   （已去除首尾空白并限制长度），以免丢失失败详情。

@@ -907,7 +907,7 @@ describe("connectorCommand CLI", () => {
                     },
                 );
 
-                expect(result.exitCode).toBe(0);
+                expect(result.exitCode).toBe(status >= 400 ? 1 : 0);
                 expect(result.stdout).toContain(`Status: ${expected}`);
                 expect(result.stdout).toContain(colors.cyan("null"));
             }
@@ -938,7 +938,8 @@ describe("connectorCommand CLI", () => {
                 },
             );
 
-            expect(result.exitCode).toBe(0);
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain("Connector proxy service tavily returned HTTP 404");
             expect(result.stdout).toBe([
                 "Status: 404",
                 "Execution ID: exec-1",
@@ -946,6 +947,60 @@ describe("connectorCommand CLI", () => {
                 "null",
                 "",
             ].join("\n"));
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test.each([400, 401, 403, 429, 500, 503])("preserves proxy JSON and reports upstream HTTP %i as failure", async (status) => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            const providerError = {
+                code: 99991679,
+                msg: "Missing permission for private-resource",
+                error: { log_id: "provider-log-id" },
+            };
+            const result = await sandbox.run(
+                ["connector", "proxy", "feishu", "--endpoint", "/private-resource", "--json"],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: {
+                            status,
+                            headers: { "x-request-id": "provider-request-id" },
+                            data: providerError,
+                        },
+                        meta: { executionId: "exec-failed", service: "feishu", appId: "app-1" },
+                    })),
+                },
+            );
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr).toContain(`Connector proxy service feishu returned HTTP ${status}`);
+            expect(JSON.parse(result.stdout)).toEqual({
+                data: {
+                    status,
+                    headers: { "x-request-id": "provider-request-id" },
+                    data: providerError,
+                },
+                meta: { executionId: "exec-failed", service: "feishu", appId: "app-1" },
+            });
+            expect(telemetryPayload).toMatchObject({
+                properties: {
+                    command_full: "connector.proxy",
+                    http_status: status,
+                },
+            });
+            expect(JSON.stringify(telemetryPayload)).not.toContain("private-resource");
+            expect(JSON.stringify(telemetryPayload)).not.toContain("provider-log-id");
+            expect(telemetryPayload?.properties).not.toHaveProperty("error_code");
         }
         finally {
             await sandbox.cleanup();
