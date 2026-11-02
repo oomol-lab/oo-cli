@@ -195,7 +195,7 @@ Facts:
   connected app.
 - Check both `data.status` and the provider response in `data.data`. Upstream
   HTTP `4xx`/`5xx` exits `1` while preserving the response and execution ID.
-  Older CLI versions may exit `0` for these responses. HTTP `2xx` can also
+  HTTP `2xx` can also
   contain provider-specific business errors; exit `0` alone is not proof of
   success.
 - JSON output has this stable shape:
