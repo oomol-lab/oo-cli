@@ -5,7 +5,7 @@ import { CliUserError } from "../../contracts/cli.ts";
 import { withRequestTarget } from "../../logging/log-fields.ts";
 import {
     createInsufficientCreditError,
-    isInsufficientCreditHttpStatus,
+    isInsufficientCreditResponse,
 } from "./billing.ts";
 
 type OoRequestContext = Pick<CliExecutionContext, "fetcher" | "logger" | "translator">;
@@ -352,7 +352,7 @@ async function performOoFetch(
             `${options.label} request returned a non-success status.`,
         );
 
-        if (isInsufficientCreditHttpStatus(status)) {
+        if (isInsufficientCreditResponse(status, failure.bodyText)) {
             throw createInsufficientCreditError();
         }
 

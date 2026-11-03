@@ -81,10 +81,15 @@ or permission problem, and do not retry with elevated permissions.
 
 Billing has a hard stop signal:
 
-- HTTP `402`
 - `OOMOL_INSUFFICIENT_CREDIT`
+- the CLI message that the OOMOL account balance is insufficient
 
-When either appears in any `oo` command output:
+HTTP `402` alone is not this signal. Connector providers pass their own `402`
+through (for example an expired or missing third-party API plan); then the
+output carries the provider's message instead, and the fix is on the
+third-party account, not OOMOL billing. Report that message as is.
+
+When the billing signal appears in any `oo` command output:
 
 - Stop immediately.
 - Treat it as insufficient credit or overdue billing, not a normal auth

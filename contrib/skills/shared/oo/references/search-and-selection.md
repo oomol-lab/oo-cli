@@ -340,8 +340,8 @@ the plan output:
 Only run an `oo skills add`, `oo skills update`, or `oo skills recommend mute`
 command after the user explicitly chooses that action. Never invent package
 names; use only the `packageName` values returned by `oo skills recommend
-plan`. If a wrap-up command fails for any reason other than the explicit HTTP
-`402` billing case, stop and report the exact failure instead of retrying
+plan`. If a wrap-up command fails for any reason other than the explicit
+`OOMOL_INSUFFICIENT_CREDIT` billing case, stop and report the exact failure instead of retrying
 blindly or inventing a result.
 
 ## Build the next contract step

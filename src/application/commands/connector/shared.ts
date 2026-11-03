@@ -748,7 +748,6 @@ function createConnectorFailureError(input: {
     if (isInsufficientCreditFailure({
         errorCode,
         message: responseMessage,
-        status,
     })) {
         return createInsufficientCreditError();
     }
