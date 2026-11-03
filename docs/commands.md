@@ -1100,7 +1100,7 @@ Search connector actions with free-form text.
   `description`, `authenticated`, and `accessStatus`. `accessStatus` is either
   `available` or `connection_required`.
 - Output: text output prints one block per action with the service/action
-  label, optional description, authenticated state, and access status.
+  label, optional description and price description, authenticated state, and access status.
 - Notes: the action list itself does not depend on identity; each result's
   `authenticated` and `accessStatus` fields reflect the effective identity's
   connected apps, so a connection under a team affects both fields only when
@@ -1108,8 +1108,8 @@ Search connector actions with free-form text.
 - Notes: use `oo connector schema "<service>.<action>"` to inspect the selected
   action contract.
 - Notes: search results also warm the local action schema cache when schema
-  data is available, so a following `oo connector schema` for a returned
-  action is usually answered locally without a fresh metadata request.
+  data is available. `oo connector schema` fetches full metadata when only a
+  connection-specific search result has been cached.
 - `--all-teams` searches all teams of the current user on the OOMOL-hosted
   connector. It ignores the saved current team and `OO_TEAM_ID` / `OO_TEAM_NAME`,
   conflicts with `--team`, and is unavailable for self-hosted connectors.
@@ -1121,6 +1121,10 @@ Search connector actions with free-form text.
   results do not prove that a team lacks a connection.
 - To execute a selected cross-team connection, use its `teamId` in
   `OO_TEAM_ID` and its `appId` with `oo connector run --app-id`.
+
+- When supplied by the connector, JSON and text output include the localized
+  `pricingDescription` for that result's connection. Its absence does not mean
+  the action is free. Self-hosted connectors without this field work normally.
 
 ### `oo connector schema <actionId...>`
 
@@ -1143,10 +1147,13 @@ Show the stable schema contract for one or more connector actions.
   array of those objects in request order; with `--show-schema-version` the
   array is wrapped as `{ "schemaVersion": "1.0.0", "items": [...] }` per the
   shared conventions.
+- Output: `pricingDescription` is included when the connector supplies a price
+  description. The text identifies the applicable hosted channel and may give
+  a reference cost rather than a guaranteed charge. Missing or null prices are
+  omitted. Descriptions follow the existing `--lang en` / `--lang zh` setting.
 - Notes: `--refresh` forces a fresh schema fetch for every selected action.
-- Notes: schemas cached by an earlier lookup or connector search are reused
-  until they expire; use `--refresh` when the latest remote contract is
-  required.
+- Notes: full metadata cached by an earlier lookup in the same language is
+  reused until it expires; use `--refresh` for the latest remote contract.
 
 ### `oo connector schema refresh`
 
@@ -1369,7 +1376,7 @@ Search connector actions with one free-form query.
   `description`, `authenticated`, and `accessStatus`. `accessStatus` is either
   `available` or `connection_required`.
 - Output: text output prints one block per action with the service/action
-  label, optional description, authenticated state, and access status.
+  label, optional description and price description, authenticated state, and access status.
 - Notes: the action list itself does not depend on identity; each result's
   `authenticated` and `accessStatus` fields reflect the effective identity's
   connected apps, so a connection under a team affects both fields only when
@@ -1377,8 +1384,8 @@ Search connector actions with one free-form query.
 - Notes: use `oo connector schema "<service>.<action>"` to inspect the full
   connector action contract.
 - Notes: search results also warm the local action schema cache when schema
-  data is available, so a following `oo connector schema` for a returned
-  action is usually answered locally without a fresh metadata request.
+  data is available. `oo connector schema` fetches full metadata when only a
+  connection-specific search result has been cached.
 - `--all-teams` searches all teams of the current user on the OOMOL-hosted
   connector. It ignores the saved current team and `OO_TEAM_ID` / `OO_TEAM_NAME`,
   conflicts with `--team`, and is unavailable for self-hosted connectors.

@@ -5,6 +5,7 @@ import type { TeamIdentity } from "../team/identity.ts";
 import type { ConnectorRequestTarget } from "./target.ts";
 import { Buffer } from "node:buffer";
 import { z } from "zod";
+import { resolveRequestLanguage } from "../../../i18n/locale.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import {
     createInsufficientCreditError,
@@ -16,8 +17,11 @@ import {
 } from "../shared/oo-request.ts";
 import { teamIdentityHeaders } from "../team/identity.ts";
 
+const pricingDescriptionSchema = z.string().nullable().transform(value => value ?? undefined).optional();
+
 export const connectorActionDefinitionSchema = z.object({
     description: z.string().optional().default(""),
+    pricingDescription: pricingDescriptionSchema,
     inputSchema: z.unknown(),
     name: z.string().min(1),
     outputSchema: z.unknown(),
@@ -88,6 +92,7 @@ const connectorActionSearchResultSchema = z.object({
     accessStatus: connectorActionAccessStatusSchema.optional(),
     authenticated: z.boolean(),
     description: z.string().optional().default(""),
+    pricingDescription: pricingDescriptionSchema,
     inputSchema: z.unknown().optional(),
     name: z.string().min(1),
     outputSchema: z.unknown().optional(),
@@ -241,7 +246,10 @@ export async function searchConnectorActions(
         // The action list itself is identity-independent, but each result's
         // `authenticated` flag reflects the effective identity's connected
         // apps, so the identity headers are forwarded like `apps`/`run`.
-        headers: teamIdentityHeaders(options.identity),
+        headers: {
+            ...teamIdentityHeaders(options.identity),
+            "Accept-Language": resolveRequestLanguage(context.translator.locale),
+        },
         host: { baseUrl: options.target.baseUrl },
         label: "Connector action search",
         logFields: {
@@ -339,6 +347,7 @@ export async function getConnectorActionMetadata(
         authorization: options.target.authorization,
         context,
         errors: { scope: "connectorMetadata" },
+        headers: { "Accept-Language": resolveRequestLanguage(context.translator.locale) },
         host: { baseUrl: options.target.baseUrl },
         label: "Connector action metadata",
         logFields: {

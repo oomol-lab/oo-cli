@@ -84,6 +84,7 @@ export const connectorSchemaCommand: CliCommandDefinition<ConnectorSchemaInput> 
                 {
                     actionName: target.actionName,
                     refresh: input.refresh,
+                    requireFullMetadata: true,
                     serviceName: target.serviceName,
                     target: connectorTarget,
                 },
@@ -127,11 +128,11 @@ function parseQualifiedActionId(rawActionId: string): QualifiedActionTarget {
     };
 }
 
-// The stable `oo connector schema` output contract: exactly the five schema
-// fields, so cache-internal metadata (permissions, lifecycle, passthrough
-// fields) never leaks into the CLI output.
+// Expose the schema and optional price description without leaking internal
+// metadata such as permissions, lifecycle details, or passthrough fields.
 interface ConnectorActionSchemaOutput {
     description: string;
+    pricingDescription?: string;
     inputSchema: unknown;
     name: string;
     outputSchema: unknown;
@@ -143,6 +144,7 @@ function createConnectorActionSchemaOutput(
 ): ConnectorActionSchemaOutput {
     return {
         description: schema.description,
+        pricingDescription: schema.pricingDescription,
         inputSchema: schema.inputSchema,
         name: schema.name,
         outputSchema: schema.outputSchema,

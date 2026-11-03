@@ -14,9 +14,22 @@ import {
 import { createTranslator } from "../../../i18n/translator.ts";
 
 import { loadConnectorActionSchema } from "./schema-cache.ts";
-import { loadConnectorSearchResults } from "./search-provider.ts";
+import { formatConnectorSearchResultsAsText, loadConnectorSearchResults } from "./search-provider.ts";
 
 describe("connector search provider", () => {
+    test("keeps hosted prices in JSON and text without adding them to BYOK results", async () => {
+        const context = createSearchContext({ cache: createMemoryCache(), fetcher: async () => Response.json({ data: [
+            { service: "tinypng", name: "shrink_image", authenticated: true, appId: "marketplace:oomol:tinypng", pricingDescription: "0.0093 Credits per compression" },
+            { service: "tinypng", name: "shrink_image", authenticated: true, appId: "byok" },
+        ] }) });
+        const results = await loadConnectorSearchResults({ target: createConnectorTargetFixture(), text: "compress" }, context);
+        expect(results[0]?.pricingDescription).toBe("0.0093 Credits per compression");
+        expect(results[1]?.pricingDescription).toBeUndefined();
+        const text = formatConnectorSearchResultsAsText(results, { ...context, stdout: { write: () => true } });
+        expect(text.split("0.0093 Credits per compression")).toHaveLength(2);
+        expect(JSON.parse(JSON.stringify(results))[1]).not.toHaveProperty("pricingDescription");
+    });
+
     test("returns search results and warms the schema cache from schema payloads", async () => {
         const cache = createMemoryCache();
         const requests: Request[] = [];

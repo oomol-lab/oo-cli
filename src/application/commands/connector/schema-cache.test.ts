@@ -40,6 +40,66 @@ const userScope = createConnectorSchemaCacheScope({
 });
 
 describe("connector schema cache", () => {
+    test("schema metadata replaces connection-specific search prices and remains cached without a price", async () => {
+        const cache = createMemoryCache();
+        const options = {
+            target: createConnectorTargetFixture(),
+            actionName: "send_mail",
+            serviceName: "gmail",
+            requireFullMetadata: true,
+        };
+        for (const pricingDescription of ["Marketplace: 0.01 Credits", undefined]) {
+            await warmConnectorActionSchemas(
+                [createSearchResultFixture({ pricingDescription })],
+                userScope,
+                createCacheContext({ cache }),
+            );
+        }
+        let requests = 0;
+        const context = createCacheContext({ cache, fetcher: async () => {
+            requests += 1;
+            return createMetadataResponse({ pricingDescription: null });
+        } });
+        expect((await loadConnectorActionSchema(options, context)).pricingDescription).toBeUndefined();
+        await warmConnectorActionSchemas(
+            [createSearchResultFixture({ pricingDescription: "Connection-specific price" })],
+            userScope,
+            context,
+        );
+        expect((await loadConnectorActionSchema(options, context)).pricingDescription).toBeUndefined();
+        expect(requests).toBe(1);
+    });
+
+    test("localized metadata and search caches stay separate and not-found invalidates both languages", async () => {
+        const cache = createMemoryCache();
+        const options = {
+            target: createConnectorTargetFixture(),
+            actionName: "send_mail",
+            serviceName: "gmail",
+        };
+        const english = createCacheContext({ cache, fetcher: async () => createMetadataResponse({ pricingDescription: "0.01 Credits per request" }) });
+        const chinese = createCacheContext({ cache, locale: "zh", fetcher: async () => createMetadataResponse({ pricingDescription: "0.01 Credits/次" }) });
+        await warmConnectorActionSchemas([createSearchResultFixture({ description: "English search" })], userScope, english);
+        expect((await loadConnectorActionSchema(options, chinese)).pricingDescription).toBe("0.01 Credits/次");
+        expect((await loadConnectorActionSchema(options, english)).description).toBe("English search");
+        expect((await loadConnectorActionSchema({ ...options, requireFullMetadata: true }, english)).pricingDescription).toBe("0.01 Credits per request");
+        expect((await loadConnectorActionSchema(options, chinese)).pricingDescription).toBe("0.01 Credits/次");
+        invalidateConnectorActionSchemaOnNotFound({
+            actionName: options.actionName,
+            serviceName: options.serviceName,
+            cacheScope: userScope,
+            error: new CliUserError("errors.connectorRun.httpError", 1, { status: 404 }),
+        }, english);
+        for (const locale of ["en", "zh"] as const) {
+            let requested = false;
+            await loadConnectorActionSchema(options, createCacheContext({ cache, locale, fetcher: async () => {
+                requested = true;
+                return createMetadataResponse();
+            } }));
+            expect(requested).toBeTrue();
+        }
+    });
+
     test("loadConnectorActionSchema caches fetched metadata and reuses it without a second fetch", async () => {
         const cache = createMemoryCache();
         let fetchCount = 0;
@@ -872,12 +932,14 @@ function createRawCacheKey(identity: {
         scope: identity.cacheScope,
         serviceName: identity.serviceName,
         actionName: identity.actionName,
+        language: "en",
     });
 }
 
 function createMetadataResponse(overrides: {
     asyncLifecycle?: ConnectorActionMetadata["asyncLifecycle"];
     description?: string;
+    pricingDescription?: string | null;
     followUpActions?: unknown;
     name?: string;
     providerPermissions?: string[];
@@ -891,6 +953,7 @@ function createMetadataResponse(overrides: {
         data: {
             asyncLifecycle: overrides.asyncLifecycle,
             description: overrides.description ?? "Send a Gmail message.",
+            pricingDescription: overrides.pricingDescription,
             followUpActions: overrides.followUpActions ?? [],
             id: `${service}.${name}`,
             inputSchema: {
@@ -913,6 +976,7 @@ function createCacheContext(options: {
     fetcher?: (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
     logger?: Logger;
     settingsFilePath?: string;
+    locale?: "en" | "zh";
 } = {}) {
     const emptySettings = {} as AppSettings;
 
@@ -931,6 +995,6 @@ function createCacheContext(options: {
                 updater(emptySettings),
             write: async (value: AppSettings) => value,
         },
-        translator: createTranslator("en"),
+        translator: createTranslator(options.locale ?? "en"),
     };
 }
