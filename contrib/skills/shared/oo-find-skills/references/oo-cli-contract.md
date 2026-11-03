@@ -99,8 +99,8 @@ Failure handling:
 - If the user chooses `Install neither`, declines installation, or the UI returns
   `None of the above`, do not install anything. Reply with exactly one short
   acknowledgement in the user's language that no skill was installed, then stop.
-- If any `oo` output shows HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`, stop
-  immediately, tell the user their current account has insufficient credit or
+- If any `oo` output shows `OOMOL_INSUFFICIENT_CREDIT` or the CLI's
+  insufficient OOMOL balance message, stop immediately, tell the user their current account has insufficient credit or
   is overdue, and direct them to
   `https://console.oomol.com/billing` before retrying.
 - If a command fails with a message saying the self-hosted connector only

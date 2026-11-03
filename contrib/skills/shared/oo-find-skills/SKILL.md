@@ -203,8 +203,8 @@ oo skills install "<packageName2>" -s "<skillName2>"
    [Private package access](references/oo-cli-contract.md#private-package-access)
    for read-only diagnosis and an authorized repair. For other failures, stop.
    Do not invent recommendations or claim an install succeeded.
-14. If the command output shows HTTP `402` or `OOMOL_INSUFFICIENT_CREDIT`,
-   stop immediately, tell the user their current account has insufficient
+14. If the command output shows `OOMOL_INSUFFICIENT_CREDIT` or the CLI's
+   insufficient OOMOL balance message, stop immediately, tell the user their current account has insufficient
    credit or is overdue, and direct them to
    `https://console.oomol.com/billing` before retrying.
 15. If a command fails with a message saying the self-hosted connector only

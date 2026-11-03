@@ -732,6 +732,34 @@ describe("connector shared requests", () => {
             });
         });
 
+        test("maps the gateway balance guard 402 to the billing error", async () => {
+            const error = await expectCliUserError(invoke(async () => new Response(
+                "insufficient balance, state: verified, code: OOMOL_INSUFFICIENT_CREDIT",
+                { status: 402 },
+            )));
+
+            expect(error.key).toBe("errors.billing.insufficientCredit");
+        });
+
+        test("surfaces a provider 402 without the OOMOL marker as a provider failure", async () => {
+            const error = await expectCliUserError(invoke(async () => new Response(
+                JSON.stringify({
+                    errorCode: "provider_error",
+                    message: "Operation unauthorized. No active API plan found.",
+                    success: false,
+                }),
+                { status: 402 },
+            )));
+
+            expect(error.key).toBe(`${keyPrefix}.requestFailedWithMessageAndCode`);
+            expect(error.params).toEqual({
+                ...subjectParams,
+                errorCode: "provider_error",
+                message: "Operation unauthorized. No active API plan found.",
+                status: 402,
+            });
+        });
+
         test("surfaces message and errorCode on a failed response", async () => {
             const error = await expectCliUserError(invoke(async () => new Response(
                 JSON.stringify({

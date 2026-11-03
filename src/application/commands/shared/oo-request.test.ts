@@ -310,9 +310,12 @@ describe("requestOo", () => {
         });
     });
 
-    test("maps HTTP 402 to the billing error before statusErrors runs", async () => {
+    test("maps a marked HTTP 402 to the billing error before statusErrors runs", async () => {
         await withRequestCapture(async (capture) => {
-            capture.respondWith(new Response("payment required", { status: 402 }));
+            capture.respondWith(new Response(
+                "insufficient balance, state: verified, code: OOMOL_INSUFFICIENT_CREDIT",
+                { status: 402 },
+            ));
             let statusErrorsCalled = false;
 
             await expect(requestOo({
@@ -333,6 +336,32 @@ describe("requestOo", () => {
             });
 
             expect(statusErrorsCalled).toBeFalse();
+        });
+    });
+
+    test("hands an unmarked HTTP 402 to statusErrors instead of the billing error", async () => {
+        await withRequestCapture(async (capture) => {
+            capture.respondWith(new Response("payment required", { status: 402 }));
+            let seenStatus: number | undefined;
+
+            await expect(requestOo({
+                context: capture.context,
+                errors: { scope: "variables" },
+                host: { endpoint: "oomol.com", service: "cli-api" },
+                label: "Variables list",
+                path: "/v1/variables",
+                schema: itemSchema,
+                statusErrors: (failure) => {
+                    seenStatus = failure.status;
+
+                    return undefined;
+                },
+            })).rejects.toMatchObject({
+                key: "errors.variables.requestFailed",
+                params: { status: 402 },
+            });
+
+            expect(seenStatus).toBe(402);
         });
     });
 

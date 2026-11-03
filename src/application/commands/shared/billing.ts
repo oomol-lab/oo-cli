@@ -10,8 +10,11 @@ export function createInsufficientCreditError(): CliUserError {
     });
 }
 
-export function isInsufficientCreditHttpStatus(status: number): boolean {
-    return status === insufficientCreditHttpStatus;
+// A bare 402 is not enough: connector providers pass their own upstream 402
+// through (e.g. an expired third-party API plan). Only OOMOL's balance guards
+// put the insufficient-credit marker in the body.
+export function isInsufficientCreditResponse(status: number, bodyText: string | undefined): boolean {
+    return status === insufficientCreditHttpStatus && isInsufficientCreditSignal(bodyText);
 }
 
 export function isInsufficientCreditSignal(value: string | undefined): boolean {
@@ -21,9 +24,7 @@ export function isInsufficientCreditSignal(value: string | undefined): boolean {
 export function isInsufficientCreditFailure(options: {
     errorCode?: string;
     message?: string;
-    status: number;
 }): boolean {
-    return isInsufficientCreditHttpStatus(options.status)
-        || options.errorCode === insufficientCreditErrorCode
+    return options.errorCode === insufficientCreditErrorCode
         || isInsufficientCreditSignal(options.message);
 }
