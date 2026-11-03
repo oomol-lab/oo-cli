@@ -11,6 +11,7 @@ import {
     isSkillRecommendationsMuted,
 } from "../../../schemas/settings.ts";
 import { compareSemver } from "../../../semver.ts";
+import { mapWithConcurrency } from "../../../shared/concurrency.ts";
 import { bucketTelemetryCount } from "../../../telemetry/buckets.ts";
 import { writeLine } from "../../shared/output.ts";
 import {
@@ -300,33 +301,6 @@ function collectInstalledRegistryVersions(
     }
 
     return installedVersionByPackage;
-}
-
-// Runs `worker` over `items` with at most `limit` in flight at once.
-async function mapWithConcurrency<T>(
-    items: readonly T[],
-    limit: number,
-    worker: (item: T) => Promise<void>,
-): Promise<void> {
-    let nextIndex = 0;
-    const runners = Array.from(
-        { length: Math.min(limit, items.length) },
-        async () => {
-            while (true) {
-                const index = nextIndex;
-
-                nextIndex += 1;
-
-                if (index >= items.length) {
-                    return;
-                }
-
-                await worker(items[index] as T);
-            }
-        },
-    );
-
-    await Promise.all(runners);
 }
 
 function recordTelemetry(
