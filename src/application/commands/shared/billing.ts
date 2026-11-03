@@ -5,7 +5,7 @@ export const insufficientCreditErrorCode = "OOMOL_INSUFFICIENT_CREDIT";
 export const billingUrl = "https://console.oomol.com/billing";
 
 export function createInsufficientCreditError(): CliUserError {
-    return new CliUserError("errors.billing.insufficientCredit", 1, {
+    return new CliUserError("errors.billing.insufficientCredit", 3, {
         url: billingUrl,
     });
 }

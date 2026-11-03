@@ -331,6 +331,7 @@ describe("requestOo", () => {
                     return undefined;
                 },
             })).rejects.toMatchObject({
+                exitCode: 3,
                 key: "errors.billing.insufficientCredit",
                 params: { url: billingUrl },
             });
@@ -357,6 +358,7 @@ describe("requestOo", () => {
                     return undefined;
                 },
             })).rejects.toMatchObject({
+                exitCode: 1,
                 key: "errors.variables.requestFailed",
                 params: { status: 402 },
             });
