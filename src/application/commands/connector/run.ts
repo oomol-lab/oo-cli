@@ -482,13 +482,11 @@ async function runConnectorAsyncSubmitAndWaitForResult(
             {
                 actionName: options.submitLifecycle.resultAction,
                 connectionSelector: options.connectionSelector,
-                handle,
                 identity: options.identity,
                 inputData: resultInput,
                 lifecycle: options.resultLifecycle,
                 progressReporter: options.progressReporter,
                 serviceName: options.serviceName,
-                submitExecutionId: submitResponse.meta.executionId,
                 target: options.target,
             },
             context,
@@ -496,7 +494,20 @@ async function runConnectorAsyncSubmitAndWaitForResult(
         );
     }
     catch (error) {
-        if (error instanceof CliUserError && error.params?.errorCode === "approval_required") {
+        if (!(error instanceof CliUserError)) {
+            throw error;
+        }
+
+        // The task already exists once submission succeeded, so every poll
+        // failure must carry what a caller needs to resume instead of
+        // resubmitting a side-effecting task.
+        const details = {
+            ...error.details,
+            handle,
+            submitExecutionId: submitResponse.meta.executionId,
+        };
+
+        if (error.params?.errorCode === "approval_required") {
             const recovery = {
                 service: options.serviceName,
                 action: options.submitLifecycle.resultAction,
@@ -508,14 +519,14 @@ async function runConnectorAsyncSubmitAndWaitForResult(
                 ...error.params,
                 recovery: JSON.stringify(recovery),
             }, {
-                details: {
-                    ...error.details,
-                    handle,
-                    recovery,
-                },
+                details: { ...details, recovery },
             });
         }
-        throw error;
+
+        throw new CliUserError(error.key, error.exitCode, error.params, {
+            code: error.code,
+            details,
+        });
     }
 
     return {
@@ -533,14 +544,11 @@ async function waitForConnectorAsyncResult(
         actionName: string;
         approval?: boolean;
         connectionSelector: ConnectorConnectionSelector | undefined;
-        /** Submit handle, present only for `--wait-result`. */
-        handle?: unknown;
         identity: TeamIdentity | undefined;
         inputData: unknown;
         lifecycle: ConnectorActionAsyncResultLifecycle;
         progressReporter: ConnectorAsyncLifecycleProgressReporter | undefined;
         serviceName: string;
-        submitExecutionId?: string;
         target: ConnectorRequestTarget;
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
@@ -549,18 +557,14 @@ async function waitForConnectorAsyncResult(
     const startedAt = Date.now();
     let pollCount = 0;
     const wait = options.lifecycle.wait;
-    // Carries what a caller needs to resume or report a failed wait,
-    // most importantly the submit handle.
+    // `--wait-result` adds the submit handle around this call, so failures
+    // here only describe the poll itself.
     const createAsyncErrorDetails = (state?: string) => ({
         details: {
             action: options.actionName,
             pollCount,
             service: options.serviceName,
             ...(state === undefined ? {} : { state }),
-            ...(options.handle === undefined ? {} : { handle: options.handle }),
-            ...(options.submitExecutionId === undefined
-                ? {}
-                : { submitExecutionId: options.submitExecutionId }),
         },
     });
 

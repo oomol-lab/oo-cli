@@ -4702,6 +4702,75 @@ describe("connectorCommand CLI", () => {
         }
     });
 
+    test.each([
+        {
+            expectedCode: "connectorRun.requestFailed",
+            label: "a poll HTTP failure",
+            pollResponse: () => new Response(JSON.stringify({ message: "upstream down" }), { status: 500 }),
+        },
+        {
+            expectedCode: "connectorRun.asyncStateMissing",
+            label: "a poll response without a state",
+            pollResponse: () => new Response(JSON.stringify({
+                data: {},
+                meta: { executionId: "poll-exec" },
+            })),
+        },
+    ])("keeps the submit handle on $label after --wait-result submission", async ({ expectedCode, pollResponse }) => {
+        const sandbox = await createCliSandbox();
+        const sleepMock = createBunSleepMock();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncSubmitActionSchema());
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+
+            let requestCount = 0;
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_submit",
+                    "-d",
+                    "{\"prompt\":\"a cat\"}",
+                    "--wait-result",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => {
+                        requestCount += 1;
+
+                        if (requestCount === 1) {
+                            return new Response(JSON.stringify({
+                                data: { sessionId: "session-1" },
+                                meta: { executionId: "submit-exec" },
+                            }));
+                        }
+
+                        return pollResponse();
+                    },
+                },
+            );
+            const payload = JSON.parse(result.stderr) as {
+                error: { code: string; details: Record<string, unknown> };
+            };
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(payload.error.code).toBe(expectedCode);
+            expect(payload.error.details).toMatchObject({
+                handle: "session-1",
+                submitExecutionId: "submit-exec",
+            });
+        }
+        finally {
+            sleepMock.restore();
+            await sandbox.cleanup();
+        }
+    });
+
     test("includes the submit handle in structured async wait failures", async () => {
         const sandbox = await createCliSandbox();
         const sleepMock = createBunSleepMock();

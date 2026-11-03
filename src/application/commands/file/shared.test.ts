@@ -341,5 +341,5 @@ function readPartNumber(input: string | URL | Request): number {
 }
 
 async function waitMs(durationMs: number): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, durationMs));
+    await Bun.sleep(durationMs);
 }

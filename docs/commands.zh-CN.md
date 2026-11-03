@@ -276,9 +276,11 @@ oo flow
     `{ path, keyword, message, params }` 数组，`path` 是指向 `--data` payload 的
     JSON Pointer。
   - `connectorRun.asyncTimedOut`、`connectorRun.asyncFailed`、
-    `connectorRun.asyncUnknownState`：`service`、`action`、`pollCount`、
-    `state`（仅失败状态），使用 `--wait-result` 时还包含 `handle` 和
-    `submitExecutionId`。
+    `connectorRun.asyncUnknownState`：`service`、`action`、`pollCount` 和
+    `state`（仅失败状态）。
+  - 使用 `--wait-result` 时，任务提交成功后的任何失败（无论 `code` 是什么）都会
+    额外包含 `handle` 和 `submitExecutionId`。请用该 handle 继续，不要重新提交
+    任务。
 - 输出始终为 JSON 的命令（如 `oo connector schema`）在未传 `--json` 或
   `--format=json` 时仍输出纯文本错误。
 

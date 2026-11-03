@@ -333,9 +333,11 @@ and the exit code is unchanged:
     `{ path, keyword, message, params }` where `path` is a JSON Pointer into
     the `--data` payload.
   - `connectorRun.asyncTimedOut`, `connectorRun.asyncFailed`,
-    `connectorRun.asyncUnknownState`: `service`, `action`, `pollCount`, `state`
-    (failure states only), and with `--wait-result` also `handle` and
-    `submitExecutionId`.
+    `connectorRun.asyncUnknownState`: `service`, `action`, `pollCount`, and
+    `state` (failure states only).
+  - With `--wait-result`, every failure after the task was submitted also
+    carries `handle` and `submitExecutionId`, whatever its `code`. Resume
+    with the handle instead of submitting the task again.
 - Commands whose output is always JSON (such as `oo connector schema`) still
   print plain-text errors unless `--json` or `--format=json` is passed.
 
