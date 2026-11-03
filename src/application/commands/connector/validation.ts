@@ -29,6 +29,15 @@ export function validateConnectorActionInput(
     if (validationErrors && validationErrors.length > 0) {
         throw new CliUserError("errors.connectorRun.invalidPayload", 2, {
             message: formatJsonSchemaErrors(validationErrors),
+        }, {
+            details: {
+                issues: validationErrors.map(validationError => ({
+                    keyword: validationError.keyword,
+                    message: validationError.message,
+                    params: validationError.params,
+                    path: validationError.instancePath,
+                })),
+            },
         });
     }
 }

@@ -436,11 +436,13 @@ async function runConnectorAsyncSubmitAndWaitForResult(
             {
                 actionName: options.submitLifecycle.resultAction,
                 connectionSelector: options.connectionSelector,
+                handle,
                 identity: options.identity,
                 inputData: resultInput,
                 lifecycle: options.resultLifecycle,
                 progressReporter: options.progressReporter,
                 serviceName: options.serviceName,
+                submitExecutionId: submitResponse.meta.executionId,
                 target: options.target,
             },
             context,
@@ -449,14 +451,22 @@ async function runConnectorAsyncSubmitAndWaitForResult(
     }
     catch (error) {
         if (error instanceof CliUserError && error.params?.errorCode === "approval_required") {
+            const recovery = {
+                service: options.serviceName,
+                action: options.submitLifecycle.resultAction,
+                input: resultInput,
+                submitExecutionId: submitResponse.meta.executionId,
+            };
+
             throw new CliUserError("errors.connectorRun.asyncApprovalRequired", 1, {
                 ...error.params,
-                recovery: JSON.stringify({
-                    service: options.serviceName,
-                    action: options.submitLifecycle.resultAction,
-                    input: resultInput,
-                    submitExecutionId: submitResponse.meta.executionId,
-                }),
+                recovery: JSON.stringify(recovery),
+            }, {
+                details: {
+                    ...error.details,
+                    handle,
+                    recovery,
+                },
             });
         }
         throw error;
@@ -477,11 +487,14 @@ async function waitForConnectorAsyncResult(
         actionName: string;
         approval?: boolean;
         connectionSelector: ConnectorConnectionSelector | undefined;
+        /** Submit handle, present only for `--wait-result`. */
+        handle?: unknown;
         identity: TeamIdentity | undefined;
         inputData: unknown;
         lifecycle: ConnectorActionAsyncResultLifecycle;
         progressReporter: ConnectorAsyncLifecycleProgressReporter | undefined;
         serviceName: string;
+        submitExecutionId?: string;
         target: ConnectorRequestTarget;
     },
     context: Pick<CliExecutionContext, "fetcher" | "logger" | "translator">,
@@ -490,6 +503,20 @@ async function waitForConnectorAsyncResult(
     const startedAt = Date.now();
     let pollCount = 0;
     const wait = options.lifecycle.wait;
+    // Carries what a caller needs to resume or report a failed wait,
+    // most importantly the submit handle.
+    const createAsyncErrorDetails = (state?: string) => ({
+        details: {
+            action: options.actionName,
+            pollCount,
+            service: options.serviceName,
+            ...(state === undefined ? {} : { state }),
+            ...(options.handle === undefined ? {} : { handle: options.handle }),
+            ...(options.submitExecutionId === undefined
+                ? {}
+                : { submitExecutionId: options.submitExecutionId }),
+        },
+    });
 
     options.progressReporter?.startWaiting(options.actionName);
 
@@ -497,7 +524,7 @@ async function waitForConnectorAsyncResult(
         if (connectorAsyncLifecycleDefaultTimeoutMs - (Date.now() - startedAt) <= 0) {
             throw new CliUserError("errors.connectorRun.asyncTimedOut", 1, {
                 action: options.actionName,
-            });
+            }, createAsyncErrorDetails());
         }
 
         setCurrentTarget({
@@ -554,13 +581,13 @@ async function waitForConnectorAsyncResult(
         if (wait.state.failure.includes(state)) {
             throw new CliUserError("errors.connectorRun.asyncFailed", 1, {
                 state,
-            });
+            }, createAsyncErrorDetails(state));
         }
 
         if (!wait.state.running.includes(state)) {
             throw new CliUserError("errors.connectorRun.asyncUnknownState", 1, {
                 state,
-            });
+            }, createAsyncErrorDetails(state));
         }
 
         const remainingMs = connectorAsyncLifecycleDefaultTimeoutMs
@@ -569,7 +596,7 @@ async function waitForConnectorAsyncResult(
         if (remainingMs <= 0) {
             throw new CliUserError("errors.connectorRun.asyncTimedOut", 1, {
                 action: options.actionName,
-            });
+            }, createAsyncErrorDetails());
         }
 
         await Bun.sleep(Math.min(wait.intervalSeconds * 1000, remainingMs));

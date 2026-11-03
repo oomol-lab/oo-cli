@@ -281,6 +281,49 @@ conventions:
 - `--show-schema-version` has no effect unless JSON output is requested with
   `--format=json` or `--json`.
 
+### JSON Errors
+
+When `--format=json` or `--json` is passed explicitly, a failing command writes
+one JSON line to stderr instead of the plain-text message. stdout stays empty
+and the exit code is unchanged:
+
+```json
+{"error":{"code":"connectorRun.requestFailed","message":"Connector action get_message returned HTTP 409 (errorCode: connection_ambiguous): Multiple connections match","exitCode":1,"details":{"action":"get_message","service":"gmail","httpStatus":409,"upstreamErrorCode":"connection_ambiguous","executionId":"exec-1"}}}
+```
+
+- `code` is a stable machine-readable identifier, such as `auth.required`,
+  `connectorRun.invalidPayload`, `commander.unknownOption`, or `unexpected`.
+  Branch on `code`, not on `message`.
+- `message` is the same localized text that text mode prints; it follows the
+  configured language and is meant for display only.
+- `exitCode` matches the process exit code: `2` for usage and input errors, `3`
+  for insufficient OOMOL credit, and `1` for other runtime failures.
+- `details` is optional and only appears for errors that carry structured
+  fields. Its fields depend on `code`; callers should ignore fields they do not
+  recognize. Current fields:
+  - Failed HTTP requests: `httpStatus`.
+  - `billing.insufficientCredit`: `billingUrl`, plus `httpStatus` when the
+    server returned HTTP 402.
+  - `connectorRun.requestFailed`, `connectorRun.approvalRequired`, and
+    `connectorProxy.requestFailed` from the connector service: `service`,
+    `httpStatus`, and when available `action` (run only),
+    `upstreamErrorCode` (the server `errorCode`, for example
+    `connection_ambiguous`), and `executionId`.
+  - `connectorProxy.requestFailed` when the proxied provider API returned an
+    HTTP error: `service`, `upstreamHttpStatus`, and `executionId`. stdout
+    still carries the proxied response in this case.
+  - `connectorRun.asyncApprovalRequired`: `recovery`
+    (`{ service, action, input, submitExecutionId }`) and `handle`.
+  - `connectorRun.invalidPayload`: `issues`, an array of
+    `{ path, keyword, message, params }` where `path` is a JSON Pointer into
+    the `--data` payload.
+  - `connectorRun.asyncTimedOut`, `connectorRun.asyncFailed`,
+    `connectorRun.asyncUnknownState`: `service`, `action`, `pollCount`, `state`
+    (failure states only), and with `--wait-result` also `handle` and
+    `submitExecutionId`.
+- Commands whose output is always JSON (such as `oo connector schema`) still
+  print plain-text errors unless `--json` or `--format=json` is passed.
+
 ## Debug Logging
 
 - The CLI writes structured debug logs to a platform-specific persisted log
@@ -1214,7 +1257,10 @@ Validate input data and run one connector action.
 - Errors: stderr prints the HTTP status and includes the server `message`
   and `errorCode` when the failure response provides them. When the response
   carries neither, the raw response body is included (trimmed and length
-  bounded) so the failure detail is not lost. For `errorCode: approval_required`,
+  bounded) so the failure detail is not lost. With `--json`, the failure is a
+  structured JSON error with code `connectorRun.requestFailed`
+  (`connectorRun.approvalRequired` for `approval_required`); see
+  [JSON Errors](#json-errors). For `errorCode: approval_required`,
   stderr explains that the blocked action was not executed and that it can be
   retried with `--approval` once user authorization is satisfied. The HTTP status
   is retained and the exit code is `1`. The CLI does not retry automatically.
@@ -1224,7 +1270,8 @@ Validate input data and run one connector action.
   JSON `{ service, action, input, submitExecutionId }`, where `action` and
   `input` describe the result query. Stdout remains empty. After authorization,
   resume that result query with `--wait --approval`, preserving the original
-  team and connection selection. Do not resubmit the task.
+  team and connection selection. Do not resubmit the task. With `--json`, the
+  same recovery object is also available as `error.details.recovery`.
 - Notes: `--wait` passes an explicit `--approval` declaration on every poll of
   the selected action. With `--wait-result`, it applies only to submission;
   the derived result action does not inherit it.
@@ -1312,7 +1359,9 @@ Proxy a provider API request through a connected connector app.
 - Errors: stderr prints the connector proxy HTTP status and includes the server
   `message` and `errorCode` when the failure response provides them. When the
   response carries neither, the raw response body is included (trimmed and
-  length bounded) so the failure detail is not lost.
+  length bounded) so the failure detail is not lost. With `--json`, the failure
+  is a structured JSON error with code `connectorProxy.requestFailed`; see
+  [JSON Errors](#json-errors).
 - Notes: `oo connector proxy` does not use connector action schemas or schema
   cache. Use it when the selected connector supports proxy execution and no
   purpose-built connector action is available.

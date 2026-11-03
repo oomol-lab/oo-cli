@@ -6,7 +6,7 @@ import type { ConnectorRequestTarget } from "./target.ts";
 import { Buffer } from "node:buffer";
 import { z } from "zod";
 import { resolveRequestLanguage } from "../../../i18n/locale.ts";
-import { CliUserError } from "../../contracts/cli.ts";
+import { CliUserError, toCliErrorCode } from "../../contracts/cli.ts";
 import {
     createInsufficientCreditError,
     isInsufficientCreditFailure,
@@ -435,6 +435,10 @@ export async function runConnectorAction(
             : undefined,
         schema: connectorActionRunResponseSchema,
         statusErrors: failure => createConnectorFailureError({
+            details: {
+                action: options.actionName,
+                service: options.serviceName,
+            },
             failure,
             keys: connectorRunFailureKeys,
             subject: { action: options.actionName },
@@ -478,6 +482,7 @@ export async function runConnectorProxy(
         path: `/v1/proxy/${encodeURIComponent(options.serviceName)}`,
         schema: connectorProxyResponseSchema,
         statusErrors: failure => createConnectorFailureError({
+            details: { service: options.serviceName },
             failure,
             keys: connectorProxyFailureKeys,
             subject: { service: options.serviceName },
@@ -735,7 +740,11 @@ function connectorFailureLogFields(failure: OoRequestFailure): Record<string, un
 // message+code / message / code / bounded body preview / status-only.
 // Total by construction — every non-success status maps to an error, so the
 // generic requestFailed default (which lacks the subject param) is unreachable.
+// The five fallback message keys only differ in presentation, so they share
+// the requestFailed code; approval and billing keep their own codes. Every
+// rung carries the same structured details.
 function createConnectorFailureError(input: {
+    details: Record<string, string>;
     failure: OoRequestFailure;
     keys: ConnectorFailureKeys;
     subject: Record<string, string>;
@@ -745,20 +754,30 @@ function createConnectorFailureError(input: {
     const responseMessage = failureResponse?.message;
     const errorCode = failureResponse?.errorCode;
     const status = input.failure.status;
+    const executionId = failureResponse?.meta?.executionId;
+    const structured = {
+        code: toCliErrorCode(input.keys.requestFailed),
+        details: {
+            ...input.details,
+            httpStatus: status,
+            ...(isNonEmptyString(errorCode) ? { upstreamErrorCode: errorCode } : {}),
+            ...(isNonEmptyString(executionId) ? { executionId } : {}),
+        },
+    };
 
     if (errorCode === "approval_required" && input.keys.approvalRequired !== undefined) {
         return new CliUserError(input.keys.approvalRequired, 1, {
             ...input.subject,
             errorCode,
             status,
-        });
+        }, { details: structured.details });
     }
 
     if (isInsufficientCreditFailure({
         errorCode,
         message: responseMessage,
     })) {
-        return createInsufficientCreditError();
+        return createInsufficientCreditError(structured.details);
     }
 
     if (isNonEmptyString(responseMessage)) {
@@ -768,14 +787,14 @@ function createConnectorFailureError(input: {
                 errorCode,
                 message: responseMessage,
                 status,
-            });
+            }, structured);
         }
 
         return new CliUserError(input.keys.requestFailedWithMessage, 1, {
             ...input.subject,
             message: responseMessage,
             status,
-        });
+        }, structured);
     }
 
     if (isNonEmptyString(errorCode)) {
@@ -783,7 +802,7 @@ function createConnectorFailureError(input: {
             ...input.subject,
             errorCode,
             status,
-        });
+        }, structured);
     }
 
     const responseBody = createConnectorFailureBodyPreview(rawResponse);
@@ -792,11 +811,11 @@ function createConnectorFailureError(input: {
             ...input.subject,
             body: responseBody,
             status,
-        });
+        }, structured);
     }
 
     return new CliUserError(input.keys.requestFailed, 1, {
         ...input.subject,
         status,
-    });
+    }, structured);
 }

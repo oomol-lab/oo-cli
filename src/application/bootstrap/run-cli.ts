@@ -39,6 +39,11 @@ import {
 import { createTranslator } from "../../i18n/translator.ts";
 import { migrateLegacyDefaultTeam } from "../auth/default-team.ts";
 import { loadCliCatalog } from "../commands/catalog.ts";
+import {
+    createCliErrorReport,
+    resolveErrorOutputFormatFromArgv,
+    writeCliError,
+} from "../commands/error-output.ts";
 import { resolveOpenFlowInvocation } from "../commands/flow-invocation.ts";
 import { synchronizeManagedSkillsForAvailableHosts } from "../commands/skills/auto-sync.ts";
 import { APP_NAME } from "../config/app-config.ts";
@@ -416,7 +421,12 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             );
         }
 
-        exitCode = writeBootstrapError(error, translator, invocation.stderr);
+        exitCode = writeBootstrapError(
+            error,
+            translator,
+            invocation.stderr,
+            invocation.argv,
+        );
         telemetryRecorder.observer.onCommandFailed?.({
             errorKey: error instanceof CliUserError ? error.key : "errors.unexpected",
             exitCode,
@@ -615,19 +625,13 @@ function writeBootstrapError(
     error: unknown,
     translator: ReturnType<typeof createTranslator>,
     stderr: Writer,
+    argv: readonly string[],
 ): number {
-    if (error instanceof CliUserError) {
-        stderr.write(`${translator.t(error.key, error.params)}\n`);
-        return error.exitCode;
-    }
+    const report = createCliErrorReport(error, translator);
 
-    stderr.write(
-        `${translator.t("errors.unexpected", {
-            message: error instanceof Error ? error.message : String(error),
-        })}\n`,
-    );
+    writeCliError(stderr, report, resolveErrorOutputFormatFromArgv(argv));
 
-    return 1;
+    return report.exitCode;
 }
 
 interface ClosableResource {

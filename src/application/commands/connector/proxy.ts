@@ -170,9 +170,18 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
             });
 
             if (response.data.status >= 400) {
+                // The connector call itself succeeded; the status belongs to the
+                // proxied provider API, so it is reported separately from the
+                // connector service's own `httpStatus`.
                 throw new CliUserError("errors.connectorProxy.requestFailed", 1, {
                     service: input.serviceName,
                     status: response.data.status,
+                }, {
+                    details: {
+                        executionId: response.meta.executionId,
+                        service: input.serviceName,
+                        upstreamHttpStatus: response.data.status,
+                    },
                 });
             }
         }

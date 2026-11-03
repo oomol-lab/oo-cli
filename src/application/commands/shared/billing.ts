@@ -1,12 +1,18 @@
+import type { CliErrorDetails } from "../../contracts/cli.ts";
+
 import { CliUserError } from "../../contracts/cli.ts";
 
 export const insufficientCreditHttpStatus = 402;
 export const insufficientCreditErrorCode = "OOMOL_INSUFFICIENT_CREDIT";
 export const billingUrl = "https://console.oomol.com/billing";
 
-export function createInsufficientCreditError(): CliUserError {
+export function createInsufficientCreditError(
+    details?: CliErrorDetails,
+): CliUserError {
     return new CliUserError("errors.billing.insufficientCredit", 3, {
         url: billingUrl,
+    }, {
+        details: { billingUrl, ...details },
     });
 }
 

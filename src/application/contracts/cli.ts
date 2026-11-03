@@ -198,16 +198,46 @@ export interface CliCommandContext extends CliExecutionContext {
 
 export type CliMessageParams = Record<string, string | number>;
 
+/** JSON-serializable, machine-readable error fields reported in JSON output mode. */
+export type CliErrorDetails = Record<string, unknown>;
+
+export interface CliUserErrorStructuredData {
+    /**
+     * Stable machine-readable code. Defaults to the message key without its
+     * `errors.` prefix; override it when several message keys only differ in
+     * presentation and must share one programmatic code.
+     */
+    code?: string;
+    details?: CliErrorDetails;
+}
+
+const cliErrorKeyPrefix = "errors.";
+
 export class CliUserError extends Error {
+    readonly code: string;
+    readonly details?: CliErrorDetails;
     readonly exitCode: number;
     readonly key: string;
     readonly params?: CliMessageParams;
 
-    constructor(key: string, exitCode: number, params?: CliMessageParams) {
+    constructor(
+        key: string,
+        exitCode: number,
+        params?: CliMessageParams,
+        structured?: CliUserErrorStructuredData,
+    ) {
         super(key);
         this.name = "CliUserError";
         this.key = key;
         this.exitCode = exitCode;
         this.params = params;
+        this.code = structured?.code ?? toCliErrorCode(key);
+        this.details = structured?.details;
     }
+}
+
+export function toCliErrorCode(key: string): string {
+    return key.startsWith(cliErrorKeyPrefix)
+        ? key.slice(cliErrorKeyPrefix.length)
+        : key;
 }

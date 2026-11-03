@@ -969,7 +969,20 @@ describe("connectorCommand CLI", () => {
             );
 
             expect(result.exitCode).toBe(1);
-            expect(result.stderr).toContain(`Connector proxy service feishu returned HTTP ${status}`);
+            expect(JSON.parse(result.stderr)).toEqual({
+                error: {
+                    code: "connectorProxy.requestFailed",
+                    details: {
+                        executionId: "exec-failed",
+                        service: "feishu",
+                        upstreamHttpStatus: status,
+                    },
+                    exitCode: 1,
+                    message: expect.stringContaining(
+                        `Connector proxy service feishu returned HTTP ${status}`,
+                    ),
+                },
+            });
             expect(JSON.parse(result.stdout)).toEqual({
                 data: {
                     status,
@@ -2174,13 +2187,24 @@ describe("connectorCommand CLI", () => {
             });
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
-            expect(result.stderr).toContain("Task submission succeeded");
-            expect(result.stderr).toContain("was not executed");
-            expect(result.stderr).toContain("409");
-            expect(result.stderr).toContain("approval_required");
-            expect(result.stderr).toContain("same team and connection");
-            expect(result.stderr).toContain("Do not resubmit");
-            const recovery = JSON.parse(result.stderr.split("Recovery JSON:\n")[1]!);
+            const errorPayload = JSON.parse(result.stderr) as {
+                error: {
+                    code: string;
+                    details: { handle: unknown; recovery: unknown };
+                    message: string;
+                };
+            };
+            const message = errorPayload.error.message;
+            expect(errorPayload.error.code).toBe("connectorRun.asyncApprovalRequired");
+            expect(message).toContain("Task submission succeeded");
+            expect(message).toContain("was not executed");
+            expect(message).toContain("409");
+            expect(message).toContain("approval_required");
+            expect(message).toContain("same team and connection");
+            expect(message).toContain("Do not resubmit");
+            const recovery = JSON.parse(message.split("Recovery JSON:\n")[1]!);
+            expect(errorPayload.error.details.recovery).toEqual(recovery);
+            expect(errorPayload.error.details.handle).toBe("private-session-1");
             expect(recovery).toEqual({
                 service: "fusion-api",
                 action: "openai_image_async_result",
@@ -4181,6 +4205,243 @@ describe("connectorCommand CLI", () => {
             );
         }
         finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports connector run failures as structured JSON errors in JSON mode", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(
+                sandbox,
+                {
+                    description: "Get a Gmail message by id.",
+                    inputSchema: {
+                        type: "object",
+                    },
+                    name: "get_message",
+                    outputSchema: {
+                        type: "object",
+                    },
+                    service: "gmail",
+                },
+            );
+
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "get_message",
+                    "-d",
+                    "{\"messageId\":\"invalid-id\"}",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        errorCode: "connection_ambiguous",
+                        message: "Multiple connections match",
+                        meta: {
+                            executionId: "exec-1",
+                        },
+                    }), {
+                        status: 409,
+                    }),
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(JSON.parse(result.stderr)).toEqual({
+                error: {
+                    code: "connectorRun.requestFailed",
+                    details: {
+                        action: "get_message",
+                        executionId: "exec-1",
+                        httpStatus: 409,
+                        service: "gmail",
+                        upstreamErrorCode: "connection_ambiguous",
+                    },
+                    exitCode: 1,
+                    message: "Connector action get_message returned HTTP 409 (errorCode: connection_ambiguous): Multiple connections match",
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("keeps one connector run error code when the failure body has no structured fields", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox);
+
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":\"user@example.com\"}",
+                    "--format",
+                    "json",
+                ],
+                {
+                    fetcher: async () => new Response("<html>bad gateway</html>", {
+                        status: 502,
+                    }),
+                },
+            );
+            const payload = JSON.parse(result.stderr) as {
+                error: { code: string; details: Record<string, unknown> };
+            };
+
+            expect(result.exitCode).toBe(1);
+            expect(payload.error.code).toBe("connectorRun.requestFailed");
+            expect(payload.error.details).toEqual({
+                action: "send_mail",
+                httpStatus: 502,
+                service: "gmail",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports connector payload validation issues as structured JSON errors", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(
+                sandbox,
+                {
+                    description: "Send a Gmail message.",
+                    inputSchema: {
+                        properties: {
+                            to: {
+                                type: "string",
+                            },
+                        },
+                        required: ["to"],
+                        type: "object",
+                    },
+                    name: "send_mail",
+                    outputSchema: {
+                        type: "object",
+                    },
+                    service: "gmail",
+                },
+            );
+
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":1}",
+                    "--dry-run",
+                    "--json",
+                ],
+            );
+            const payload = JSON.parse(result.stderr) as {
+                error: {
+                    code: string;
+                    details: { issues: Array<Record<string, unknown>> };
+                    exitCode: number;
+                };
+            };
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(payload.error.code).toBe("connectorRun.invalidPayload");
+            expect(payload.error.exitCode).toBe(2);
+            expect(payload.error.details.issues).toEqual([
+                {
+                    keyword: "type",
+                    message: expect.any(String),
+                    params: { type: "string" },
+                    path: "/to",
+                },
+            ]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("includes the submit handle in structured async wait failures", async () => {
+        const sandbox = await createCliSandbox();
+        const sleepMock = createBunSleepMock();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncSubmitActionSchema());
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+
+            const responses = [
+                {
+                    data: {
+                        sessionId: "session-1",
+                    },
+                    meta: {
+                        executionId: "submit-exec",
+                    },
+                },
+                {
+                    data: {
+                        state: "not_found",
+                    },
+                    meta: {
+                        executionId: "poll-exec",
+                    },
+                },
+            ];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_submit",
+                    "-d",
+                    "{\"prompt\":\"a cat\"}",
+                    "--wait-result",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => new Response(JSON.stringify(responses.shift())),
+                },
+            );
+            const payload = JSON.parse(result.stderr) as {
+                error: { code: string; details: Record<string, unknown> };
+            };
+
+            expect(result.exitCode).toBe(1);
+            expect(payload.error.code).toBe("connectorRun.asyncFailed");
+            expect(payload.error.details).toEqual({
+                action: "openai_image_async_result",
+                handle: "session-1",
+                pollCount: 1,
+                service: "fusion-api",
+                state: "not_found",
+                submitExecutionId: "submit-exec",
+            });
+        }
+        finally {
+            sleepMock.restore();
             await sandbox.cleanup();
         }
     });

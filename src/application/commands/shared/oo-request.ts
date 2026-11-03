@@ -353,11 +353,13 @@ async function performOoFetch(
         );
 
         if (isInsufficientCreditResponse(status, failure.bodyText)) {
-            throw createInsufficientCreditError();
+            throw createInsufficientCreditError({ httpStatus: status });
         }
 
         throw options.statusErrors?.(failure)
-            ?? new CliUserError(keys.requestFailed, 1, { status });
+            ?? new CliUserError(keys.requestFailed, 1, { status }, {
+                details: { httpStatus: status },
+            });
     }
 
     options.context.logger.debug(
