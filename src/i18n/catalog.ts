@@ -438,6 +438,14 @@ export const enMessages = {
         "The connector action input schema is invalid: {message}",
     "errors.connectorRun.invalidDataJson":
         "The --data value is not valid JSON: {message}",
+    "errors.connectorRun.invalidFileReference":
+        "The file reference at {path} in --data is invalid. Use an object with only a non-empty \"$file\" path, for example {\"$file\": \"./report.pdf\"}.",
+    "errors.connectorRun.fileReferenceNotFile":
+        "The file reference path {path} is not a regular file.",
+    "errors.connectorRun.fileReferenceReadFailed":
+        "Failed to read the referenced file {path}: {message}",
+    "errors.connectorRun.fileReferenceTooLarge":
+        "The referenced file {path} is {size} bytes, which exceeds the 500 MiB limit of {max} bytes.",
     "errors.connectorRun.invalidPayload":
         "The connector action input payload is invalid: {message}",
     "errors.connectorRun.invalidResponse":
@@ -1339,6 +1347,8 @@ export const enMessages = {
     "team.use.envOverrideHint":
         "Team-aware commands keep using the team from {envVar}, not this default. Unset {envVar} to use the saved default.",
     "connector.run.text.dryRunPassed": "Validation passed.",
+    "connector.run.text.fileUploaded":
+        "Temporarily uploaded {fileName} for {inputPath} (expires {expiresAt}).",
     "connector.login.manageTokens": "Manage runtime tokens at {accessUrl}",
     "connector.login.noToken":
         "No token configured. If the server enables runtime tokens later, create one at {accessUrl} and log in again.",
@@ -1838,6 +1848,14 @@ export const zhMessages = {
         "connector action 的输入 schema 无效：{message}",
     "errors.connectorRun.invalidDataJson":
         "--data 的值不是合法 JSON：{message}",
+    "errors.connectorRun.invalidFileReference":
+        "--data 中 {path} 处的文件引用无效。请使用只包含非空 \"$file\" 路径的对象，例如 {\"$file\": \"./report.pdf\"}。",
+    "errors.connectorRun.fileReferenceNotFile":
+        "文件引用路径 {path} 不是普通文件。",
+    "errors.connectorRun.fileReferenceReadFailed":
+        "读取引用文件 {path} 失败：{message}",
+    "errors.connectorRun.fileReferenceTooLarge":
+        "引用文件 {path} 大小为 {size} 字节，超过 500 MiB（{max} 字节）上限。",
     "errors.connectorRun.invalidPayload":
         "connector action 的输入 payload 无效：{message}",
     "errors.connectorRun.invalidResponse":
@@ -2729,6 +2747,8 @@ export const zhMessages = {
     "team.use.envOverrideHint":
         "团队相关命令仍会使用 {envVar} 指定的团队，而不是这个默认值。取消 {envVar} 后保存的默认值才会生效。",
     "connector.run.text.dryRunPassed": "校验通过。",
+    "connector.run.text.fileUploaded":
+        "已为 {inputPath} 临时上传 {fileName}（{expiresAt} 过期）。",
     "connector.login.manageTokens": "可在 {accessUrl} 管理 Runtime Token。",
     "connector.login.noToken":
         "未配置令牌。若服务之后启用了 Runtime Token，请在 {accessUrl} 创建后重新登录。",

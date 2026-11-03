@@ -326,6 +326,9 @@ and the exit code is unchanged:
     still carries the proxied response in this case.
   - `connectorRun.asyncApprovalRequired`: `recovery`
     (`{ service, action, input, submitExecutionId }`) and `handle`.
+  - `connectorRun.invalidFileReference`, `connectorRun.fileReferenceReadFailed`,
+    `connectorRun.fileReferenceNotFile`, `connectorRun.fileReferenceTooLarge`,
+    and upload failures of a `$file` reference: `inputPath`.
   - `connectorRun.invalidPayload`: `issues`, an array of
     `{ path, keyword, message, params }` where `path` is a JSON Pointer into
     the `--data` payload.
@@ -1237,6 +1240,21 @@ Validate input data and run one connector action.
 - Options: `-d, --data <data>` accepts inline JSON, `@path` to a JSON file, or
   `@-` to read JSON from stdin (see [JSON Input](#json-input)).
   `--input <data>` is an alias for `--data <data>`.
+- Options: inside `--data`, an object `{ "$file": "<path>" }` references a local
+  file. Before execution the CLI uploads the file to temporary OOMOL file
+  storage and replaces the object with the file's download URL:
+  - The object must contain only a non-empty `$file` string; anything else
+    containing `$file` is rejected with exit code `2`. Relative paths resolve
+    against the current directory.
+  - The payload is validated against the action contract with a URL in place
+    of each reference before anything is uploaded, so the target field must
+    accept a URL string.
+  - The same file referenced several times is uploaded once per command.
+  - Uploads follow `oo file upload`: they require an OOMOL account (also
+    against a self-hosted connector), files up to 500 MiB, links that expire
+    after seven days, and records that `oo file list` shows.
+  - `--dry-run` checks that each referenced file exists and fits the limit
+    but uploads nothing.
 - Options: `--app-id <app-id>` selects the exact connection from search.
   It is mutually exclusive with `--connection-name`; empty IDs are rejected.
   The selected team must own that connection; an app ID does not switch teams.
@@ -1260,6 +1278,10 @@ Validate input data and run one connector action.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: non-dry-run JSON output mirrors the stable response shape
   `{ data, meta: { executionId } }`.
+- Output: when `--data` contains `$file` references, JSON output adds
+  `meta.uploads`, one `{ inputPath, fileName, fileSize, expiresAt }` entry per
+  reference, where `inputPath` is a JSON Pointer into `--data`. Download URLs
+  are never printed. Text mode prints one line per upload on stderr.
 - Output: for async submit actions, the default output is the submit result,
   such as a handle or session id. The CLI does not wait automatically.
 - Output: with `--wait-result`, JSON output uses the completed result in `data`

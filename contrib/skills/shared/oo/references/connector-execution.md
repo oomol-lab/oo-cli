@@ -63,7 +63,9 @@ Representative schema JSON shape:
 - Preserve service-specific constraints such as recipient, folder, file id,
   time range, calendar, channel, label, format, or destination.
 - If an input can accept a URI and the user only has a local file, read
-  [file-transfer.md](file-transfer.md) before executing.
+  [file-transfer.md](file-transfer.md) before executing. In
+  `oo connector run`, pass the file as `{ "$file": "<path>" }` instead of a
+  separate upload step.
 - If the task depends on raw file bytes, local paths, or unsupported
   special-media handles that cannot be submitted safely through normal JSON,
   stop the current `oo` path.

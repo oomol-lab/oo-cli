@@ -36,6 +36,8 @@ import {
     connectorSearchServiceColor,
 } from "./search-provider.ts";
 
+const fileReferenceDownloadUrl = "https://download.example.com/file-1?signature=abc";
+
 describe("connectorCommand CLI", () => {
     test.each([
         { argv: ["--team", "acme", "connector", "search", "send mail"], team: "acme" },
@@ -4364,6 +4366,277 @@ describe("connectorCommand CLI", () => {
         }
     });
 
+    test("uploads $file references once and sends the temporary URL", async () => {
+        const sandbox = await createCliSandbox();
+        const localFilePath = join(sandbox.env.HOME!, "report.pdf");
+
+        try {
+            await writeAuthFile(sandbox);
+            await Bun.write(localFilePath, "pdf-bytes");
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture({
+                inputSchema: {
+                    properties: {
+                        attachments: {
+                            items: { format: "uri", type: "string" },
+                            type: "array",
+                        },
+                        to: { type: "string" },
+                    },
+                    required: ["to", "attachments"],
+                    type: "object",
+                },
+            }));
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    JSON.stringify({
+                        attachments: [{ $file: localFilePath }, { $file: localFilePath }],
+                        to: "user@example.com",
+                    }),
+                    "--json",
+                ],
+                {
+                    fetcher: createFileReferenceFetcher(requests, () => new Response(JSON.stringify({
+                        data: { messageId: "message-1" },
+                        meta: { executionId: "exec-1" },
+                    }))),
+                },
+            );
+            const actionRequest = requests.find(request => request.url.includes("/v1/actions/"));
+            const output = JSON.parse(result.stdout) as {
+                data: unknown;
+                meta: { executionId: string; uploads: Array<Record<string, unknown>> };
+            };
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(requests.filter(request => request.url.endsWith("/create-multipart-upload")))
+                .toHaveLength(1);
+            await expect(actionRequest?.json()).resolves.toEqual({
+                input: {
+                    attachments: [fileReferenceDownloadUrl, fileReferenceDownloadUrl],
+                    to: "user@example.com",
+                },
+            });
+            expect(output.data).toEqual({ messageId: "message-1" });
+            expect(output.meta.executionId).toBe("exec-1");
+            expect(output.meta.uploads).toEqual([
+                {
+                    expiresAt: expect.any(String),
+                    fileName: "report.pdf",
+                    fileSize: 9,
+                    inputPath: "/attachments/0",
+                },
+                {
+                    expiresAt: expect.any(String),
+                    fileName: "report.pdf",
+                    fileSize: 9,
+                    inputPath: "/attachments/1",
+                },
+            ]);
+            expect(result.stdout).not.toContain("signature");
+
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(telemetryPayload?.properties).toMatchObject({
+                file_reference_count: "1-5",
+            });
+            expect(JSON.stringify(telemetryPayload)).not.toContain("report.pdf");
+            expect(JSON.stringify(telemetryPayload)).not.toContain("signature");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports $file uploads on stderr in text mode", async () => {
+        const sandbox = await createCliSandbox();
+        const localFilePath = join(sandbox.env.HOME!, "report.pdf");
+
+        try {
+            await writeAuthFile(sandbox);
+            await Bun.write(localFilePath, "pdf-bytes");
+            await seedConnectorActionSchema(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    JSON.stringify({ attachment: { $file: localFilePath } }),
+                ],
+                {
+                    fetcher: createFileReferenceFetcher(requests, () => new Response(JSON.stringify({
+                        data: { messageId: "message-1" },
+                        meta: { executionId: "exec-1" },
+                    }))),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toContain("Temporarily uploaded report.pdf for /attachment");
+            expect(result.stderr).not.toContain("signature");
+            expect(result.stdout).not.toContain("signature");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("validates $file references in dry runs without uploading", async () => {
+        const sandbox = await createCliSandbox();
+        const localFilePath = join(sandbox.env.HOME!, "report.pdf");
+
+        try {
+            await writeAuthFile(sandbox);
+            await Bun.write(localFilePath, "pdf-bytes");
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture({
+                inputSchema: {
+                    properties: { attachment: { format: "uri", type: "string" } },
+                    required: ["attachment"],
+                    type: "object",
+                },
+            }));
+
+            const requests: Request[] = [];
+            const passed = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    JSON.stringify({ attachment: { $file: localFilePath } }),
+                    "--dry-run",
+                    "--json",
+                ],
+                { fetcher: createFileReferenceFetcher(requests, () => new Response("{}")) },
+            );
+            const missing = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    JSON.stringify({ attachment: { $file: join(sandbox.env.HOME!, "missing.pdf") } }),
+                    "--dry-run",
+                    "--json",
+                ],
+                { fetcher: createFileReferenceFetcher(requests, () => new Response("{}")) },
+            );
+            const missingError = JSON.parse(missing.stderr) as {
+                error: { code: string; details: Record<string, unknown>; exitCode: number };
+            };
+
+            expect(passed.exitCode).toBe(0);
+            expect(JSON.parse(passed.stdout)).toEqual({ dryRun: true, ok: true });
+            expect(missing.exitCode).toBe(1);
+            expect(missingError.error.code).toBe("connectorRun.fileReferenceReadFailed");
+            expect(missingError.error.details).toEqual({ inputPath: "/attachment" });
+            expect(requests).toHaveLength(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects $file references the action schema cannot accept before uploading", async () => {
+        const sandbox = await createCliSandbox();
+        const localFilePath = join(sandbox.env.HOME!, "report.pdf");
+
+        try {
+            await writeAuthFile(sandbox);
+            await Bun.write(localFilePath, "pdf-bytes");
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture({
+                inputSchema: {
+                    properties: { count: { type: "number" } },
+                    type: "object",
+                },
+            }));
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    JSON.stringify({ count: { $file: localFilePath } }),
+                    "--json",
+                ],
+                { fetcher: createFileReferenceFetcher(requests, () => new Response("{}")) },
+            );
+            const payload = JSON.parse(result.stderr) as {
+                error: { code: string; details: { issues: Array<{ path: string }> } };
+            };
+
+            expect(result.exitCode).toBe(2);
+            expect(payload.error.code).toBe("connectorRun.invalidPayload");
+            expect(payload.error.details.issues.map(issue => issue.path)).toEqual(["/count"]);
+            expect(requests).toHaveLength(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects malformed $file markers before any request", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    JSON.stringify({ attachment: { $file: "./a.pdf", name: "a" } }),
+                    "--json",
+                ],
+                { fetcher: createFileReferenceFetcher(requests, () => new Response("{}")) },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(JSON.parse(result.stderr)).toMatchObject({
+                error: {
+                    code: "connectorRun.invalidFileReference",
+                    details: { inputPath: "/attachment" },
+                    exitCode: 2,
+                },
+            });
+            expect(requests).toHaveLength(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("reports connector payload validation issues as structured JSON errors", async () => {
         const sandbox = await createCliSandbox();
 
@@ -6543,3 +6816,48 @@ test("rejects all-teams search for self-hosted targets", async () => {
     }
     finally { await sandbox.cleanup(); }
 });
+
+// Serves the multipart file upload endpoints with a single part and hands
+// every other request to `onOtherRequest`.
+function createFileReferenceFetcher(
+    requests: Request[],
+    onOtherRequest: (request: Request) => Response,
+) {
+    return async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+        const request = toRequest(input, init);
+
+        requests.push(request);
+
+        if (request.url.endsWith("/create-multipart-upload")) {
+            return Response.json({
+                success: true,
+                data: {
+                    key: "file-upload/user-1/file-1/report.pdf",
+                    partSize: 1024,
+                    totalParts: 1,
+                    uploadID: "upload-1",
+                },
+            });
+        }
+
+        if (request.url.endsWith("/generate-presigned-urls")) {
+            return Response.json({
+                success: true,
+                data: [{ partNumber: 1, uploadURL: "https://storage.example.com/upload/1" }],
+            });
+        }
+
+        if (request.url.startsWith("https://storage.example.com/upload/")) {
+            return new Response(null, { headers: { ETag: "\"etag-1\"" }, status: 200 });
+        }
+
+        if (request.url.endsWith("/complete-multipart-upload")) {
+            return Response.json({
+                success: true,
+                data: { downloadURL: fileReferenceDownloadUrl },
+            });
+        }
+
+        return onOtherRequest(request);
+    };
+}

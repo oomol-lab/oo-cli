@@ -5,6 +5,7 @@ import type {
     FileUploadStatus,
 } from "../../contracts/file-upload-store.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
+import type { UploadSourceFile } from "../shared/upload-source-file.ts";
 import type { TeamIdentity } from "../team/identity.ts";
 
 import { z } from "zod";
@@ -249,6 +250,58 @@ export async function uploadFileParts(
             );
         },
     );
+}
+
+/**
+ * Uploads one validated local file through the multipart flow and records it
+ * in the local upload store, so `oo file list` shows it. Returns the stored
+ * record, including the temporary download URL.
+ */
+export async function uploadLocalFile(
+    sourceFile: UploadSourceFile,
+    account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    identity: TeamIdentity | undefined,
+    context: Pick<CliExecutionContext, "fetcher" | "fileUploadStore" | "logger" | "translator">,
+): Promise<FileUploadRecord> {
+    const uploadSession = await createMultipartFileUpload(
+        account,
+        identity,
+        sourceFile.fileName,
+        sourceFile.fileSize,
+        context,
+    );
+    const presignedPartUrls = await generatePresignedFileUploadPartUrls(
+        account,
+        identity,
+        uploadSession,
+        context,
+    );
+    const uploadedParts = await uploadFileParts(
+        sourceFile.file,
+        uploadSession,
+        presignedPartUrls,
+        context,
+    );
+    const uploadResult = await completeMultipartFileUpload(
+        account,
+        identity,
+        uploadSession,
+        uploadedParts,
+        context,
+    );
+    const uploadedAtMs = Date.now();
+    const record: FileUploadRecord = {
+        downloadUrl: uploadResult.downloadUrl,
+        expiresAtMs: uploadedAtMs + fileUploadExpiresInMs,
+        fileName: sourceFile.fileName,
+        fileSize: sourceFile.fileSize,
+        id: Bun.randomUUIDv7(),
+        uploadedAtMs,
+    };
+
+    context.fileUploadStore.save(record);
+
+    return record;
 }
 
 export async function completeMultipartFileUpload(

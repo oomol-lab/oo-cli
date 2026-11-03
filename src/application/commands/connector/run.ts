@@ -1,5 +1,6 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { TeamIdentity } from "../team/identity.ts";
+import type { ConnectorFileReferenceUpload } from "./file-references.ts";
 import type {
     ConnectorActionAsyncLifecycle,
     ConnectorActionRunResponse,
@@ -9,8 +10,9 @@ import type { ConnectorRequestTarget } from "./target.ts";
 
 import { Buffer } from "node:buffer";
 import { z } from "zod";
+import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
-import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
+import { bucketTelemetryBytes, bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import { TerminalProgressRenderer } from "../shared/terminal-progress-renderer.ts";
@@ -18,6 +20,11 @@ import {
     teamIdentityInputShape,
     teamOption,
 } from "../team/identity.ts";
+import {
+    collectConnectorFileReferences,
+    replaceFileReferencesWithPlaceholders,
+    uploadConnectorFileReferences,
+} from "./file-references.ts";
 import { formatConnectorExecutionResultAsText } from "./result-text.ts";
 import {
     invalidateConnectorActionSchemaOnNotFound,
@@ -167,20 +174,22 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             },
             context,
         );
-        const inputData = await readJsonInputValue(
+        const rawInputData = await readJsonInputValue(
             input.data,
             context,
             connectorRunDataErrorKeys,
             {},
         );
+        const fileReferences = await collectConnectorFileReferences(rawInputData, context);
 
         context.telemetry?.recordProperties({
             action: actionName,
             connection_selector: selectorMode,
             data_size_bucket: bucketTelemetryBytes(
-                Buffer.byteLength(JSON.stringify(inputData)),
+                Buffer.byteLength(JSON.stringify(rawInputData)),
             ),
             dry_run: input.dryRun === true,
+            file_reference_count: bucketTelemetryCount(fileReferences.length),
             service: input.serviceName,
             wait: input.wait === true,
             wait_result: input.waitResult === true,
@@ -214,7 +223,13 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             submitLifecycle = actionSchema.asyncLifecycle;
         }
 
-        validateConnectorActionInput(inputData, actionSchema.inputSchema, context.translator);
+        // Validate with placeholder URLs first so a payload that cannot use a
+        // file URL fails before any file leaves the machine.
+        validateConnectorActionInput(
+            replaceFileReferencesWithPlaceholders(rawInputData, fileReferences),
+            actionSchema.inputSchema,
+            context.translator,
+        );
 
         if (input.dryRun === true) {
             if (context.output.format === "json") {
@@ -254,6 +269,35 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             }
 
             resultLifecycle = resultActionSchema.asyncLifecycle;
+        }
+
+        let inputData = rawInputData;
+        let fileUploads: ConnectorFileReferenceUpload[] = [];
+
+        if (fileReferences.length > 0) {
+            // Temporary uploads always go through the OOMOL file service, so
+            // they need an OOMOL account even against a self-hosted connector.
+            const { account } = await requireIdentity(context);
+            const uploaded = await uploadConnectorFileReferences(
+                rawInputData,
+                fileReferences,
+                account,
+                identity,
+                context,
+            );
+
+            inputData = uploaded.inputData;
+            fileUploads = uploaded.uploads;
+
+            if (context.output.format !== "json") {
+                for (const upload of fileUploads) {
+                    context.stderr.write(`${context.translator.t("connector.run.text.fileUploaded", {
+                        expiresAt: upload.expiresAt,
+                        fileName: upload.fileName,
+                        inputPath: upload.inputPath,
+                    })}\n`);
+                }
+            }
         }
 
         const progressReporter = resultLifecycle === undefined || context.output.format === "json"
@@ -296,7 +340,9 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         }
 
         if (context.output.format === "json") {
-            context.output.emitJson(response);
+            context.output.emitJson(fileUploads.length === 0
+                ? response
+                : { ...response, meta: { ...response.meta, uploads: fileUploads } });
             return;
         }
 

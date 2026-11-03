@@ -269,6 +269,9 @@ oo flow
     响应。
   - `connectorRun.asyncApprovalRequired`：`recovery`
     （`{ service, action, input, submitExecutionId }`）和 `handle`。
+  - `connectorRun.invalidFileReference`、`connectorRun.fileReferenceReadFailed`、
+    `connectorRun.fileReferenceNotFile`、`connectorRun.fileReferenceTooLarge`，
+    以及 `$file` 引用上传失败：`inputPath`。
   - `connectorRun.invalidPayload`：`issues`，为
     `{ path, keyword, message, params }` 数组，`path` 是指向 `--data` payload 的
     JSON Pointer。
@@ -1034,6 +1037,17 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 选项：`-d, --data <data>` 支持直接传入 JSON、使用 `@路径` 读取 JSON 文件，
   或使用 `@-` 从 stdin 读取 JSON（见 [JSON 输入](#json-输入)）。
   `--input <data>` 是 `--data <data>` 的 alias。
+- 选项：`--data` 中的对象 `{ "$file": "<路径>" }` 表示引用本地文件。执行前 CLI
+  会把文件上传到 OOMOL 临时文件存储，并用该文件的下载 URL 替换这个对象：
+  - 对象只能包含一个非空字符串 `$file`；其他含 `$file` 的形式以退出码 `2`
+    拒绝。相对路径相对于当前目录解析。
+  - 上传前会先用 URL 代替每个引用，按 action contract 校验 payload，因此目标
+    字段必须接受 URL 字符串。
+  - 同一条命令中多次引用同一文件只上传一次。
+  - 上传规则与 `oo file upload` 一致：需要 OOMOL 账号（面向自部署 Connector
+    时也需要）、文件不超过 500 MiB、链接 7 天后过期，上传记录可通过
+    `oo file list` 查看。
+  - `--dry-run` 只检查引用文件存在且未超出大小上限，不会上传。
 - 选项：`--app-id <app-id>` 精确选择搜索返回的连接，与 `--connection-name` 互斥，
   不接受空值。当前选择的团队必须拥有该连接，app ID 本身不会切换团队。
 - 选项：`--connection-name <connection-name>` 使用指定 connector app 连接名称
@@ -1051,6 +1065,10 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 选项：`--format=json` 和 `--json` 会输出 JSON 对象。
 - 输出：非 dry-run 的 JSON 输出会保持稳定结构
   `{ data, meta: { executionId } }`。
+- 输出：`--data` 含 `$file` 引用时，JSON 输出额外包含 `meta.uploads`，每个引用
+  对应一条 `{ inputPath, fileName, fileSize, expiresAt }`，`inputPath` 是指向
+  `--data` 的 JSON Pointer。下载 URL 永远不会输出。文本模式会在 stderr 为每次
+  上传打印一行。
 - 输出：对于异步 submit action，默认输出 submit 结果，例如 handle 或
   session id；CLI 不会自动等待。
 - 输出：使用 `--wait-result` 时，JSON 输出的 `data` 是完成后的结果，并包含

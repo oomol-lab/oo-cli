@@ -29,6 +29,33 @@ transfer workflows.
 - Do not use `curl`, `wget`, Python, browser automation, ad hoc HTTP calls, or
   third-party SDKs as replacement transfer paths.
 
+## Reference a local file in `oo connector run`
+
+Prefer this over a separate `oo file upload` step when the selected connector
+input accepts a URI string and the user has a local file:
+
+```bash
+oo connector run "<serviceName>" --action "<actionName>" \
+  --data '{"attachment":{"$file":"./report.pdf"}}' --json
+```
+
+Facts:
+
+- `{ "$file": "<path>" }` must be the whole value of the field and contain no
+  other keys. Relative paths resolve against the current directory.
+- The CLI validates the payload with a URL in place of each reference before
+  uploading, uploads each distinct file once, and sends the temporary download
+  URL. Uploads require an OOMOL account, follow the same 500 MiB and
+  seven-day limits as `oo file upload`, and appear in `oo file list`.
+- JSON output adds `meta.uploads[]` with `{ inputPath, fileName, fileSize,
+  expiresAt }`; the download URL is never printed.
+- `--dry-run` checks the referenced files without uploading.
+- Failures carry `error.details.inputPath`, a JSON Pointer to the reference.
+- Tell the user which files were temporarily uploaded. As with
+  `oo file upload`, the temporary upload is not the user's final outcome.
+- `$file` only works in `oo connector run --data`. For `oo connector proxy` or
+  when the URL must be reused across commands, use `oo file upload`.
+
 ## Upload a local file for a URI-compatible input
 
 Canonical form:
