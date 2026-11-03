@@ -156,9 +156,12 @@ export async function loadConnectorActionSchema(
         return metadata;
     }
     catch (error) {
-        if (isConnectorActionSchemaNotFoundError(error)) {
-            cache.delete(cacheKey);
-        }
+        invalidateConnectorActionSchemaOnNotFound({
+            actionName: options.actionName,
+            cacheScope: options.target.cacheScope,
+            serviceName: options.serviceName,
+            error,
+        }, context);
 
         throw error;
     }

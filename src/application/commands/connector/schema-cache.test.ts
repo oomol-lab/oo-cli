@@ -100,6 +100,41 @@ describe("connector schema cache", () => {
         }
     });
 
+    test("a metadata refresh returning 404 invalidates every cached language", async () => {
+        const cache = createMemoryCache();
+        const options = {
+            target: createConnectorTargetFixture(),
+            actionName: "send_mail",
+            serviceName: "gmail",
+        };
+        for (const locale of ["en", "zh"] as const) {
+            await loadConnectorActionSchema(options, createCacheContext({
+                cache,
+                locale,
+                fetcher: async () => createMetadataResponse(),
+            }));
+        }
+
+        await expect(loadConnectorActionSchema({ ...options, refresh: true }, createCacheContext({
+            cache,
+            locale: "en",
+            fetcher: async () => Response.json({ message: "Action not found" }, { status: 404 }),
+        }))).rejects.toBeInstanceOf(CliUserError);
+
+        for (const locale of ["en", "zh"] as const) {
+            let requested = false;
+            await loadConnectorActionSchema(options, createCacheContext({
+                cache,
+                locale,
+                fetcher: async () => {
+                    requested = true;
+                    return createMetadataResponse();
+                },
+            }));
+            expect(requested).toBeTrue();
+        }
+    });
+
     test("loadConnectorActionSchema caches fetched metadata and reuses it without a second fetch", async () => {
         const cache = createMemoryCache();
         let fetchCount = 0;
