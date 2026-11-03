@@ -12,6 +12,12 @@ Project overview: [README.md](../README.md)
 - `-h, --help`: Show help for the current command.
 - `-V, --version`: Show the current CLI version, build time, and commit hash.
 
+## Insufficient OOMOL balance
+
+When `oo` reports insufficient OOMOL credit, it exits with code `3` and prints the
+recharge link to stderr. Callers can handle this code without parsing the message.
+A third-party provider’s HTTP 402 alone does not trigger this exit code.
+
 ## Environment Variables
 
 The CLI reads these environment variables to support embedded and automated
