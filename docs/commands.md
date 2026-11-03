@@ -281,6 +281,18 @@ conventions:
 - `--show-schema-version` has no effect unless JSON output is requested with
   `--format=json` or `--json`.
 
+### JSON Input
+
+Options that document `@-` read their JSON value from stdin until EOF, for
+example `echo '{"to":"a@example.com"}' | oo connector run gmail -a send_mail -d @-`.
+
+- `@-` requires piped input; it fails with exit code `2` when stdin is an
+  interactive terminal.
+- Only one option per command can read from stdin; a second `@-` fails with
+  exit code `2`.
+- Empty stdin is reported as invalid JSON.
+- To read a file literally named `-`, use `@./-`.
+
 ### JSON Errors
 
 When `--format=json` or `--json` is passed explicitly, a failing command writes
@@ -789,9 +801,11 @@ provided JSON Schema.
 - Authentication: requires the current OOMOL account.
 - Options:
   - `--schema <schema>` is required. The value must be a JSON Schema object
-    with root type `object`, or `@path/to/schema.json`.
-  - `--input <input>` provides input JSON or `@path/to/input.json`. When
-    omitted, the input is `{}`.
+    with root type `object`, `@path/to/schema.json`, or `@-` to read it from
+    stdin.
+  - `--input <input>` provides input JSON, `@path/to/input.json`, or `@-` to
+    read it from stdin. When omitted, the input is `{}`. Only one of
+    `--schema` and `--input` can use `@-`.
   - `--system <system>` provides extra system prompt text or `@path/to/system.txt`.
   - `--max-retries <count>` sets retries after the first attempt. Default is
     `2`; supported values are `0` through `5`.
@@ -1220,7 +1234,8 @@ Validate input data and run one connector action.
 
 - Arguments: `<serviceName>` is the service name.
 - Options: `-a, --action <action>` selects the action name and is required.
-- Options: `-d, --data <data>` accepts inline JSON or `@path` to a JSON file.
+- Options: `-d, --data <data>` accepts inline JSON, `@path` to a JSON file, or
+  `@-` to read JSON from stdin (see [JSON Input](#json-input)).
   `--input <data>` is an alias for `--data <data>`.
 - Options: `--app-id <app-id>` selects the exact connection from search.
   It is mutually exclusive with `--connection-name`; empty IDs are rejected.
@@ -1320,8 +1335,8 @@ read-only.
 Proxy a provider API request through a connected connector app.
 
 - Arguments: `<serviceName>` is the service name.
-- Options: `-d, --data <data>` accepts a complete proxy request JSON object or
-  `@path` to a JSON file. The object shape is
+- Options: `-d, --data <data>` accepts a complete proxy request JSON object,
+  `@path` to a JSON file, or `@-` to read it from stdin. The object shape is
   `{ endpoint, method?, query?, headers?, body? }`.
 - Options: `--input <data>` is an alias for `--data <data>`.
 - Options: without `--data`, use `--endpoint <endpoint>` plus optional

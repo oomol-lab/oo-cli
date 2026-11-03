@@ -229,6 +229,16 @@ oo flow
 - 如果没有通过 `--format=json` 或 `--json` 请求 JSON 输出，
   `--show-schema-version` 不会产生任何效果。
 
+### JSON 输入
+
+文档中标注支持 `@-` 的选项会从 stdin 读取 JSON 直到 EOF，例如
+`echo '{"to":"a@example.com"}' | oo connector run gmail -a send_mail -d @-`。
+
+- `@-` 需要管道输入；stdin 为交互式终端时以退出码 `2` 失败。
+- 同一条命令只能有一个选项从 stdin 读取；第二个 `@-` 以退出码 `2` 失败。
+- stdin 为空时按非法 JSON 报错。
+- 如需读取名为 `-` 的文件，请使用 `@./-`。
+
 ### JSON 错误
 
 显式传入 `--format=json` 或 `--json` 时，命令失败会向 stderr 输出一行 JSON，
@@ -651,9 +661,10 @@ oo flow
 - 认证：要求存在当前 OOMOL 账号。
 - 选项：
   - `--schema <schema>` 为必填。取值必须是根类型为 `object` 的 JSON Schema
-    object，或 `@path/to/schema.json`。
-  - `--input <input>` 提供输入 JSON，或使用 `@path/to/input.json` 读取。
-    省略时输入为 `{}`。
+    object、`@path/to/schema.json`，或使用 `@-` 从 stdin 读取。
+  - `--input <input>` 提供输入 JSON，或使用 `@path/to/input.json` 读取，或使用
+    `@-` 从 stdin 读取。省略时输入为 `{}`。`--schema` 与 `--input` 只能有一个
+    使用 `@-`。
   - `--system <system>` 提供额外 system prompt 文本，或使用
     `@path/to/system.txt` 读取。
   - `--max-retries <count>` 设置首次尝试之后的重试次数。默认值为 `2`；
@@ -1020,7 +1031,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 
 - 参数：`<serviceName>` 为服务名。
 - 选项：`-a, --action <action>` 用于指定 action 名称，且为必填。
-- 选项：`-d, --data <data>` 支持直接传入 JSON，或使用 `@路径` 读取 JSON 文件。
+- 选项：`-d, --data <data>` 支持直接传入 JSON、使用 `@路径` 读取 JSON 文件，
+  或使用 `@-` 从 stdin 读取 JSON（见 [JSON 输入](#json-输入)）。
   `--input <data>` 是 `--data <data>` 的 alias。
 - 选项：`--app-id <app-id>` 精确选择搜索返回的连接，与 `--connection-name` 互斥，
   不接受空值。当前选择的团队必须拥有该连接，app ID 本身不会切换团队。
@@ -1098,8 +1110,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 通过已连接的 connector app 代理 provider API 请求。
 
 - 参数：`<serviceName>` 为服务名。
-- 选项：`-d, --data <data>` 接收完整 proxy request JSON object，或使用
-  `@路径` 读取 JSON 文件。对象形状为
+- 选项：`-d, --data <data>` 接收完整 proxy request JSON object，也可使用
+  `@路径` 读取 JSON 文件，或使用 `@-` 从 stdin 读取。对象形状为
   `{ endpoint, method?, query?, headers?, body? }`。
 - 选项：`--input <data>` 是 `--data <data>` 的 alias。
 - 选项：未传 `--data` 时，使用 `--endpoint <endpoint>`，以及可选的

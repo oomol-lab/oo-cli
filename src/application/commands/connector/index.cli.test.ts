@@ -10,6 +10,7 @@ import {
     createCliSandbox,
     createCliSnapshot,
     createConnectorActionFixture,
+    createInteractiveInput,
     expectTelemetryFreeOfTeamIdentity,
     readLatestLogContent,
     toRequest,
@@ -4310,6 +4311,52 @@ describe("connectorCommand CLI", () => {
                 action: "send_mail",
                 httpStatus: 502,
                 service: "gmail",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reads connector run payloads from stdin with -d @-", async () => {
+        const sandbox = await createCliSandbox();
+        const stdin = createInteractiveInput({ isTTY: false });
+        stdin.feed("{\"to\":\"user@example.com\"}");
+        stdin.end();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "@-",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: { messageId: "message-1" },
+                            meta: { executionId: "exec-1" },
+                        }));
+                    },
+                    stdin,
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            await expect(requests[0]?.json()).resolves.toEqual({
+                input: { to: "user@example.com" },
             });
         }
         finally {

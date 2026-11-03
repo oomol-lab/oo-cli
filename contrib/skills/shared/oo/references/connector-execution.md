@@ -98,7 +98,10 @@ Facts:
 
 - `serviceName` is the only positional argument.
 - `--action` is required and selects the connector action name.
-- `--data` must be a JSON object string or `@path/to/file.json`.
+- `--data` must be a JSON object string, `@path/to/file.json`, or `@-` to
+  read the JSON from stdin. Prefer `@-` (for example with a heredoc) for large
+  payloads or values that are awkward to shell-quote, instead of writing a
+  temporary file.
 - If `--data` is omitted, the CLI uses `{}`.
 - If a service has multiple connected apps or execution fails with
   `connection_ambiguous`, run `oo connector apps "<serviceName>" --json`, pick

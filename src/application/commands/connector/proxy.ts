@@ -194,7 +194,7 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
 
 async function buildConnectorProxyRequest(
     input: ConnectorProxyInput,
-    context: Pick<CliExecutionContext, "cwd">,
+    context: Pick<CliExecutionContext, "cwd" | "stdin">,
 ): Promise<ConnectorProxyRequest> {
     if (input.data !== undefined && hasSplitProxyRequestInput(input)) {
         throw new CliUserError("errors.connectorProxy.dataConflict", 2);

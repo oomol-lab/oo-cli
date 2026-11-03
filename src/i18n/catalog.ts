@@ -392,6 +392,10 @@ export const enMessages = {
         "Invalid value for {option}: {value}. Use an integer greater than or equal to 1.",
     "errors.shared.networkRestrictedSandboxHint":
         "Current environment may be running in a network-restricted sandbox. Try requesting elevated permissions.",
+    "errors.shared.stdinInputConsumed":
+        "Only one option can read from stdin with @- in a single command.",
+    "errors.shared.stdinInputTty":
+        "@- requires piped input; refusing to read from an interactive terminal.",
     "errors.connectorApps.invalidResponse":
         "The connector apps response body is unsupported.",
     "errors.connectorApps.requestError":
@@ -1788,6 +1792,10 @@ export const zhMessages = {
         "{option} 的值无效：{value}。请使用大于等于 1 的整数。",
     "errors.shared.networkRestrictedSandboxHint":
         "当前环境可能在网络受限的沙箱中，请尝试提权。",
+    "errors.shared.stdinInputConsumed":
+        "同一条命令中只能有一个选项通过 @- 读取 stdin。",
+    "errors.shared.stdinInputTty":
+        "@- 需要管道输入；拒绝从交互式终端读取。",
     "errors.connectorApps.invalidResponse":
         "connector app 列表返回了不受支持的响应内容。",
     "errors.connectorApps.requestError":
