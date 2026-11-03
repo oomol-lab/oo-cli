@@ -278,9 +278,12 @@ oo flow
   - `connectorRun.asyncTimedOut`、`connectorRun.asyncFailed`、
     `connectorRun.asyncUnknownState`：`service`、`action`、`pollCount` 和
     `state`（仅失败状态）。
-  - 使用 `--wait-result` 时，任务提交成功后的任何失败（无论 `code` 是什么）都会
-    额外包含 `handle` 和 `submitExecutionId`。请用该 handle 继续，不要重新提交
-    任务。
+  - 使用 `--wait-result` 时，提交响应返回 handle 之后的任何轮询失败（无论
+    `code` 是什么）都会额外包含 `handle` 和 `submitExecutionId`。请用该 handle
+    继续，不要重新提交任务。
+  - `connectorRun.asyncHandleMissing`：任务已提交，但响应中没有可用于轮询的
+    handle；`details` 包含 `service`、`action` 和 `submitExecutionId`。不要重新
+    提交任务。
 - 输出始终为 JSON 的命令（如 `oo connector schema`）在未传 `--json` 或
   `--format=json` 时仍输出纯文本错误。
 

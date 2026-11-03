@@ -335,9 +335,12 @@ and the exit code is unchanged:
   - `connectorRun.asyncTimedOut`, `connectorRun.asyncFailed`,
     `connectorRun.asyncUnknownState`: `service`, `action`, `pollCount`, and
     `state` (failure states only).
-  - With `--wait-result`, every failure after the task was submitted also
-    carries `handle` and `submitExecutionId`, whatever its `code`. Resume
-    with the handle instead of submitting the task again.
+  - With `--wait-result`, every polling failure after the submit response
+    returned a handle also carries `handle` and `submitExecutionId`, whatever
+    its `code`. Resume with the handle instead of submitting the task again.
+  - `connectorRun.asyncHandleMissing`: the task was submitted but its response
+    had no handle to poll with; `details` carries `service`, `action`, and
+    `submitExecutionId`. Do not resubmit the task.
 - Commands whose output is always JSON (such as `oo connector schema`) still
   print plain-text errors unless `--json` or `--format=json` is passed.
 

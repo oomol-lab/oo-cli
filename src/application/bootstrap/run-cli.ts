@@ -64,6 +64,7 @@ import {
 } from "../telemetry/constants.ts";
 import { emitCliCommandTelemetry } from "../telemetry/emitter.ts";
 import { createTelemetryInvocationRecorder } from "../telemetry/invocation.ts";
+import { wasStdinTerminalDetached } from "./detach-stdin.ts";
 
 export interface CliInvocation {
     argv: readonly string[];
@@ -681,6 +682,13 @@ function createLazyStdin(): InteractiveInput {
     // a TTY handle and save the terminal state.  On exit it restores that state,
     // which can race with a downstream process (e.g. `fx`) that has already
     // switched the terminal to raw mode, breaking its keyboard input.
+    // A terminal fd 0 detached at startup must not be touched either, but it
+    // still reports as a TTY so `@-` / `--stdin` refuse it instead of reading
+    // an empty stream.
+    if (wasStdinTerminalDetached()) {
+        return createDetachedStdin({ isTTY: true });
+    }
+
     return createLazyInput(() => process.stdin);
 }
 
@@ -717,12 +725,15 @@ export function createLazyInput(factory: () => InteractiveInput): InteractiveInp
     };
 }
 
-function createDetachedStdin(): InteractiveInput {
+// Exported for testing.
+export function createDetachedStdin(
+    options: { isTTY?: boolean } = {},
+): InteractiveInput {
     // A detached stdin behaves like an already-ended empty stream: no `data`
     // is ever delivered, and `end` fires asynchronously so readers (e.g.
     // `--stdin`) resolve with an empty string instead of hanging on EOF.
     return {
-        isTTY: false,
+        isTTY: options.isTTY ?? false,
         on(event: "data" | "end", listener: (chunk: string | Uint8Array) => void) {
             if (event === "end") {
                 queueMicrotask(() => (listener as () => void)());

@@ -128,9 +128,11 @@ Facts:
   server sent one, `details.upstreamErrorCode`. Payload validation failures
   use `connectorRun.invalidPayload` with `details.issues[]` entries
   `{ path, keyword, message, params }`; fix the fields at each `path` and
-  retry once. With `--wait-result`, every failure after submission
-  includes `details.handle` and `details.submitExecutionId`; reuse that
-  handle instead of submitting again.
+  retry once. With `--wait-result`, every polling failure after
+  the submit response returned a handle includes `details.handle` and
+  `details.submitExecutionId`; reuse that handle instead of submitting again.
+  `connectorRun.asyncHandleMissing` means the task was submitted without a
+  pollable handle: report `details.submitExecutionId` and do not resubmit.
 - The schema returned by `oo connector schema` is the public contract used to
   build payloads and inspect the action result shape.
 

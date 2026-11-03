@@ -40,6 +40,16 @@ export function shouldDetachStdinFd(stdinIsTTY: boolean): boolean {
     return stdinIsTTY;
 }
 
+let stdinTerminalDetached = false;
+
+// After fd 0 is detached it no longer reports a TTY, so stdin readers would
+// see an empty stream instead of refusing the terminal. The startup state is
+// kept here so the CLI can still report fd 0 as the terminal it was. It holds
+// even when the best-effort dup2 failed, because fd 0 is still that terminal.
+export function wasStdinTerminalDetached(): boolean {
+    return stdinTerminalDetached;
+}
+
 export interface DetachFdIo {
     openDevNullFd: () => number;
     dup2: (srcFd: number, dstFd: number) => number;
@@ -135,6 +145,7 @@ export async function detachNonInteractiveTtyFdsFromProcess(): Promise<void> {
     // `isatty` avoids touching `process.stdin`, which would initialize a TTY
     // handle and save terminal state.
     if (shouldDetachStdinFd(isatty(0))) {
+        stdinTerminalDetached = true;
         detachFdToDevNull(io, 0);
     }
 

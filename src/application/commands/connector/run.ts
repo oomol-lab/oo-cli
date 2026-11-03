@@ -470,8 +470,16 @@ async function runConnectorAsyncSubmitAndWaitForResult(
     );
 
     if (handle === undefined) {
+        // The task was submitted but cannot be polled, so report the submit
+        // execution for follow-up instead of inviting a resubmission.
         throw new CliUserError("errors.connectorRun.asyncHandleMissing", 1, {
             field: options.submitLifecycle.handle.outputField,
+        }, {
+            details: {
+                action: options.actionName,
+                service: options.serviceName,
+                submitExecutionId: submitResponse.meta.executionId,
+            },
         });
     }
 

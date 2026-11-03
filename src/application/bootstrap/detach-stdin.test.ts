@@ -3,6 +3,7 @@ import {
     detachFdToDevNull,
     shouldDetachStdinFd,
     shouldDetachTtyFds,
+    wasStdinTerminalDetached,
 } from "./detach-stdin.ts";
 
 describe("shouldDetachTtyFds", () => {
@@ -151,5 +152,11 @@ describe("shouldDetachStdinFd", () => {
 
     test("keeps piped stdin so @- and --stdin readers receive the input", () => {
         expect(shouldDetachStdinFd(false)).toBe(false);
+    });
+});
+
+describe("wasStdinTerminalDetached", () => {
+    test("stays false when the startup mitigation has not detached stdin", () => {
+        expect(wasStdinTerminalDetached()).toBe(false);
     });
 });

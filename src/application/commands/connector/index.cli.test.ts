@@ -4771,6 +4771,51 @@ describe("connectorCommand CLI", () => {
         }
     });
 
+    test("reports the submit execution when the submit response has no handle", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncSubmitActionSchema());
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_submit",
+                    "-d",
+                    "{\"prompt\":\"a cat\"}",
+                    "--wait-result",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: {},
+                        meta: { executionId: "submit-exec" },
+                    })),
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(JSON.parse(result.stderr)).toMatchObject({
+                error: {
+                    code: "connectorRun.asyncHandleMissing",
+                    details: {
+                        action: "openai_image_async_submit",
+                        service: "fusion-api",
+                        submitExecutionId: "submit-exec",
+                    },
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("includes the submit handle in structured async wait failures", async () => {
         const sandbox = await createCliSandbox();
         const sleepMock = createBunSleepMock();
