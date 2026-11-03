@@ -913,15 +913,14 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   `authenticated` 和 `accessStatus`。`accessStatus` 的值为 `available` 或
   `connection_required`。
 - 输出：文本输出会为每个 action 打印一个块，包含 service/action 标识、可选
-  描述、认证状态和访问状态。
+  描述、价格说明、认证状态和访问状态。
 - 说明：action 列表本身与身份无关，每条结果的 `authenticated` 和
   `accessStatus` 字段反映有效身份下的已连接应用；因此团队下的连接只有当该团队为
   有效身份时才会影响这两个字段。
 - 说明：使用 `oo connector schema "<service>.<action>"` 查看选中 action 的
   contract。
-- 说明：搜索结果附带 schema 数据时还会更新本地 action schema 缓存，因此随后
-  对返回 action 执行 `oo connector schema` 通常直接由本地缓存应答，无需重新
-  请求 metadata。
+- 说明：搜索结果附带 schema 数据时会更新本地 action schema 缓存。若缓存中只有
+  某个连接的搜索结果，`oo connector schema` 会获取完整 metadata。
 - `--all-teams` 搜索当前用户所属的全部团队，仅支持 OOMOL 托管 connector；
   忽略保存的 currentTeam 和 `OO_TEAM_ID` / `OO_TEAM_NAME`，与 `--team` 互斥。
   未传此选项时仍只搜索当前有效团队，自托管服务不支持此选项。
@@ -931,6 +930,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   结果缺失不能证明某团队没有连接。
 - 执行选中的跨团队连接时，用返回的 `teamId` 设置本次调用的 `OO_TEAM_ID`，
   并将 `appId` 传给 `oo connector run --app-id`。
+
+- 服务端提供价格说明时，JSON 和文本输出会包含对应连接的本地化
+  `pricingDescription`。缺少该字段不代表免费；未提供此字段的自托管服务仍正常工作。
 
 ### `oo connector schema <actionId...>`
 
@@ -951,9 +953,12 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   或更多 action 时，则按请求顺序输出这些对象组成的 JSON 数组，指定
   `--show-schema-version` 时数组会按共享约定包装为
   `{ "schemaVersion": "1.0.0", "items": [...] }`。
+- 输出：服务端提供时附带 `pricingDescription`，说明适用的托管渠道及单价或参考
+  消耗，不保证最终扣费。字段缺失或为 null 时省略。说明沿用现有
+  `--lang en` / `--lang zh` 语言设置。
 - 说明：`--refresh` 会强制为每个选中的 action 重新获取 schema。
-- 说明：此前查询或 connector 搜索缓存的 schema 会在过期前被复用；需要
-  最新远端 contract 时请使用 `--refresh`。
+- 说明：此前同一语言下查询的完整 metadata 会在过期前被复用；需要最新远端
+  contract 时请使用 `--refresh`。
 
 ### `oo connector schema refresh`
 
@@ -1135,15 +1140,14 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   `authenticated` 和 `accessStatus`。`accessStatus` 的值为 `available` 或
   `connection_required`。
 - 输出：文本输出会为每个 action 打印一个块，包含 service/action 标识、可选
-  描述、认证状态和访问状态。
+  描述、价格说明、认证状态和访问状态。
 - 说明：action 列表本身与身份无关，每条结果的 `authenticated` 和
   `accessStatus` 字段反映有效身份下的已连接应用；因此团队下的连接只有当该团队为
   有效身份时才会影响这两个字段。
 - 说明：使用 `oo connector schema "<service>.<action>"` 获取完整 connector
   action contract。
-- 说明：搜索结果附带 schema 数据时还会更新本地 action schema 缓存，因此随后
-  对返回 action 执行 `oo connector schema` 通常直接由本地缓存应答，无需重新
-  请求 metadata。
+- 说明：搜索结果附带 schema 数据时会更新本地 action schema 缓存。若缓存中只有
+  某个连接的搜索结果，`oo connector schema` 会获取完整 metadata。
 - `--all-teams` 搜索当前用户所属的全部团队，仅支持 OOMOL 托管 connector；
   忽略保存的 currentTeam 和 `OO_TEAM_ID` / `OO_TEAM_NAME`，与 `--team` 互斥。
   未传此选项时仍只搜索当前有效团队，自托管服务不支持此选项。

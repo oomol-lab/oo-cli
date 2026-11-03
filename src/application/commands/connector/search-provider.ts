@@ -19,6 +19,7 @@ export interface ConnectorSearchResult {
     accessStatus: ConnectorActionAccessStatus;
     authenticated: boolean;
     description: string;
+    pricingDescription?: string;
     name: string;
     service: string;
 }
@@ -53,6 +54,7 @@ export async function loadConnectorSearchResults(
         accessStatus: action.accessStatus,
         authenticated: action.authenticated,
         description: action.description,
+        pricingDescription: action.pricingDescription,
         name: action.name,
         service: action.service,
     }));
@@ -85,6 +87,10 @@ export function formatConnectorSearchResultAsText(
 
     if (result.description !== "") {
         lines.push(result.description);
+    }
+
+    if (result.pricingDescription !== undefined) {
+        lines.push(result.pricingDescription);
     }
 
     lines.push(

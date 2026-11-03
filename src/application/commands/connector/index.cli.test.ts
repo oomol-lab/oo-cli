@@ -219,7 +219,7 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test("warms the schema cache from search results so connector schema needs no fresh request", async () => {
+    test("loads full metadata after search so schema includes the hosted price", async () => {
         const sandbox = await createCliSandbox();
 
         try {
@@ -258,9 +258,7 @@ describe("connectorCommand CLI", () => {
                     fetcher: async (input, init) => {
                         schemaRequests.push(toRequest(input, init));
 
-                        return new Response("unexpected", {
-                            status: 500,
-                        });
+                        return Response.json({ data: { ...createConnectorActionFixture(), pricingDescription: "OOMOL Marketplace: 0.01 Credits per request." } });
                     },
                 },
             );
@@ -268,23 +266,11 @@ describe("connectorCommand CLI", () => {
             expect(searchResult.exitCode).toBe(0);
             expect(searchResult.stdout).toContain("gmail.send_mail");
             expect(schemaResult.exitCode).toBe(0);
-            expect(schemaRequests).toHaveLength(0);
-            expect(JSON.parse(schemaResult.stdout)).toEqual({
-                description: "Send a Gmail message.",
-                inputSchema: {
-                    properties: {
-                        to: {
-                            type: "string",
-                        },
-                    },
-                    required: ["to"],
-                    type: "object",
-                },
-                name: "send_mail",
-                outputSchema: {
-                    type: "object",
-                },
+            expect(schemaRequests).toHaveLength(1);
+            expect(JSON.parse(schemaResult.stdout)).toMatchObject({
+                pricingDescription: "OOMOL Marketplace: 0.01 Credits per request.",
                 service: "gmail",
+                name: "send_mail",
             });
         }
         finally {
@@ -2029,11 +2015,11 @@ describe("connectorCommand CLI", () => {
         }
     });
 
-    test.each(["en", "zh"])("reports approval_required without retrying or evicting cached schema in %s", async (lang) => {
+    test.each(["en", "zh"] as const)("reports approval_required without retrying or evicting cached schema in %s", async (lang) => {
         const sandbox = await createCliSandbox();
         try {
             await writeAuthFile(sandbox);
-            await seedConnectorActionSchema(sandbox);
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture(), lang);
             const requests: Request[] = [];
             const argv = ["connector", "run", "gmail", "-a", "send_mail", "--json", "--lang", lang];
             for (const flags of [[], ["--approval"]]) {
@@ -6055,6 +6041,7 @@ async function seedConnectorActionSchema(
         env: Record<string, string | undefined>;
     },
     action: SeedConnectorAction = createConnectorActionFixture(),
+    locale: "en" | "zh" = "en",
 ): Promise<void> {
     const cacheStore = new SqliteCacheStore(
         join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "data", "cache.sqlite"),
@@ -6090,7 +6077,7 @@ async function seedConnectorActionSchema(
                     enabled: false,
                 }),
                 settingsStore: createSettingsStoreForSandbox(sandbox),
-                translator: createTranslator("en"),
+                translator: createTranslator(locale),
             },
         );
     }

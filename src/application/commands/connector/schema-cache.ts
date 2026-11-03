@@ -1,6 +1,7 @@
+import type { RequestLanguage } from "../../../i18n/locale.ts";
 import type { Cache } from "../../contracts/cache.ts";
-import type { CliExecutionContext } from "../../contracts/cli.ts";
 
+import type { CliExecutionContext } from "../../contracts/cli.ts";
 import type {
     ConnectorActionMetadata,
     ConnectorActionSearchResult,
@@ -8,13 +9,21 @@ import type {
 import type { ConnectorRequestTarget } from "./target.ts";
 import { rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { CliUserError } from "../../contracts/cli.ts";
+import { z } from "zod";
+import { resolveRequestLanguage } from "../../../i18n/locale.ts";
+import { CliUserError, supportedLocaleValues } from "../../contracts/cli.ts";
 
 import {
     connectorActionDefinitionSchema,
     connectorActionMetadataSchema,
     getConnectorActionMetadata,
 } from "./shared.ts";
+
+const cachedSchema = z.object({
+    metadata: connectorActionMetadataSchema,
+    source: z.enum(["metadata", "search"]),
+});
+type CachedConnectorActionSchema = z.output<typeof cachedSchema>;
 
 const connectorActionSchemaCacheId = "connector-action-schema";
 const connectorActionSchemaCacheTtlMs = 60 * 60 * 1000;
@@ -57,7 +66,7 @@ interface ConnectorActionSchemaIdentity {
 
 type ConnectorActionSchemaCacheContext = Pick<
     CliExecutionContext,
-    "cacheStore" | "logger" | "settingsStore"
+    "cacheStore" | "logger" | "settingsStore" | "translator"
 >;
 
 type ConnectorActionSchemaLoaderContext = Pick<
@@ -77,6 +86,8 @@ export async function loadConnectorActionSchema(
          * cached entry that lacks one.
          */
         requireAsyncLifecycle?: boolean;
+        /** Fetch full metadata when search only supplied a connection-specific view. */
+        requireFullMetadata?: boolean;
         serviceName: string;
         target: ConnectorSchemaRequestTarget;
     },
@@ -89,15 +100,16 @@ export async function loadConnectorActionSchema(
         actionName: options.actionName,
         cacheScope: options.target.cacheScope,
         serviceName: options.serviceName,
-    });
+    }, resolveRequestLanguage(context.translator.locale));
 
     if (options.refresh !== true) {
         const cached = tryReadConnectorActionSchemaCache(cache, cacheKey, context);
 
         if (cached !== undefined) {
-            if (options.requireAsyncLifecycle !== true
-                || cached.asyncLifecycle !== undefined) {
-                return cached;
+            if ((options.requireFullMetadata !== true || cached.source === "metadata")
+                && (options.requireAsyncLifecycle !== true
+                    || cached.metadata.asyncLifecycle !== undefined)) {
+                return cached.metadata;
             }
 
             context.logger.debug(
@@ -106,7 +118,7 @@ export async function loadConnectorActionSchema(
                     cacheScope: options.target.cacheScope,
                     serviceName: options.serviceName,
                 },
-                "Connector action schema cache entry lacks an async lifecycle; fetching metadata.",
+                "Connector action schema cache entry lacks required metadata; fetching metadata.",
             );
         }
     }
@@ -131,7 +143,7 @@ export async function loadConnectorActionSchema(
             context,
         );
 
-        cache.set(cacheKey, metadata);
+        cache.set(cacheKey, { metadata, source: "metadata" });
         context.logger.debug(
             {
                 actionName: options.actionName,
@@ -144,9 +156,12 @@ export async function loadConnectorActionSchema(
         return metadata;
     }
     catch (error) {
-        if (isConnectorActionSchemaNotFoundError(error)) {
-            cache.delete(cacheKey);
-        }
+        invalidateConnectorActionSchemaOnNotFound({
+            actionName: options.actionName,
+            cacheScope: options.target.cacheScope,
+            serviceName: options.serviceName,
+            error,
+        }, context);
 
         throw error;
     }
@@ -180,19 +195,22 @@ export async function warmConnectorActionSchemas(
         const cache = openConnectorActionSchemaCache(context);
 
         for (const action of cacheableActions) {
-            cache.set(
-                createConnectorActionSchemaCacheKey({
-                    actionName: action.name,
-                    cacheScope,
-                    serviceName: action.service,
-                }),
-                // The definition schema strips every non-schema field the
-                // search response carries; the metadata parse then restores
-                // the metadata defaults on the stored entry.
-                connectorActionMetadataSchema.parse(
-                    connectorActionDefinitionSchema.parse(action),
+            const key = createConnectorActionSchemaCacheKey({
+                actionName: action.name,
+                cacheScope,
+                serviceName: action.service,
+            }, resolveRequestLanguage(context.translator.locale));
+            // Search results describe one connection and cannot replace full,
+            // connection-independent metadata, including its hosted pricing.
+            if (tryReadConnectorActionSchemaCache(cache, key, context)?.source === "metadata") {
+                continue;
+            }
+            cache.set(key, {
+                metadata: connectorActionMetadataSchema.parse(
+                    connectorActionDefinitionSchema.parse({ ...action, pricingDescription: undefined }),
                 ),
-            );
+                source: "search",
+            });
         }
     }
     catch (error) {
@@ -221,13 +239,11 @@ export function invalidateConnectorActionSchemaOnNotFound(
         return;
     }
 
-    openConnectorActionSchemaCache(context).delete(
-        createConnectorActionSchemaCacheKey({
-            actionName: options.actionName,
-            cacheScope: options.cacheScope,
-            serviceName: options.serviceName,
-        }),
-    );
+    for (const locale of supportedLocaleValues) {
+        openConnectorActionSchemaCache(context).delete(
+            createConnectorActionSchemaCacheKey(options, resolveRequestLanguage(locale)),
+        );
+    }
 }
 
 export async function clearConnectorActionSchemaCache(
@@ -239,11 +255,13 @@ export async function clearConnectorActionSchemaCache(
 
 function createConnectorActionSchemaCacheKey(
     identity: ConnectorActionSchemaIdentity,
+    language: RequestLanguage,
 ): string {
     return JSON.stringify({
         scope: identity.cacheScope,
         serviceName: identity.serviceName,
         actionName: identity.actionName,
+        language,
     });
 }
 
@@ -300,7 +318,7 @@ async function cleanupLegacyConnectorActionSchemaCache(
 function openConnectorActionSchemaCache(
     context: Pick<CliExecutionContext, "cacheStore">,
 ) {
-    return context.cacheStore.getCache<ConnectorActionMetadata>({
+    return context.cacheStore.getCache<CachedConnectorActionSchema>({
         defaultTtlMs: connectorActionSchemaCacheTtlMs,
         id: connectorActionSchemaCacheId,
         maxEntries: connectorActionSchemaCacheMaxEntries,
@@ -308,10 +326,10 @@ function openConnectorActionSchemaCache(
 }
 
 function tryReadConnectorActionSchemaCache(
-    cache: Cache<ConnectorActionMetadata>,
+    cache: Cache<CachedConnectorActionSchema>,
     cacheKey: string,
     context: Pick<CliExecutionContext, "logger">,
-): ConnectorActionMetadata | undefined {
+): CachedConnectorActionSchema | undefined {
     const cached = cache.get(cacheKey);
 
     if (cached === null) {
@@ -319,7 +337,7 @@ function tryReadConnectorActionSchemaCache(
     }
 
     try {
-        return connectorActionMetadataSchema.parse(cached);
+        return cachedSchema.parse(cached);
     }
     catch (error) {
         const deleted = cache.delete(cacheKey);

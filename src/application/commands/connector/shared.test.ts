@@ -25,6 +25,23 @@ import {
 } from "./shared.ts";
 
 describe("connector shared requests", () => {
+    test.each(["en", "zh"] as const)("requests localized prices and accepts missing or null descriptions for %s", async (locale) => {
+        const requests: Request[] = [];
+        const context = createRequestContext({ locale, fetcher: async (input, init) => {
+            const request = toRequest(input, init);
+            requests.push(request);
+            const action = { service: "tinypng", name: "shrink_image", inputSchema: {}, outputSchema: {} };
+            return Response.json({ data: request.url.includes("/search")
+                ? [{ ...action, authenticated: true, pricingDescription: "0.0093 Credits" }, { ...action, authenticated: false, pricingDescription: null }]
+                : { ...action, pricingDescription: null } });
+        } });
+        const results = await searchConnectorActions({ target: createConnectorTargetFixture(), text: "compress" }, context);
+        expect(results[0]?.pricingDescription).toBe("0.0093 Credits");
+        expect(results[1]?.pricingDescription).toBeUndefined();
+        expect((await getConnectorActionMetadata({ target: createSelfHostedConnectorTargetFixture(), serviceName: "tinypng", actionName: "shrink_image" }, context)).pricingDescription).toBeUndefined();
+        expect(requests.map(request => request.headers.get("Accept-Language"))).toEqual([locale === "zh" ? "zh-CN" : "en", locale === "zh" ? "zh-CN" : "en"]);
+    });
+
     test("searchConnectorActions sends the expected request and parses actions", async () => {
         const requests: Request[] = [];
         const actions = await searchConnectorActions(
@@ -1174,13 +1191,14 @@ describe("connector shared requests", () => {
 
 function createRequestContext(options: {
     fetcher: Fetcher;
+    locale?: "en" | "zh";
 }) {
     return {
         fetcher: options.fetcher,
         logger: pino({
             enabled: false,
         }),
-        translator: createTranslator("en"),
+        translator: createTranslator(options.locale ?? "en"),
     };
 }
 

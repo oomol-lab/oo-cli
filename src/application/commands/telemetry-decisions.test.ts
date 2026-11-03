@@ -218,12 +218,12 @@ const commandTelemetryDecisions = {
             "result_count_bucket",
             "search_scope",
         ],
-        reason: "Records team/all_teams search scope, query and result buckets, the connector target kind (oomol/self_hosted), and the identity source (none/flag/env_id/env_name/account) whose connected apps set the authenticated flag, without query text, team name/id, or server URLs.",
+        reason: "Records team/all_teams search scope, query and result buckets, the connector target kind (oomol/self_hosted), and the identity source (none/flag/env_id/env_name/account) whose connected apps set the authenticated flag, without query text, team name/id, server URLs, or localized pricing descriptions.",
     },
     "connector.schema": {
         kind: "properties",
         properties: ["action_count_bucket", "connector_kind", "qualified", "refresh"],
-        reason: "Records how many actions were requested (bucketed), whether the qualified <service>.<action> form was used, and whether a fresh lookup was requested, without service or action identity.",
+        reason: "Records how many actions were requested (bucketed), whether the qualified <service>.<action> form was used, and whether a fresh lookup was requested, without service or action identity. Localized pricing descriptions use the existing command event and are never recorded.",
     },
     "connector.schema.refresh": {
         kind: "generic",
@@ -338,7 +338,7 @@ const commandTelemetryDecisions = {
             "result_count_bucket",
             "search_scope",
         ],
-        reason: "Records team/all_teams search scope, query and result buckets, the connector target kind (oomol/self_hosted), and the identity source (none/flag/env_id/env_name/account) whose connected apps set the authenticated flag, without query text, team name/id, or server URLs.",
+        reason: "Records team/all_teams search scope, query and result buckets, the connector target kind (oomol/self_hosted), and the identity source (none/flag/env_id/env_name/account) whose connected apps set the authenticated flag, without query text, team name/id, server URLs, or localized pricing descriptions.",
     },
     "skills": {
         kind: "generic",
