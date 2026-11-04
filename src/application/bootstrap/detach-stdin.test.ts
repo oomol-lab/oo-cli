@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { detachFdToDevNull, shouldDetachTtyFds } from "./detach-stdin.ts";
+import {
+    detachFdToDevNull,
+    shouldDetachStdinFd,
+    shouldDetachTtyFds,
+    wasStdinTerminalDetached,
+} from "./detach-stdin.ts";
 
 describe("shouldDetachTtyFds", () => {
     test("skips on win32 (the mitigation targets POSIX /dev/pts behavior)", () => {
@@ -137,5 +142,21 @@ describe("detachFdToDevNull", () => {
 
         expect(action).not.toThrow();
         expect(closed).toEqual([7]);
+    });
+});
+
+describe("shouldDetachStdinFd", () => {
+    test("detaches a terminal stdin", () => {
+        expect(shouldDetachStdinFd(true)).toBe(true);
+    });
+
+    test("keeps piped stdin so @- and --stdin readers receive the input", () => {
+        expect(shouldDetachStdinFd(false)).toBe(false);
+    });
+});
+
+describe("wasStdinTerminalDetached", () => {
+    test("stays false when the startup mitigation has not detached stdin", () => {
+        expect(wasStdinTerminalDetached()).toBe(false);
     });
 });

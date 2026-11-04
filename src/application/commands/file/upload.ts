@@ -10,13 +10,9 @@ import {
     teamOption,
 } from "../team/identity.ts";
 import {
-    completeMultipartFileUpload,
-    createMultipartFileUpload,
-    fileUploadExpiresInMs,
-    generatePresignedFileUploadPartUrls,
     maxFileUploadSizeBytes,
     serializeFileUploadRecord,
-    uploadFileParts,
+    uploadLocalFile,
 } from "./shared.ts";
 import { formatFileUploadRecordDetailsAsText } from "./text.ts";
 
@@ -61,47 +57,8 @@ export const fileUploadCommand: CliCommandDefinition<FileUploadInput> = {
             rejected_too_large: false,
         });
 
-        const uploadSession = await createMultipartFileUpload(
-            account,
-            identity,
-            sourceFile.fileName,
-            sourceFile.fileSize,
-            context,
-        );
-        const presignedPartUrls = await generatePresignedFileUploadPartUrls(
-            account,
-            identity,
-            uploadSession,
-            context,
-        );
-
-        const uploadedParts = await uploadFileParts(
-            sourceFile.file,
-            uploadSession,
-            presignedPartUrls,
-            context,
-        );
-
-        const uploadResult = await completeMultipartFileUpload(
-            account,
-            identity,
-            uploadSession,
-            uploadedParts,
-            context,
-        );
-        const uploadedAtMs = Date.now();
-        const record = {
-            downloadUrl: uploadResult.downloadUrl,
-            expiresAtMs: uploadedAtMs + fileUploadExpiresInMs,
-            fileName: sourceFile.fileName,
-            fileSize: sourceFile.fileSize,
-            id: Bun.randomUUIDv7(),
-            uploadedAtMs,
-        };
-
-        context.fileUploadStore.save(record);
-
-        const view = serializeFileUploadRecord(record, uploadedAtMs, context.logger);
+        const record = await uploadLocalFile(sourceFile, account, identity, context);
+        const view = serializeFileUploadRecord(record, record.uploadedAtMs, context.logger);
 
         context.output.emit(view, () => {
             const lines = [

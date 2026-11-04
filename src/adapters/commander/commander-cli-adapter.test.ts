@@ -1,4 +1,8 @@
-import type { CliCatalog, CliExecutionContext } from "../../application/contracts/cli.ts";
+import type {
+    CliCatalog,
+    CliCommandOutputMode,
+    CliExecutionContext,
+} from "../../application/contracts/cli.ts";
 
 import { describe, expect, test } from "bun:test";
 import { z } from "zod";
@@ -8,6 +12,7 @@ import {
     createTextBuffer,
 } from "../../../__tests__/helpers.ts";
 import { JSON_OUTPUT_SCHEMA_VERSION } from "../../application/commands/command-output.ts";
+import { CliUserError } from "../../application/contracts/cli.ts";
 import { createTranslator } from "../../i18n/translator.ts";
 import { CommanderCliAdapter } from "./commander-cli-adapter.ts";
 
@@ -255,6 +260,97 @@ describe("CommanderCliAdapter", () => {
         expect(stdout.read()).toBe("{\"ok\":true}\n");
     });
 
+    test("writes structured JSON errors when --json is passed", async () => {
+        const adapter = new CommanderCliAdapter();
+        const stdout = createTextBuffer();
+        const stderr = createTextBuffer();
+        const catalog = createFailingCatalog("standard", () => {
+            throw new CliUserError("errors.auth.required", 1, undefined, {
+                details: { httpStatus: 401 },
+            });
+        });
+
+        const exitCode = await adapter.run({
+            argv: ["demo", "--json"],
+            catalog,
+            context: createCommanderContext(catalog, stdout.writer, stderr.writer),
+        });
+
+        expect(exitCode).toBe(1);
+        expect(stdout.read()).toBe("");
+        expect(JSON.parse(stderr.read())).toEqual({
+            error: {
+                code: "auth.required",
+                details: { httpStatus: 401 },
+                exitCode: 1,
+                message: "You must log in before using this command.",
+            },
+        });
+    });
+
+    test("keeps text errors for json-only commands without an explicit JSON flag", async () => {
+        const adapter = new CommanderCliAdapter();
+        const stdout = createTextBuffer();
+        const stderr = createTextBuffer();
+        const catalog = createFailingCatalog("json-only", () => {
+            throw new CliUserError("errors.auth.required", 1);
+        });
+
+        const exitCode = await adapter.run({
+            argv: ["demo"],
+            catalog,
+            context: createCommanderContext(catalog, stdout.writer, stderr.writer),
+        });
+
+        expect(exitCode).toBe(1);
+        expect(stderr.read()).toBe("You must log in before using this command.\n");
+    });
+
+    test("writes structured JSON errors for unexpected handler failures", async () => {
+        const adapter = new CommanderCliAdapter();
+        const stdout = createTextBuffer();
+        const stderr = createTextBuffer();
+        const catalog = createFailingCatalog("standard", () => {
+            throw new Error("boom");
+        });
+
+        const exitCode = await adapter.run({
+            argv: ["demo", "--format=json"],
+            catalog,
+            context: createCommanderContext(catalog, stdout.writer, stderr.writer),
+        });
+
+        expect(exitCode).toBe(1);
+        expect(JSON.parse(stderr.read())).toEqual({
+            error: {
+                code: "unexpected",
+                exitCode: 1,
+                message: "Unexpected error: boom",
+            },
+        });
+    });
+
+    test("writes structured JSON errors for parse errors when --json is passed", async () => {
+        const adapter = new CommanderCliAdapter();
+        const stdout = createTextBuffer();
+        const stderr = createTextBuffer();
+        const catalog = createFailingCatalog("standard", () => {});
+
+        const exitCode = await adapter.run({
+            argv: ["demo", "--json", "--unknown"],
+            catalog,
+            context: createCommanderContext(catalog, stdout.writer, stderr.writer),
+        });
+        const payload = JSON.parse(stderr.read()) as {
+            error: { code: string; exitCode: number; message: string };
+        };
+
+        expect(exitCode).toBe(2);
+        expect(payload.error.code).toBe("commander.unknownOption");
+        expect(payload.error.exitCode).toBe(2);
+        expect(payload.error.message).toContain("--unknown");
+    });
+
     test("maps option alias flags to the primary option name", async () => {
         const adapter = new CommanderCliAdapter();
         const stdout = createTextBuffer();
@@ -416,5 +512,25 @@ function createCommanderContext(
         stderr,
         translator: createTranslator("en"),
         version: "0.0.0-development",
+    };
+}
+
+function createFailingCatalog(
+    output: CliCommandOutputMode,
+    handler: () => void,
+): CliCatalog {
+    return {
+        commands: [
+            {
+                handler,
+                inputSchema: z.object({}),
+                name: "demo",
+                output,
+                summaryKey: "commands.help.summary",
+            },
+        ],
+        descriptionKey: "app.description",
+        globalOptions: [],
+        name: "oo",
     };
 }

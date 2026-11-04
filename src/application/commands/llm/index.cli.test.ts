@@ -117,7 +117,13 @@ describe("llm CLI", () => {
 
             expect(createCliSnapshot(result)).toEqual({
                 exitCode: 1,
-                stderr: "You must log in before using this command.\n",
+                stderr: `${JSON.stringify({
+                    error: {
+                        code: "auth.required",
+                        message: "You must log in before using this command.",
+                        exitCode: 1,
+                    },
+                })}\n`,
                 stdout: "",
             });
         }

@@ -281,6 +281,69 @@ conventions:
 - `--show-schema-version` has no effect unless JSON output is requested with
   `--format=json` or `--json`.
 
+### JSON Input
+
+Options that document `@-` read their JSON value from stdin until EOF, for
+example `echo '{"to":"a@example.com"}' | oo connector run gmail -a send_mail -d @-`.
+
+- `@-` requires piped input; it fails with exit code `2` when stdin is an
+  interactive terminal.
+- Only one option per command can read from stdin; a second `@-` fails with
+  exit code `2`.
+- Empty stdin is reported as invalid JSON.
+- To read a file literally named `-`, use `@./-`.
+
+### JSON Errors
+
+When `--format=json` or `--json` is passed explicitly, a failing command writes
+one JSON line to stderr instead of the plain-text message. stdout stays empty
+and the exit code is unchanged:
+
+```json
+{"error":{"code":"connectorRun.requestFailed","message":"Connector action get_message returned HTTP 409 (errorCode: connection_ambiguous): Multiple connections match","exitCode":1,"details":{"action":"get_message","service":"gmail","httpStatus":409,"upstreamErrorCode":"connection_ambiguous","executionId":"exec-1"}}}
+```
+
+- `code` is a stable machine-readable identifier, such as `auth.required`,
+  `connectorRun.invalidPayload`, `commander.unknownOption`, or `unexpected`.
+  Branch on `code`, not on `message`.
+- `message` is the same localized text that text mode prints; it follows the
+  configured language and is meant for display only.
+- `exitCode` matches the process exit code: `2` for usage and input errors, `3`
+  for insufficient OOMOL credit, and `1` for other runtime failures.
+- `details` is optional and only appears for errors that carry structured
+  fields. Its fields depend on `code`; callers should ignore fields they do not
+  recognize. Current fields:
+  - Failed HTTP requests: `httpStatus`.
+  - `billing.insufficientCredit`: `billingUrl`, plus `httpStatus` when the
+    server returned HTTP 402.
+  - `connectorRun.requestFailed`, `connectorRun.approvalRequired`, and
+    `connectorProxy.requestFailed` from the connector service: `service`,
+    `httpStatus`, and when available `action` (run only),
+    `upstreamErrorCode` (the server `errorCode`, for example
+    `connection_ambiguous`), and `executionId`.
+  - `connectorProxy.requestFailed` when the proxied provider API returned an
+    HTTP error: `service`, `upstreamHttpStatus`, and `executionId`. stdout
+    still carries the proxied response in this case.
+  - `connectorRun.asyncApprovalRequired`: `recovery`
+    (`{ service, action, input, submitExecutionId }`) and `handle`.
+  - `connectorRun.invalidFileReference`, `connectorRun.fileReferenceReadFailed`,
+    `connectorRun.fileReferenceNotFile`, `connectorRun.fileReferenceTooLarge`,
+    and upload failures of a `$file` reference: `inputPath`.
+  - `connectorRun.invalidPayload`: `issues`, an array of
+    `{ path, keyword, message, params }` where `path` is a JSON Pointer into
+    the `--data` payload.
+  - `connectorRun.asyncTimedOut`, `connectorRun.asyncFailed`,
+    `connectorRun.asyncUnknownState`: `service`, `action`, `pollCount`, and
+    `state` (failure states only).
+  - With `--wait-result`, every polling failure after the submit response
+    returned a handle also carries `handle` and `submitExecutionId`, whatever
+    its `code`. Resume with the handle instead of submitting the task again.
+  - `connectorRun.asyncHandleMissing`: the task was submitted but its response
+    had no handle to poll with; `details` carries `service`, `action`, and
+    `submitExecutionId`. Do not resubmit the task.
+- Commands whose output is always JSON (such as `oo connector schema`) still
+  print plain-text errors unless `--json` or `--format=json` is passed.
+
 ## Debug Logging
 
 - The CLI writes structured debug logs to a platform-specific persisted log
@@ -746,9 +809,11 @@ provided JSON Schema.
 - Authentication: requires the current OOMOL account.
 - Options:
   - `--schema <schema>` is required. The value must be a JSON Schema object
-    with root type `object`, or `@path/to/schema.json`.
-  - `--input <input>` provides input JSON or `@path/to/input.json`. When
-    omitted, the input is `{}`.
+    with root type `object`, `@path/to/schema.json`, or `@-` to read it from
+    stdin.
+  - `--input <input>` provides input JSON, `@path/to/input.json`, or `@-` to
+    read it from stdin. When omitted, the input is `{}`. Only one of
+    `--schema` and `--input` can use `@-`.
   - `--system <system>` provides extra system prompt text or `@path/to/system.txt`.
   - `--max-retries <count>` sets retries after the first attempt. Default is
     `2`; supported values are `0` through `5`.
@@ -1177,8 +1242,24 @@ Validate input data and run one connector action.
 
 - Arguments: `<serviceName>` is the service name.
 - Options: `-a, --action <action>` selects the action name and is required.
-- Options: `-d, --data <data>` accepts inline JSON or `@path` to a JSON file.
+- Options: `-d, --data <data>` accepts inline JSON, `@path` to a JSON file, or
+  `@-` to read JSON from stdin (see [JSON Input](#json-input)).
   `--input <data>` is an alias for `--data <data>`.
+- Options: inside `--data`, an object `{ "$file": "<path>" }` references a local
+  file. Before execution the CLI uploads the file to temporary OOMOL file
+  storage and replaces the object with the file's download URL:
+  - The object must contain only a non-empty `$file` string; anything else
+    containing `$file` is rejected with exit code `2`. Relative paths resolve
+    against the current directory.
+  - The payload is validated against the action contract with a URL in place
+    of each reference before anything is uploaded, so the target field must
+    accept a URL string.
+  - The same file referenced several times is uploaded once per command.
+  - Uploads follow `oo file upload`: they require an OOMOL account (also
+    against a self-hosted connector), files up to 500 MiB, links that expire
+    after seven days, and records that `oo file list` shows.
+  - `--dry-run` checks that each referenced file exists and fits the limit
+    but uploads nothing.
 - Options: `--app-id <app-id>` selects the exact connection from search.
   It is mutually exclusive with `--connection-name`; empty IDs are rejected.
   The selected team must own that connection; an app ID does not switch teams.
@@ -1202,6 +1283,10 @@ Validate input data and run one connector action.
 - Options: `--format=json` and `--json` print a JSON object.
 - Output: non-dry-run JSON output mirrors the stable response shape
   `{ data, meta: { executionId } }`.
+- Output: when `--data` contains `$file` references, JSON output adds
+  `meta.uploads`, one `{ inputPath, fileName, fileSize, expiresAt }` entry per
+  reference, where `inputPath` is a JSON Pointer into `--data`. Download URLs
+  are never printed. Text mode prints one line per upload on stderr.
 - Output: for async submit actions, the default output is the submit result,
   such as a handle or session id. The CLI does not wait automatically.
 - Output: with `--wait-result`, JSON output uses the completed result in `data`
@@ -1214,7 +1299,10 @@ Validate input data and run one connector action.
 - Errors: stderr prints the HTTP status and includes the server `message`
   and `errorCode` when the failure response provides them. When the response
   carries neither, the raw response body is included (trimmed and length
-  bounded) so the failure detail is not lost. For `errorCode: approval_required`,
+  bounded) so the failure detail is not lost. With `--json`, the failure is a
+  structured JSON error with code `connectorRun.requestFailed`
+  (`connectorRun.approvalRequired` for `approval_required`); see
+  [JSON Errors](#json-errors). For `errorCode: approval_required`,
   stderr explains that the blocked action was not executed and that it can be
   retried with `--approval` once user authorization is satisfied. The HTTP status
   is retained and the exit code is `1`. The CLI does not retry automatically.
@@ -1224,7 +1312,8 @@ Validate input data and run one connector action.
   JSON `{ service, action, input, submitExecutionId }`, where `action` and
   `input` describe the result query. Stdout remains empty. After authorization,
   resume that result query with `--wait --approval`, preserving the original
-  team and connection selection. Do not resubmit the task.
+  team and connection selection. Do not resubmit the task. With `--json`, the
+  same recovery object is also available as `error.details.recovery`.
 - Notes: `--wait` passes an explicit `--approval` declaration on every poll of
   the selected action. With `--wait-result`, it applies only to submission;
   the derived result action does not inherit it.
@@ -1273,8 +1362,8 @@ read-only.
 Proxy a provider API request through a connected connector app.
 
 - Arguments: `<serviceName>` is the service name.
-- Options: `-d, --data <data>` accepts a complete proxy request JSON object or
-  `@path` to a JSON file. The object shape is
+- Options: `-d, --data <data>` accepts a complete proxy request JSON object,
+  `@path` to a JSON file, or `@-` to read it from stdin. The object shape is
   `{ endpoint, method?, query?, headers?, body? }`.
 - Options: `--input <data>` is an alias for `--data <data>`.
 - Options: without `--data`, use `--endpoint <endpoint>` plus optional
@@ -1312,7 +1401,9 @@ Proxy a provider API request through a connected connector app.
 - Errors: stderr prints the connector proxy HTTP status and includes the server
   `message` and `errorCode` when the failure response provides them. When the
   response carries neither, the raw response body is included (trimmed and
-  length bounded) so the failure detail is not lost.
+  length bounded) so the failure detail is not lost. With `--json`, the failure
+  is a structured JSON error with code `connectorProxy.requestFailed`; see
+  [JSON Errors](#json-errors).
 - Notes: `oo connector proxy` does not use connector action schemas or schema
   cache. Use it when the selected connector supports proxy execution and no
   purpose-built connector action is available.

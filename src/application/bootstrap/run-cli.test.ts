@@ -12,12 +12,15 @@ import {
     createCliSnapshot,
     createInteractiveInput,
     createTextBuffer,
+    expectCliUserError,
     readLatestLogContent,
     toRequest,
     writeAuthFile,
 } from "../../../__tests__/helpers.ts";
 import packageManifest from "../../../package.json" with { type: "json" };
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
+import { readJsonInputValue } from "../commands/shared/json-input.ts";
+import { readStdinToEnd } from "../commands/shared/stdin.ts";
 import { resolveManagedSkillAgentHomeDirectory } from "../commands/skills/managed-skill-agents.ts";
 import { APP_NAME } from "../config/app-config.ts";
 import { CliUserError } from "../contracts/cli.ts";
@@ -32,7 +35,7 @@ import {
     readTelemetryRowsForTest,
 } from "../telemetry/outbox.ts";
 import { createTerminalColors } from "../terminal-colors.ts";
-import { createLazyInput, executeCli } from "./run-cli.ts";
+import { createDetachedStdin, createLazyInput, executeCli } from "./run-cli.ts";
 
 describe("runCli bootstrap", () => {
     test("keeps the cli command name aligned with package metadata", () => {
@@ -415,6 +418,28 @@ describe("runCli bootstrap", () => {
             expect(invalidLang.stderr).toContain("Invalid value for --lang");
 
             expect(unknownCommand.stderr).toContain("Unknown command");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test.each(["--json", "--format=json"])("formats invalid language errors as JSON with %s", async (flag) => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["--lang", "fr", "--help", flag]);
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr.trim().split("\n")).toHaveLength(1);
+            expect(JSON.parse(result.stderr)).toEqual({
+                error: {
+                    code: "lang.invalidFlag",
+                    exitCode: 2,
+                    message: expect.stringContaining("Invalid value for --lang"),
+                },
+            });
         }
         finally {
             await sandbox.cleanup();
@@ -998,5 +1023,31 @@ describe("createLazyInput", () => {
         inner.feed("world");
 
         expect(received.length).toBe(1);
+    });
+});
+
+describe("createDetachedStdin", () => {
+    test("behaves like an ended non-terminal stream by default", async () => {
+        const stdin = createDetachedStdin();
+
+        expect(stdin.isTTY).toBe(false);
+        expect(await readStdinToEnd(stdin)).toBe("");
+    });
+
+    test("can keep reporting a terminal that was detached at startup", async () => {
+        const stdin = createDetachedStdin({ isTTY: true });
+        const error = await expectCliUserError(readJsonInputValue(
+            "@-",
+            { cwd: "/tmp", stdin },
+            {
+                dataFilePathRequired: "errors.test.dataFilePathRequired",
+                dataReadFailed: "errors.test.dataReadFailed",
+                invalidDataJson: "errors.test.invalidDataJson",
+            },
+            {},
+        ));
+
+        expect(stdin.isTTY).toBe(true);
+        expect(error.key).toBe("errors.shared.stdinInputTty");
     });
 });

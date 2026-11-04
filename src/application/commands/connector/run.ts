@@ -1,5 +1,6 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { TeamIdentity } from "../team/identity.ts";
+import type { ConnectorFileReferenceUpload } from "./file-references.ts";
 import type {
     ConnectorActionAsyncLifecycle,
     ConnectorActionRunResponse,
@@ -9,8 +10,9 @@ import type { ConnectorRequestTarget } from "./target.ts";
 
 import { Buffer } from "node:buffer";
 import { z } from "zod";
+import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
-import { bucketTelemetryBytes } from "../../telemetry/buckets.ts";
+import { bucketTelemetryBytes, bucketTelemetryCount } from "../../telemetry/buckets.ts";
 import { createWriterColors } from "../../terminal-colors.ts";
 import { readJsonInputValue } from "../shared/json-input.ts";
 import { TerminalProgressRenderer } from "../shared/terminal-progress-renderer.ts";
@@ -18,6 +20,11 @@ import {
     teamIdentityInputShape,
     teamOption,
 } from "../team/identity.ts";
+import {
+    collectConnectorFileReferences,
+    replaceFileReferencesWithPlaceholders,
+    uploadConnectorFileReferences,
+} from "./file-references.ts";
 import { formatConnectorExecutionResultAsText } from "./result-text.ts";
 import {
     invalidateConnectorActionSchemaOnNotFound,
@@ -167,20 +174,22 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             },
             context,
         );
-        const inputData = await readJsonInputValue(
+        const rawInputData = await readJsonInputValue(
             input.data,
             context,
             connectorRunDataErrorKeys,
             {},
         );
+        const fileReferences = await collectConnectorFileReferences(rawInputData, context);
 
         context.telemetry?.recordProperties({
             action: actionName,
             connection_selector: selectorMode,
             data_size_bucket: bucketTelemetryBytes(
-                Buffer.byteLength(JSON.stringify(inputData)),
+                Buffer.byteLength(JSON.stringify(rawInputData)),
             ),
             dry_run: input.dryRun === true,
+            file_reference_count: bucketTelemetryCount(fileReferences.length),
             service: input.serviceName,
             wait: input.wait === true,
             wait_result: input.waitResult === true,
@@ -214,7 +223,13 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             submitLifecycle = actionSchema.asyncLifecycle;
         }
 
-        validateConnectorActionInput(inputData, actionSchema.inputSchema, context.translator);
+        // Validate with placeholder URLs first so a payload that cannot use a
+        // file URL fails before any file leaves the machine.
+        validateConnectorActionInput(
+            replaceFileReferencesWithPlaceholders(rawInputData, fileReferences),
+            actionSchema.inputSchema,
+            context.translator,
+        );
 
         if (input.dryRun === true) {
             if (context.output.format === "json") {
@@ -254,6 +269,35 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
             }
 
             resultLifecycle = resultActionSchema.asyncLifecycle;
+        }
+
+        let inputData = rawInputData;
+        let fileUploads: ConnectorFileReferenceUpload[] = [];
+
+        if (fileReferences.length > 0) {
+            // Temporary uploads always go through the OOMOL file service, so
+            // they need an OOMOL account even against a self-hosted connector.
+            const { account } = await requireIdentity(context);
+            const uploaded = await uploadConnectorFileReferences(
+                rawInputData,
+                fileReferences,
+                account,
+                identity,
+                context,
+            );
+
+            inputData = uploaded.inputData;
+            fileUploads = uploaded.uploads;
+
+            if (context.output.format !== "json") {
+                for (const upload of fileUploads) {
+                    context.stderr.write(`${context.translator.t("connector.run.text.fileUploaded", {
+                        expiresAt: upload.expiresAt,
+                        fileName: upload.fileName,
+                        inputPath: upload.inputPath,
+                    })}\n`);
+                }
+            }
         }
 
         const progressReporter = resultLifecycle === undefined || context.output.format === "json"
@@ -296,7 +340,9 @@ export const connectorRunCommand: CliCommandDefinition<ConnectorRunInput> = {
         }
 
         if (context.output.format === "json") {
-            context.output.emitJson(response);
+            context.output.emitJson(fileUploads.length === 0
+                ? response
+                : { ...response, meta: { ...response.meta, uploads: fileUploads } });
             return;
         }
 
@@ -424,8 +470,16 @@ async function runConnectorAsyncSubmitAndWaitForResult(
     );
 
     if (handle === undefined) {
+        // The task was submitted but cannot be polled, so report the submit
+        // execution for follow-up instead of inviting a resubmission.
         throw new CliUserError("errors.connectorRun.asyncHandleMissing", 1, {
             field: options.submitLifecycle.handle.outputField,
+        }, {
+            details: {
+                action: options.actionName,
+                service: options.serviceName,
+                submitExecutionId: submitResponse.meta.executionId,
+            },
         });
     }
 
@@ -448,18 +502,39 @@ async function runConnectorAsyncSubmitAndWaitForResult(
         );
     }
     catch (error) {
-        if (error instanceof CliUserError && error.params?.errorCode === "approval_required") {
+        if (!(error instanceof CliUserError)) {
+            throw error;
+        }
+
+        // The task already exists once submission succeeded, so every poll
+        // failure must carry what a caller needs to resume instead of
+        // resubmitting a side-effecting task.
+        const details = {
+            ...error.details,
+            handle,
+            submitExecutionId: submitResponse.meta.executionId,
+        };
+
+        if (error.params?.errorCode === "approval_required") {
+            const recovery = {
+                service: options.serviceName,
+                action: options.submitLifecycle.resultAction,
+                input: resultInput,
+                submitExecutionId: submitResponse.meta.executionId,
+            };
+
             throw new CliUserError("errors.connectorRun.asyncApprovalRequired", 1, {
                 ...error.params,
-                recovery: JSON.stringify({
-                    service: options.serviceName,
-                    action: options.submitLifecycle.resultAction,
-                    input: resultInput,
-                    submitExecutionId: submitResponse.meta.executionId,
-                }),
+                recovery: JSON.stringify(recovery),
+            }, {
+                details: { ...details, recovery },
             });
         }
-        throw error;
+
+        throw new CliUserError(error.key, error.exitCode, error.params, {
+            code: error.code,
+            details,
+        });
     }
 
     return {
@@ -490,6 +565,16 @@ async function waitForConnectorAsyncResult(
     const startedAt = Date.now();
     let pollCount = 0;
     const wait = options.lifecycle.wait;
+    // `--wait-result` adds the submit handle around this call, so failures
+    // here only describe the poll itself.
+    const createAsyncErrorDetails = (state?: string) => ({
+        details: {
+            action: options.actionName,
+            pollCount,
+            service: options.serviceName,
+            ...(state === undefined ? {} : { state }),
+        },
+    });
 
     options.progressReporter?.startWaiting(options.actionName);
 
@@ -497,7 +582,7 @@ async function waitForConnectorAsyncResult(
         if (connectorAsyncLifecycleDefaultTimeoutMs - (Date.now() - startedAt) <= 0) {
             throw new CliUserError("errors.connectorRun.asyncTimedOut", 1, {
                 action: options.actionName,
-            });
+            }, createAsyncErrorDetails());
         }
 
         setCurrentTarget({
@@ -554,13 +639,13 @@ async function waitForConnectorAsyncResult(
         if (wait.state.failure.includes(state)) {
             throw new CliUserError("errors.connectorRun.asyncFailed", 1, {
                 state,
-            });
+            }, createAsyncErrorDetails(state));
         }
 
         if (!wait.state.running.includes(state)) {
             throw new CliUserError("errors.connectorRun.asyncUnknownState", 1, {
                 state,
-            });
+            }, createAsyncErrorDetails(state));
         }
 
         const remainingMs = connectorAsyncLifecycleDefaultTimeoutMs
@@ -569,7 +654,7 @@ async function waitForConnectorAsyncResult(
         if (remainingMs <= 0) {
             throw new CliUserError("errors.connectorRun.asyncTimedOut", 1, {
                 action: options.actionName,
-            });
+            }, createAsyncErrorDetails());
         }
 
         await Bun.sleep(Math.min(wait.intervalSeconds * 1000, remainingMs));

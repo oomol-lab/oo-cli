@@ -10,6 +10,7 @@ import {
     createCliSandbox,
     createCliSnapshot,
     createConnectorActionFixture,
+    createInteractiveInput,
     expectTelemetryFreeOfTeamIdentity,
     readLatestLogContent,
     toRequest,
@@ -34,6 +35,8 @@ import {
     connectorSearchActionColor,
     connectorSearchServiceColor,
 } from "./search-provider.ts";
+
+const fileReferenceDownloadUrl = "https://download.example.com/file-1?signature=abc";
 
 describe("connectorCommand CLI", () => {
     test.each([
@@ -969,7 +972,20 @@ describe("connectorCommand CLI", () => {
             );
 
             expect(result.exitCode).toBe(1);
-            expect(result.stderr).toContain(`Connector proxy service feishu returned HTTP ${status}`);
+            expect(JSON.parse(result.stderr)).toEqual({
+                error: {
+                    code: "connectorProxy.requestFailed",
+                    details: {
+                        executionId: "exec-failed",
+                        service: "feishu",
+                        upstreamHttpStatus: status,
+                    },
+                    exitCode: 1,
+                    message: expect.stringContaining(
+                        `Connector proxy service feishu returned HTTP ${status}`,
+                    ),
+                },
+            });
             expect(JSON.parse(result.stdout)).toEqual({
                 data: {
                     status,
@@ -2174,13 +2190,24 @@ describe("connectorCommand CLI", () => {
             });
             expect(result.exitCode).toBe(1);
             expect(result.stdout).toBe("");
-            expect(result.stderr).toContain("Task submission succeeded");
-            expect(result.stderr).toContain("was not executed");
-            expect(result.stderr).toContain("409");
-            expect(result.stderr).toContain("approval_required");
-            expect(result.stderr).toContain("same team and connection");
-            expect(result.stderr).toContain("Do not resubmit");
-            const recovery = JSON.parse(result.stderr.split("Recovery JSON:\n")[1]!);
+            const errorPayload = JSON.parse(result.stderr) as {
+                error: {
+                    code: string;
+                    details: { handle: unknown; recovery: unknown };
+                    message: string;
+                };
+            };
+            const message = errorPayload.error.message;
+            expect(errorPayload.error.code).toBe("connectorRun.asyncApprovalRequired");
+            expect(message).toContain("Task submission succeeded");
+            expect(message).toContain("was not executed");
+            expect(message).toContain("409");
+            expect(message).toContain("approval_required");
+            expect(message).toContain("same team and connection");
+            expect(message).toContain("Do not resubmit");
+            const recovery = JSON.parse(message.split("Recovery JSON:\n")[1]!);
+            expect(errorPayload.error.details.recovery).toEqual(recovery);
+            expect(errorPayload.error.details.handle).toBe("private-session-1");
             expect(recovery).toEqual({
                 service: "fusion-api",
                 action: "openai_image_async_result",
@@ -4181,6 +4208,674 @@ describe("connectorCommand CLI", () => {
             );
         }
         finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports connector run failures as structured JSON errors in JSON mode", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(
+                sandbox,
+                {
+                    description: "Get a Gmail message by id.",
+                    inputSchema: {
+                        type: "object",
+                    },
+                    name: "get_message",
+                    outputSchema: {
+                        type: "object",
+                    },
+                    service: "gmail",
+                },
+            );
+
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "get_message",
+                    "-d",
+                    "{\"messageId\":\"invalid-id\"}",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        errorCode: "connection_ambiguous",
+                        message: "Multiple connections match",
+                        meta: {
+                            executionId: "exec-1",
+                        },
+                    }), {
+                        status: 409,
+                    }),
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(JSON.parse(result.stderr)).toEqual({
+                error: {
+                    code: "connectorRun.requestFailed",
+                    details: {
+                        action: "get_message",
+                        executionId: "exec-1",
+                        httpStatus: 409,
+                        service: "gmail",
+                        upstreamErrorCode: "connection_ambiguous",
+                    },
+                    exitCode: 1,
+                    message: "Connector action get_message returned HTTP 409 (errorCode: connection_ambiguous): Multiple connections match",
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("keeps one connector run error code when the failure body has no structured fields", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox);
+
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":\"user@example.com\"}",
+                    "--format",
+                    "json",
+                ],
+                {
+                    fetcher: async () => new Response("<html>bad gateway</html>", {
+                        status: 502,
+                    }),
+                },
+            );
+            const payload = JSON.parse(result.stderr) as {
+                error: { code: string; details: Record<string, unknown> };
+            };
+
+            expect(result.exitCode).toBe(1);
+            expect(payload.error.code).toBe("connectorRun.requestFailed");
+            expect(payload.error.details).toEqual({
+                action: "send_mail",
+                httpStatus: 502,
+                service: "gmail",
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reads connector run payloads from stdin with -d @-", async () => {
+        const sandbox = await createCliSandbox();
+        const stdin = createInteractiveInput({ isTTY: false });
+        stdin.feed("{\"to\":\"user@example.com\"}");
+        stdin.end();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "@-",
+                    "--json",
+                ],
+                {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init));
+
+                        return new Response(JSON.stringify({
+                            data: { messageId: "message-1" },
+                            meta: { executionId: "exec-1" },
+                        }));
+                    },
+                    stdin,
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            await expect(requests[0]?.json()).resolves.toEqual({
+                input: { to: "user@example.com" },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("uploads $file references once and sends the temporary URL", async () => {
+        const sandbox = await createCliSandbox();
+        const localFilePath = join(sandbox.env.HOME!, "report.pdf");
+
+        try {
+            await writeAuthFile(sandbox);
+            await Bun.write(localFilePath, "pdf-bytes");
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture({
+                inputSchema: {
+                    properties: {
+                        attachments: {
+                            items: { format: "uri", type: "string" },
+                            type: "array",
+                        },
+                        to: { type: "string" },
+                    },
+                    required: ["to", "attachments"],
+                    type: "object",
+                },
+            }));
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    JSON.stringify({
+                        attachments: [{ $file: localFilePath }, { $file: localFilePath }],
+                        to: "user@example.com",
+                    }),
+                    "--json",
+                ],
+                {
+                    fetcher: createFileReferenceFetcher(requests, () => new Response(JSON.stringify({
+                        data: { messageId: "message-1" },
+                        meta: { executionId: "exec-1" },
+                    }))),
+                },
+            );
+            const actionRequest = requests.find(request => request.url.includes("/v1/actions/"));
+            const output = JSON.parse(result.stdout) as {
+                data: unknown;
+                meta: { executionId: string; uploads: Array<Record<string, unknown>> };
+            };
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            expect(requests.filter(request => request.url.endsWith("/create-multipart-upload")))
+                .toHaveLength(1);
+            await expect(actionRequest?.json()).resolves.toEqual({
+                input: {
+                    attachments: [fileReferenceDownloadUrl, fileReferenceDownloadUrl],
+                    to: "user@example.com",
+                },
+            });
+            expect(output.data).toEqual({ messageId: "message-1" });
+            expect(output.meta.executionId).toBe("exec-1");
+            expect(output.meta.uploads).toEqual([
+                {
+                    expiresAt: expect.any(String),
+                    fileName: "report.pdf",
+                    fileSize: 9,
+                    inputPath: "/attachments/0",
+                },
+                {
+                    expiresAt: expect.any(String),
+                    fileName: "report.pdf",
+                    fileSize: 9,
+                    inputPath: "/attachments/1",
+                },
+            ]);
+            expect(result.stdout).not.toContain("signature");
+
+            const telemetryPayload = parseTelemetryRowPayload(
+                readTelemetryRowsForTest(
+                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
+                )[0]!,
+            );
+
+            expect(telemetryPayload?.properties).toMatchObject({
+                file_reference_count: "1-5",
+            });
+            expect(JSON.stringify(telemetryPayload)).not.toContain("report.pdf");
+            expect(JSON.stringify(telemetryPayload)).not.toContain("signature");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports $file uploads on stderr in text mode", async () => {
+        const sandbox = await createCliSandbox();
+        const localFilePath = join(sandbox.env.HOME!, "report.pdf");
+
+        try {
+            await writeAuthFile(sandbox);
+            await Bun.write(localFilePath, "pdf-bytes");
+            await seedConnectorActionSchema(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    JSON.stringify({ attachment: { $file: localFilePath } }),
+                ],
+                {
+                    fetcher: createFileReferenceFetcher(requests, () => new Response(JSON.stringify({
+                        data: { messageId: "message-1" },
+                        meta: { executionId: "exec-1" },
+                    }))),
+                },
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toContain("Temporarily uploaded report.pdf for /attachment");
+            expect(result.stderr).not.toContain("signature");
+            expect(result.stdout).not.toContain("signature");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("validates $file references in dry runs without uploading", async () => {
+        const sandbox = await createCliSandbox();
+        const localFilePath = join(sandbox.env.HOME!, "report.pdf");
+
+        try {
+            await writeAuthFile(sandbox);
+            await Bun.write(localFilePath, "pdf-bytes");
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture({
+                inputSchema: {
+                    properties: { attachment: { format: "uri", type: "string" } },
+                    required: ["attachment"],
+                    type: "object",
+                },
+            }));
+
+            const requests: Request[] = [];
+            const passed = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    JSON.stringify({ attachment: { $file: localFilePath } }),
+                    "--dry-run",
+                    "--json",
+                ],
+                { fetcher: createFileReferenceFetcher(requests, () => new Response("{}")) },
+            );
+            const missing = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    JSON.stringify({ attachment: { $file: join(sandbox.env.HOME!, "missing.pdf") } }),
+                    "--dry-run",
+                    "--json",
+                ],
+                { fetcher: createFileReferenceFetcher(requests, () => new Response("{}")) },
+            );
+            const missingError = JSON.parse(missing.stderr) as {
+                error: { code: string; details: Record<string, unknown>; exitCode: number };
+            };
+
+            expect(passed.exitCode).toBe(0);
+            expect(JSON.parse(passed.stdout)).toEqual({ dryRun: true, ok: true });
+            expect(missing.exitCode).toBe(1);
+            expect(missingError.error.code).toBe("connectorRun.fileReferenceReadFailed");
+            expect(missingError.error.details).toEqual({ inputPath: "/attachment" });
+            expect(requests).toHaveLength(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects $file references the action schema cannot accept before uploading", async () => {
+        const sandbox = await createCliSandbox();
+        const localFilePath = join(sandbox.env.HOME!, "report.pdf");
+
+        try {
+            await writeAuthFile(sandbox);
+            await Bun.write(localFilePath, "pdf-bytes");
+            await seedConnectorActionSchema(sandbox, createConnectorActionFixture({
+                inputSchema: {
+                    properties: { count: { type: "number" } },
+                    type: "object",
+                },
+            }));
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    JSON.stringify({ count: { $file: localFilePath } }),
+                    "--json",
+                ],
+                { fetcher: createFileReferenceFetcher(requests, () => new Response("{}")) },
+            );
+            const payload = JSON.parse(result.stderr) as {
+                error: { code: string; details: { issues: Array<{ path: string }> } };
+            };
+
+            expect(result.exitCode).toBe(2);
+            expect(payload.error.code).toBe("connectorRun.invalidPayload");
+            expect(payload.error.details.issues.map(issue => issue.path)).toEqual(["/count"]);
+            expect(requests).toHaveLength(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects malformed $file markers before any request", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox);
+
+            const requests: Request[] = [];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    JSON.stringify({ attachment: { $file: "./a.pdf", name: "a" } }),
+                    "--json",
+                ],
+                { fetcher: createFileReferenceFetcher(requests, () => new Response("{}")) },
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(JSON.parse(result.stderr)).toMatchObject({
+                error: {
+                    code: "connectorRun.invalidFileReference",
+                    details: { inputPath: "/attachment" },
+                    exitCode: 2,
+                },
+            });
+            expect(requests).toHaveLength(0);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports connector payload validation issues as structured JSON errors", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(
+                sandbox,
+                {
+                    description: "Send a Gmail message.",
+                    inputSchema: {
+                        properties: {
+                            to: {
+                                type: "string",
+                            },
+                        },
+                        required: ["to"],
+                        type: "object",
+                    },
+                    name: "send_mail",
+                    outputSchema: {
+                        type: "object",
+                    },
+                    service: "gmail",
+                },
+            );
+
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "gmail",
+                    "-a",
+                    "send_mail",
+                    "-d",
+                    "{\"to\":1}",
+                    "--dry-run",
+                    "--json",
+                ],
+            );
+            const payload = JSON.parse(result.stderr) as {
+                error: {
+                    code: string;
+                    details: { issues: Array<Record<string, unknown>> };
+                    exitCode: number;
+                };
+            };
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(payload.error.code).toBe("connectorRun.invalidPayload");
+            expect(payload.error.exitCode).toBe(2);
+            expect(payload.error.details.issues).toEqual([
+                {
+                    keyword: "type",
+                    message: expect.any(String),
+                    params: { type: "string" },
+                    path: "/to",
+                },
+            ]);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test.each([
+        {
+            expectedCode: "connectorRun.requestFailed",
+            label: "a poll HTTP failure",
+            pollResponse: () => new Response(JSON.stringify({ message: "upstream down" }), { status: 500 }),
+        },
+        {
+            expectedCode: "connectorRun.asyncStateMissing",
+            label: "a poll response without a state",
+            pollResponse: () => new Response(JSON.stringify({
+                data: {},
+                meta: { executionId: "poll-exec" },
+            })),
+        },
+    ])("keeps the submit handle on $label after --wait-result submission", async ({ expectedCode, pollResponse }) => {
+        const sandbox = await createCliSandbox();
+        const sleepMock = createBunSleepMock();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncSubmitActionSchema());
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+
+            let requestCount = 0;
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_submit",
+                    "-d",
+                    "{\"prompt\":\"a cat\"}",
+                    "--wait-result",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => {
+                        requestCount += 1;
+
+                        if (requestCount === 1) {
+                            return new Response(JSON.stringify({
+                                data: { sessionId: "session-1" },
+                                meta: { executionId: "submit-exec" },
+                            }));
+                        }
+
+                        return pollResponse();
+                    },
+                },
+            );
+            const payload = JSON.parse(result.stderr) as {
+                error: { code: string; details: Record<string, unknown> };
+            };
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stdout).toBe("");
+            expect(payload.error.code).toBe(expectedCode);
+            expect(payload.error.details).toMatchObject({
+                handle: "session-1",
+                submitExecutionId: "submit-exec",
+            });
+        }
+        finally {
+            sleepMock.restore();
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports the submit execution when the submit response has no handle", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncSubmitActionSchema());
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_submit",
+                    "-d",
+                    "{\"prompt\":\"a cat\"}",
+                    "--wait-result",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => new Response(JSON.stringify({
+                        data: {},
+                        meta: { executionId: "submit-exec" },
+                    })),
+                },
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(JSON.parse(result.stderr)).toMatchObject({
+                error: {
+                    code: "connectorRun.asyncHandleMissing",
+                    details: {
+                        action: "openai_image_async_submit",
+                        service: "fusion-api",
+                        submitExecutionId: "submit-exec",
+                    },
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("includes the submit handle in structured async wait failures", async () => {
+        const sandbox = await createCliSandbox();
+        const sleepMock = createBunSleepMock();
+
+        try {
+            await writeAuthFile(sandbox);
+            await seedConnectorActionSchema(sandbox, createAsyncSubmitActionSchema());
+            await seedConnectorActionSchema(sandbox, createAsyncResultActionSchema());
+
+            const responses = [
+                {
+                    data: {
+                        sessionId: "session-1",
+                    },
+                    meta: {
+                        executionId: "submit-exec",
+                    },
+                },
+                {
+                    data: {
+                        state: "not_found",
+                    },
+                    meta: {
+                        executionId: "poll-exec",
+                    },
+                },
+            ];
+            const result = await sandbox.run(
+                [
+                    "connector",
+                    "run",
+                    "fusion-api",
+                    "-a",
+                    "openai_image_async_submit",
+                    "-d",
+                    "{\"prompt\":\"a cat\"}",
+                    "--wait-result",
+                    "--json",
+                ],
+                {
+                    fetcher: async () => new Response(JSON.stringify(responses.shift())),
+                },
+            );
+            const payload = JSON.parse(result.stderr) as {
+                error: { code: string; details: Record<string, unknown> };
+            };
+
+            expect(result.exitCode).toBe(1);
+            expect(payload.error.code).toBe("connectorRun.asyncFailed");
+            expect(payload.error.details).toEqual({
+                action: "openai_image_async_result",
+                handle: "session-1",
+                pollCount: 1,
+                service: "fusion-api",
+                state: "not_found",
+                submitExecutionId: "submit-exec",
+            });
+        }
+        finally {
+            sleepMock.restore();
             await sandbox.cleanup();
         }
     });
@@ -6235,3 +6930,48 @@ test("rejects all-teams search for self-hosted targets", async () => {
     }
     finally { await sandbox.cleanup(); }
 });
+
+// Serves the multipart file upload endpoints with a single part and hands
+// every other request to `onOtherRequest`.
+function createFileReferenceFetcher(
+    requests: Request[],
+    onOtherRequest: (request: Request) => Response,
+) {
+    return async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+        const request = toRequest(input, init);
+
+        requests.push(request);
+
+        if (request.url.endsWith("/create-multipart-upload")) {
+            return Response.json({
+                success: true,
+                data: {
+                    key: "file-upload/user-1/file-1/report.pdf",
+                    partSize: 1024,
+                    totalParts: 1,
+                    uploadID: "upload-1",
+                },
+            });
+        }
+
+        if (request.url.endsWith("/generate-presigned-urls")) {
+            return Response.json({
+                success: true,
+                data: [{ partNumber: 1, uploadURL: "https://storage.example.com/upload/1" }],
+            });
+        }
+
+        if (request.url.startsWith("https://storage.example.com/upload/")) {
+            return new Response(null, { headers: { ETag: "\"etag-1\"" }, status: 200 });
+        }
+
+        if (request.url.endsWith("/complete-multipart-upload")) {
+            return Response.json({
+                success: true,
+                data: { downloadURL: fileReferenceDownloadUrl },
+            });
+        }
+
+        return onOtherRequest(request);
+    };
+}

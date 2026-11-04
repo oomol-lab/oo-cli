@@ -1,6 +1,7 @@
 import type { OptionValues } from "commander";
 import type { ZodError, ZodType } from "zod";
 
+import type { CliErrorOutputFormat } from "../../application/commands/error-output.ts";
 import type {
     CliCatalog,
     CliCommandDefinition,
@@ -21,6 +22,11 @@ import {
     outputFormatOptions,
     resolveOutputFormat,
 } from "../../application/commands/command-output.ts";
+import {
+    createCliErrorReport,
+    resolveErrorOutputFormatFromArgv,
+    writeCliError,
+} from "../../application/commands/error-output.ts";
 import { readTeamFlag } from "../../application/commands/team/identity.ts";
 import {
     CliUserError,
@@ -32,6 +38,12 @@ interface CommanderCliRunRequest {
     catalog: CliCatalog;
     context: CliExecutionContext;
     observer?: CliCommandObserver;
+}
+
+interface CommanderRunState extends CommanderCliRunRequest {
+    // Starts from an argv scan so parse errors honor --json, then is replaced
+    // by the parsed --json/--format options once the command resolves.
+    errorOutput: { format: CliErrorOutputFormat };
 }
 
 interface CommandOutputConfiguration {
@@ -63,19 +75,24 @@ class LocalizedCommand extends Command {
 
 export class CommanderCliAdapter {
     async run(request: CommanderCliRunRequest): Promise<number> {
+        const state: CommanderRunState = {
+            ...request,
+            errorOutput: { format: resolveErrorOutputFormatFromArgv(request.argv) },
+        };
+
         try {
-            const program = this.buildProgram(request);
+            const program = this.buildProgram(state);
 
             await program.parseAsync(request.argv, { from: "user" });
             return 0;
         }
         catch (error) {
-            return this.handleError(error, request.context, request.observer);
+            return this.handleError(error, state);
         }
     }
 
     private buildProgram(
-        request: CommanderCliRunRequest,
+        request: CommanderRunState,
     ): Command {
         const { catalog, context } = request;
         const program = new LocalizedCommand(context.translator, catalog.name);
@@ -115,7 +132,7 @@ export class CommanderCliAdapter {
     private addCommand(
         parent: Command,
         definition: CliCommandDefinition,
-        request: CommanderCliRunRequest,
+        request: CommanderRunState,
     ): void {
         const command = parent.command(
             definition.name,
@@ -140,16 +157,20 @@ export class CommanderCliAdapter {
 
     private handleError(
         error: unknown,
-        context: CliExecutionContext,
-        observer?: CliCommandObserver,
+        state: CommanderRunState,
     ): number {
+        const { context, observer } = state;
+        const errorFormat = state.errorOutput.format;
+
         if (error instanceof CliUserError) {
             observer?.onCommandFailed?.({
                 errorKey: error.key,
                 exitCode: error.exitCode,
             });
-            context.stderr.write(
-                `${context.translator.t(error.key, error.params)}\n`,
+            writeCliError(
+                context.stderr,
+                createCliErrorReport(error, context.translator),
+                errorFormat,
             );
 
             return error.exitCode;
@@ -178,7 +199,15 @@ export class CommanderCliAdapter {
                 context.translator,
             );
 
-            context.stderr.write(`${localizedMessage}\n`);
+            writeCliError(
+                context.stderr,
+                {
+                    code: error.code,
+                    exitCode: 2,
+                    message: localizedMessage,
+                },
+                errorFormat,
+            );
 
             observer?.onCommandFailed?.({
                 exitCode: 2,
@@ -191,10 +220,10 @@ export class CommanderCliAdapter {
         observer?.onCommandFailed?.({
             exitCode: 1,
         });
-        context.stderr.write(
-            `${context.translator.t("errors.unexpected", {
-                message: toErrorMessage(error),
-            })}\n`,
+        writeCliError(
+            context.stderr,
+            createCliErrorReport(error, context.translator),
+            errorFormat,
         );
 
         return 1;
@@ -267,7 +296,7 @@ function bindCommandHandler<TInput>(
     command: Command,
     definition: CliCommandDefinition<TInput>,
     inputSchema: ZodType<TInput>,
-    request: CommanderCliRunRequest,
+    request: CommanderRunState,
 ): void {
     const handler = definition.handler!;
 
@@ -290,6 +319,12 @@ function bindCommandHandler<TInput>(
                 ? "json"
                 : resolveOutputFormat(optionValues),
         });
+
+        // Structured errors are opt-in through an explicit --json/--format
+        // flag, so json-only commands keep their text errors by default.
+        request.errorOutput.format = definition.output === undefined
+            ? "text"
+            : resolveOutputFormat(optionValues);
 
         const output = createCommandOutput(
             request.context.stdout,
@@ -656,12 +691,4 @@ function stripErrorPrefix(message: string): string {
     }
 
     return message;
-}
-
-function toErrorMessage(error: unknown): string {
-    if (error instanceof Error) {
-        return error.message;
-    }
-
-    return String(error);
 }

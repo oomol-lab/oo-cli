@@ -170,9 +170,18 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
             });
 
             if (response.data.status >= 400) {
+                // The connector call itself succeeded; the status belongs to the
+                // proxied provider API, so it is reported separately from the
+                // connector service's own `httpStatus`.
                 throw new CliUserError("errors.connectorProxy.requestFailed", 1, {
                     service: input.serviceName,
                     status: response.data.status,
+                }, {
+                    details: {
+                        executionId: response.meta.executionId,
+                        service: input.serviceName,
+                        upstreamHttpStatus: response.data.status,
+                    },
                 });
             }
         }
@@ -185,7 +194,7 @@ export const connectorProxyCommand: CliCommandDefinition<ConnectorProxyInput> = 
 
 async function buildConnectorProxyRequest(
     input: ConnectorProxyInput,
-    context: Pick<CliExecutionContext, "cwd">,
+    context: Pick<CliExecutionContext, "cwd" | "stdin">,
 ): Promise<ConnectorProxyRequest> {
     if (input.data !== undefined && hasSplitProxyRequestInput(input)) {
         throw new CliUserError("errors.connectorProxy.dataConflict", 2);

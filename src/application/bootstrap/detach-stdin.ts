@@ -1,5 +1,6 @@
 import { closeSync, openSync } from "node:fs";
 import process from "node:process";
+import { isatty } from "node:tty";
 
 export interface DetachTtyProbe {
     readonly platform: NodeJS.Platform;
@@ -30,6 +31,23 @@ export function shouldDetachTtyFds(probe: DetachTtyProbe): boolean {
     }
 
     return true;
+}
+
+// fd 0 only needs detaching when it is itself a terminal. Piped stdin is not a
+// TTY, so Bun's exit-time tcsetattr on it already fails with ENOTTY, and
+// detaching it would discard input that `@-` / `--stdin` readers need.
+export function shouldDetachStdinFd(stdinIsTTY: boolean): boolean {
+    return stdinIsTTY;
+}
+
+let stdinTerminalDetached = false;
+
+// After fd 0 is detached it no longer reports a TTY, so stdin readers would
+// see an empty stream instead of refusing the terminal. The startup state is
+// kept here so the CLI can still report fd 0 as the terminal it was. It holds
+// even when the best-effort dup2 failed, because fd 0 is still that terminal.
+export function wasStdinTerminalDetached(): boolean {
+    return stdinTerminalDetached;
 }
 
 export interface DetachFdIo {
@@ -122,9 +140,14 @@ export async function detachNonInteractiveTtyFdsFromProcess(): Promise<void> {
         closeFd: closeSync,
     };
 
-    // fd 0: detach immediately. Nothing reads stdin for non-interactive
-    // commands, so pointing it at /dev/null up front has no downside.
-    detachFdToDevNull(io, 0);
+    // fd 0: detach immediately when it is a terminal. Non-interactive
+    // commands never read a terminal stdin, so /dev/null has no downside.
+    // `isatty` avoids touching `process.stdin`, which would initialize a TTY
+    // handle and save terminal state.
+    if (shouldDetachStdinFd(isatty(0))) {
+        stdinTerminalDetached = true;
+        detachFdToDevNull(io, 0);
+    }
 
     // fd 2: detach at the last possible moment so CLI errors keep reaching
     // the real terminal during normal execution. Only relevant when stderr

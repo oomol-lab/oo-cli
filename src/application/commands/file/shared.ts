@@ -5,10 +5,12 @@ import type {
     FileUploadStatus,
 } from "../../contracts/file-upload-store.ts";
 import type { AuthAccount } from "../../schemas/auth.ts";
+import type { UploadSourceFile } from "../shared/upload-source-file.ts";
 import type { TeamIdentity } from "../team/identity.ts";
 
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
+import { mapWithConcurrency } from "../../shared/concurrency.ts";
 import { createRetryingFetcher } from "../../shared/retrying-fetcher.ts";
 import { parsePositiveIntegerOption } from "../shared/input-parsing.ts";
 import { requestOo, requestOoResponse } from "../shared/oo-request.ts";
@@ -79,6 +81,7 @@ const completeFileUploadResponseSchema = z.object({
 }).passthrough();
 
 const fileUploadPartExtraRetries = 1;
+const fileUploadPartConcurrency = 2;
 
 export function parseFileLimit(value: string | undefined): number | undefined {
     return parsePositiveIntegerOption(
@@ -214,8 +217,10 @@ export async function uploadFileParts(
     const presignedUrlByPartNumber = new Map(
         presignedPartUrls.map(part => [part.partNumber, part.uploadURL]),
     );
-    const uploadedParts: UploadedPart[] = [];
+    const parts: Array<{ partNumber: number; presignedUrl: string }> = [];
 
+    // Resolve every presigned URL up front so a malformed response fails
+    // before any bytes are sent.
     for (let partNumber = 1; partNumber <= session.totalParts; partNumber += 1) {
         const presignedUrl = presignedUrlByPartNumber.get(partNumber);
 
@@ -223,18 +228,80 @@ export async function uploadFileParts(
             throw new CliUserError("errors.fileUpload.invalidResponse", 1);
         }
 
-        const start = (partNumber - 1) * session.partSize;
-        const end = Math.min(start + session.partSize, file.size);
-
-        uploadedParts.push(await uploadFilePart(
-            presignedUrl,
-            file.slice(start, end),
-            partNumber,
-            context,
-        ));
+        parts.push({ partNumber, presignedUrl });
     }
 
-    return uploadedParts;
+    // Results come back in part order, which is what the complete request
+    // expects, regardless of the order in which uploads finish. Peak memory
+    // is bounded by concurrency × partSize because each worker materializes
+    // only its own part.
+    return await mapWithConcurrency(
+        parts,
+        fileUploadPartConcurrency,
+        async ({ partNumber, presignedUrl }) => {
+            const start = (partNumber - 1) * session.partSize;
+            const end = Math.min(start + session.partSize, file.size);
+
+            return await uploadFilePart(
+                presignedUrl,
+                file.slice(start, end),
+                partNumber,
+                context,
+            );
+        },
+    );
+}
+
+/**
+ * Uploads one validated local file through the multipart flow and records it
+ * in the local upload store, so `oo file list` shows it. Returns the stored
+ * record, including the temporary download URL.
+ */
+export async function uploadLocalFile(
+    sourceFile: UploadSourceFile,
+    account: Pick<AuthAccount, "apiKey" | "endpoint">,
+    identity: TeamIdentity | undefined,
+    context: Pick<CliExecutionContext, "fetcher" | "fileUploadStore" | "logger" | "translator">,
+): Promise<FileUploadRecord> {
+    const uploadSession = await createMultipartFileUpload(
+        account,
+        identity,
+        sourceFile.fileName,
+        sourceFile.fileSize,
+        context,
+    );
+    const presignedPartUrls = await generatePresignedFileUploadPartUrls(
+        account,
+        identity,
+        uploadSession,
+        context,
+    );
+    const uploadedParts = await uploadFileParts(
+        sourceFile.file,
+        uploadSession,
+        presignedPartUrls,
+        context,
+    );
+    const uploadResult = await completeMultipartFileUpload(
+        account,
+        identity,
+        uploadSession,
+        uploadedParts,
+        context,
+    );
+    const uploadedAtMs = Date.now();
+    const record: FileUploadRecord = {
+        downloadUrl: uploadResult.downloadUrl,
+        expiresAtMs: uploadedAtMs + fileUploadExpiresInMs,
+        fileName: sourceFile.fileName,
+        fileSize: sourceFile.fileSize,
+        id: Bun.randomUUIDv7(),
+        uploadedAtMs,
+    };
+
+    context.fileUploadStore.save(record);
+
+    return record;
 }
 
 export async function completeMultipartFileUpload(

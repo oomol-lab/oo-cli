@@ -63,7 +63,9 @@ Representative schema JSON shape:
 - Preserve service-specific constraints such as recipient, folder, file id,
   time range, calendar, channel, label, format, or destination.
 - If an input can accept a URI and the user only has a local file, read
-  [file-transfer.md](file-transfer.md) before executing.
+  [file-transfer.md](file-transfer.md) before executing. In
+  `oo connector run`, pass the file as `{ "$file": "<path>" }` instead of a
+  separate upload step.
 - If the task depends on raw file bytes, local paths, or unsupported
   special-media handles that cannot be submitted safely through normal JSON,
   stop the current `oo` path.
@@ -98,7 +100,10 @@ Facts:
 
 - `serviceName` is the only positional argument.
 - `--action` is required and selects the connector action name.
-- `--data` must be a JSON object string or `@path/to/file.json`.
+- `--data` must be a JSON object string, `@path/to/file.json`, or `@-` to
+  read the JSON from stdin. Prefer `@-` (for example with a heredoc) for large
+  payloads or values that are awkward to shell-quote, instead of writing a
+  temporary file.
 - If `--data` is omitted, the CLI uses `{}`.
 - If a service has multiple connected apps or execution fails with
   `connection_ambiguous`, run `oo connector apps "<serviceName>" --json`, pick
@@ -115,6 +120,19 @@ Facts:
 - `--json` returns a stable JSON object for execution output.
 - In execution responses, the execution id is nested under
   `meta.executionId`, not a top-level field.
+- With `--json`, a failure leaves stdout empty and writes one JSON line to
+  stderr: `{ "error": { code, message, exitCode, details? } }`. Read
+  `error.code` and `error.details` instead of parsing `error.message`.
+  Request failures use `connectorRun.requestFailed` /
+  `connectorProxy.requestFailed` with `details.httpStatus` and, when the
+  server sent one, `details.upstreamErrorCode`. Payload validation failures
+  use `connectorRun.invalidPayload` with `details.issues[]` entries
+  `{ path, keyword, message, params }`; fix the fields at each `path` and
+  retry once. With `--wait-result`, every polling failure after
+  the submit response returned a handle includes `details.handle` and
+  `details.submitExecutionId`; reuse that handle instead of submitting again.
+  `connectorRun.asyncHandleMissing` means the task was submitted without a
+  pollable handle: report `details.submitExecutionId` and do not resubmit.
 - The schema returned by `oo connector schema` is the public contract used to
   build payloads and inspect the action result shape.
 
@@ -365,8 +383,9 @@ the result is as narrow as possible.
 
 ## Authorization blockers
 
-Inspect `errorCode` before broader troubleshooting. These error codes block
-operations on the selected connection until it is connected or reauthorized:
+Inspect `errorCode` (`error.details.upstreamErrorCode` in JSON error output)
+before broader troubleshooting. These error codes block operations on the
+selected connection until it is connected or reauthorized:
 
 - `connection_required`
 - `app_not_found`

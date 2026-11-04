@@ -114,14 +114,22 @@ describe("file upload CLI", () => {
 
             try {
                 expect(createFileUploadSnapshot(result)).toMatchSnapshot();
-                expect(requests.map(request => request.url)).toEqual([
+                const requestUrls = requests.map(request => request.url);
+
+                // Parts upload concurrently, so only their set is stable; the
+                // complete request still runs after every part.
+                expect(requestUrls.slice(0, 2)).toEqual([
                     "https://fusion-api.oomol.com/v1/file-upload/action/create-multipart-upload",
                     "https://fusion-api.oomol.com/v1/file-upload/action/generate-presigned-urls",
+                ]);
+                expect(requestUrls.slice(2, 5).sort()).toEqual([
                     "https://storage.example.com/upload/1",
                     "https://storage.example.com/upload/2",
                     "https://storage.example.com/upload/3",
-                    "https://fusion-api.oomol.com/v1/file-upload/action/complete-multipart-upload",
                 ]);
+                expect(requestUrls[5]).toBe(
+                    "https://fusion-api.oomol.com/v1/file-upload/action/complete-multipart-upload",
+                );
                 expect(requests
                     .filter(request => request.url.startsWith("https://fusion-api.oomol.com/"))
                     .map(request => request.headers.get("Authorization")))

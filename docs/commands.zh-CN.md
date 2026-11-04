@@ -229,6 +229,64 @@ oo flow
 - 如果没有通过 `--format=json` 或 `--json` 请求 JSON 输出，
   `--show-schema-version` 不会产生任何效果。
 
+### JSON 输入
+
+文档中标注支持 `@-` 的选项会从 stdin 读取 JSON 直到 EOF，例如
+`echo '{"to":"a@example.com"}' | oo connector run gmail -a send_mail -d @-`。
+
+- `@-` 需要管道输入；stdin 为交互式终端时以退出码 `2` 失败。
+- 同一条命令只能有一个选项从 stdin 读取；第二个 `@-` 以退出码 `2` 失败。
+- stdin 为空时按非法 JSON 报错。
+- 如需读取名为 `-` 的文件，请使用 `@./-`。
+
+### JSON 错误
+
+显式传入 `--format=json` 或 `--json` 时，命令失败会向 stderr 输出一行 JSON，
+取代纯文本错误信息。stdout 保持为空，退出码不变：
+
+```json
+{"error":{"code":"connectorRun.requestFailed","message":"Connector action get_message returned HTTP 409 (errorCode: connection_ambiguous): Multiple connections match","exitCode":1,"details":{"action":"get_message","service":"gmail","httpStatus":409,"upstreamErrorCode":"connection_ambiguous","executionId":"exec-1"}}}
+```
+
+- `code` 是稳定的机器可读标识，例如 `auth.required`、
+  `connectorRun.invalidPayload`、`commander.unknownOption` 或 `unexpected`。
+  请根据 `code` 分支处理，不要解析 `message`。
+- `message` 与文本模式打印的本地化文案相同，随语言设置变化，仅用于展示。
+- `exitCode` 与进程退出码一致：`2` 表示用法或输入错误，`3` 表示 OOMOL 余额不足，
+  `1` 表示其他运行时失败。
+- `details` 可选，只在错误携带结构化字段时出现。字段取决于 `code`，调用方应忽略
+  不认识的字段。当前字段：
+  - HTTP 请求失败：`httpStatus`。
+  - `billing.insufficientCredit`：`billingUrl`；服务端返回 HTTP 402 时还包含
+    `httpStatus`。
+  - connector 服务返回的 `connectorRun.requestFailed`、
+    `connectorRun.approvalRequired` 和 `connectorProxy.requestFailed`：
+    `service`、`httpStatus`，以及可用时的 `action`（仅 run）、
+    `upstreamErrorCode`（服务端 `errorCode`，例如 `connection_ambiguous`）和
+    `executionId`。
+  - 被代理的 provider API 返回 HTTP 错误时的 `connectorProxy.requestFailed`：
+    `service`、`upstreamHttpStatus` 和 `executionId`。此时 stdout 仍会输出代理
+    响应。
+  - `connectorRun.asyncApprovalRequired`：`recovery`
+    （`{ service, action, input, submitExecutionId }`）和 `handle`。
+  - `connectorRun.invalidFileReference`、`connectorRun.fileReferenceReadFailed`、
+    `connectorRun.fileReferenceNotFile`、`connectorRun.fileReferenceTooLarge`，
+    以及 `$file` 引用上传失败：`inputPath`。
+  - `connectorRun.invalidPayload`：`issues`，为
+    `{ path, keyword, message, params }` 数组，`path` 是指向 `--data` payload 的
+    JSON Pointer。
+  - `connectorRun.asyncTimedOut`、`connectorRun.asyncFailed`、
+    `connectorRun.asyncUnknownState`：`service`、`action`、`pollCount` 和
+    `state`（仅失败状态）。
+  - 使用 `--wait-result` 时，提交响应返回 handle 之后的任何轮询失败（无论
+    `code` 是什么）都会额外包含 `handle` 和 `submitExecutionId`。请用该 handle
+    继续，不要重新提交任务。
+  - `connectorRun.asyncHandleMissing`：任务已提交，但响应中没有可用于轮询的
+    handle；`details` 包含 `service`、`action` 和 `submitExecutionId`。不要重新
+    提交任务。
+- 输出始终为 JSON 的命令（如 `oo connector schema`）在未传 `--json` 或
+  `--format=json` 时仍输出纯文本错误。
+
 ## Debug 日志
 
 - CLI 会把结构化 debug 日志写入按平台区分的持久化日志目录：
@@ -611,9 +669,10 @@ oo flow
 - 认证：要求存在当前 OOMOL 账号。
 - 选项：
   - `--schema <schema>` 为必填。取值必须是根类型为 `object` 的 JSON Schema
-    object，或 `@path/to/schema.json`。
-  - `--input <input>` 提供输入 JSON，或使用 `@path/to/input.json` 读取。
-    省略时输入为 `{}`。
+    object、`@path/to/schema.json`，或使用 `@-` 从 stdin 读取。
+  - `--input <input>` 提供输入 JSON，或使用 `@path/to/input.json` 读取，或使用
+    `@-` 从 stdin 读取。省略时输入为 `{}`。`--schema` 与 `--input` 只能有一个
+    使用 `@-`。
   - `--system <system>` 提供额外 system prompt 文本，或使用
     `@path/to/system.txt` 读取。
   - `--max-retries <count>` 设置首次尝试之后的重试次数。默认值为 `2`；
@@ -980,8 +1039,20 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 
 - 参数：`<serviceName>` 为服务名。
 - 选项：`-a, --action <action>` 用于指定 action 名称，且为必填。
-- 选项：`-d, --data <data>` 支持直接传入 JSON，或使用 `@路径` 读取 JSON 文件。
+- 选项：`-d, --data <data>` 支持直接传入 JSON、使用 `@路径` 读取 JSON 文件，
+  或使用 `@-` 从 stdin 读取 JSON（见 [JSON 输入](#json-输入)）。
   `--input <data>` 是 `--data <data>` 的 alias。
+- 选项：`--data` 中的对象 `{ "$file": "<路径>" }` 表示引用本地文件。执行前 CLI
+  会把文件上传到 OOMOL 临时文件存储，并用该文件的下载 URL 替换这个对象：
+  - 对象只能包含一个非空字符串 `$file`；其他含 `$file` 的形式以退出码 `2`
+    拒绝。相对路径相对于当前目录解析。
+  - 上传前会先用 URL 代替每个引用，按 action contract 校验 payload，因此目标
+    字段必须接受 URL 字符串。
+  - 同一条命令中多次引用同一文件只上传一次。
+  - 上传规则与 `oo file upload` 一致：需要 OOMOL 账号（面向自部署 Connector
+    时也需要）、文件不超过 500 MiB、链接 7 天后过期，上传记录可通过
+    `oo file list` 查看。
+  - `--dry-run` 只检查引用文件存在且未超出大小上限，不会上传。
 - 选项：`--app-id <app-id>` 精确选择搜索返回的连接，与 `--connection-name` 互斥，
   不接受空值。当前选择的团队必须拥有该连接，app ID 本身不会切换团队。
 - 选项：`--connection-name <connection-name>` 使用指定 connector app 连接名称
@@ -999,6 +1070,10 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 选项：`--format=json` 和 `--json` 会输出 JSON 对象。
 - 输出：非 dry-run 的 JSON 输出会保持稳定结构
   `{ data, meta: { executionId } }`。
+- 输出：`--data` 含 `$file` 引用时，JSON 输出额外包含 `meta.uploads`，每个引用
+  对应一条 `{ inputPath, fileName, fileSize, expiresAt }`，`inputPath` 是指向
+  `--data` 的 JSON Pointer。下载 URL 永远不会输出。文本模式会在 stderr 为每次
+  上传打印一行。
 - 输出：对于异步 submit action，默认输出 submit 结果，例如 handle 或
   session id；CLI 不会自动等待。
 - 输出：使用 `--wait-result` 时，JSON 输出的 `data` 是完成后的结果，并包含
@@ -1008,14 +1083,18 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 输出：dry-run 的 JSON 输出返回 `{ dryRun, ok }`。
 - 错误：stderr 会打印 HTTP 状态；如果失败响应包含服务端 `message` 或
   `errorCode`，也会一并输出；两者都缺失时，会输出原始响应体（已去除首尾空白
-  并限制长度），以免丢失失败详情。对于 `errorCode: approval_required`，
+  并限制长度），以免丢失失败详情。传入 `--json` 时，失败以 code 为
+  `connectorRun.requestFailed`（`approval_required` 时为
+  `connectorRun.approvalRequired`）的结构化 JSON 错误输出，见
+  [JSON 错误](#json-错误)。对于 `errorCode: approval_required`，
   stderr 会说明被拦截的 action 尚未执行，满足用户授权后可用 `--approval` 重试。
   保留 HTTP 状态，退出码为 `1`，不会自动重试。
 - 错误：`--wait-result` 成功提交任务后，如果结果查询返回 `approval_required`，
   命令以 `1` 退出，并说明任务已提交、本次结果查询未执行。stderr 附恢复 JSON
   `{ service, action, input, submitExecutionId }`，其中 `action` 和 `input`
   描述结果查询，stdout 保持为空。满足授权后，保留原团队和连接选择，使用恢复参数
-  带 `--wait --approval` 继续查询，不要重新提交任务。
+  带 `--wait --approval` 继续查询，不要重新提交任务。传入 `--json` 时，同一个
+  恢复对象也可从 `error.details.recovery` 读取。
 - 说明：`--wait` 会将显式 `--approval` 声明传给所选 action 的每次轮询。
   对于 `--wait-result`，声明只传给提交 action，派生结果 action 不会继承。
 - 说明：命令会在执行前根据选中 action 的 contract 校验输入。
@@ -1054,8 +1133,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 通过已连接的 connector app 代理 provider API 请求。
 
 - 参数：`<serviceName>` 为服务名。
-- 选项：`-d, --data <data>` 接收完整 proxy request JSON object，或使用
-  `@路径` 读取 JSON 文件。对象形状为
+- 选项：`-d, --data <data>` 接收完整 proxy request JSON object，也可使用
+  `@路径` 读取 JSON 文件，或使用 `@-` 从 stdin 读取。对象形状为
   `{ endpoint, method?, query?, headers?, body? }`。
 - 选项：`--input <data>` 是 `--data <data>` 的 alias。
 - 选项：未传 `--data` 时，使用 `--endpoint <endpoint>`，以及可选的
@@ -1087,7 +1166,9 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   仍需调用方判断。
 - 错误：stderr 会打印 connector proxy HTTP 状态；如果失败响应提供了
   `message` 和 `errorCode`，也会一并包含；两者都缺失时，会输出原始响应体
-  （已去除首尾空白并限制长度），以免丢失失败详情。
+  （已去除首尾空白并限制长度），以免丢失失败详情。传入 `--json` 时，失败以
+  code 为 `connectorProxy.requestFailed` 的结构化 JSON 错误输出，见
+  [JSON 错误](#json-错误)。
 - 说明：`oo connector proxy` 不使用 connector action schema 或 schema cache。
   当选中的 connector 支持 proxy execution 且没有专用 connector action 时使用。
 - 说明：面向自部署 Connector 时，传入 `--team` 会被拒绝（exit `2`），

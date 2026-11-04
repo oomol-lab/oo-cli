@@ -145,7 +145,7 @@ export const llmJsonCommand: CliCommandDefinition<LlmJsonInput> = {
 
 async function readRequiredJsonSchema(
     value: string | undefined,
-    context: Pick<CliExecutionContext, "cwd">,
+    context: Pick<CliExecutionContext, "cwd" | "stdin">,
 ): Promise<unknown> {
     if (value === undefined || value.trim() === "") {
         throw new CliUserError("errors.llmJson.schemaRequired", 2);

@@ -39,6 +39,11 @@ import {
 import { createTranslator } from "../../i18n/translator.ts";
 import { migrateLegacyDefaultTeam } from "../auth/default-team.ts";
 import { loadCliCatalog } from "../commands/catalog.ts";
+import {
+    createCliErrorReport,
+    resolveErrorOutputFormatFromArgv,
+    writeCliError,
+} from "../commands/error-output.ts";
 import { resolveOpenFlowInvocation } from "../commands/flow-invocation.ts";
 import { synchronizeManagedSkillsForAvailableHosts } from "../commands/skills/auto-sync.ts";
 import { APP_NAME } from "../config/app-config.ts";
@@ -59,6 +64,7 @@ import {
 } from "../telemetry/constants.ts";
 import { emitCliCommandTelemetry } from "../telemetry/emitter.ts";
 import { createTelemetryInvocationRecorder } from "../telemetry/invocation.ts";
+import { wasStdinTerminalDetached } from "./detach-stdin.ts";
 
 export interface CliInvocation {
     argv: readonly string[];
@@ -226,13 +232,14 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
 
     try {
         if (rawCliLanguage !== undefined && parsedCliLanguage === undefined) {
-            invocation.stderr.write(
-                `${bootstrapTranslator.t("errors.lang.invalidFlag", {
+            exitCode = writeBootstrapError(
+                new CliUserError("errors.lang.invalidFlag", 2, {
                     value: rawCliLanguage,
-                })}\n`,
+                }),
+                bootstrapTranslator,
+                invocation.stderr,
+                invocation.argv,
             );
-
-            exitCode = 2;
             telemetryRecorder.observer.onCommandFailed?.({
                 errorKey: "errors.lang.invalidFlag",
                 exitCode,
@@ -416,7 +423,12 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             );
         }
 
-        exitCode = writeBootstrapError(error, translator, invocation.stderr);
+        exitCode = writeBootstrapError(
+            error,
+            translator,
+            invocation.stderr,
+            invocation.argv,
+        );
         telemetryRecorder.observer.onCommandFailed?.({
             errorKey: error instanceof CliUserError ? error.key : "errors.unexpected",
             exitCode,
@@ -615,19 +627,13 @@ function writeBootstrapError(
     error: unknown,
     translator: ReturnType<typeof createTranslator>,
     stderr: Writer,
+    argv: readonly string[],
 ): number {
-    if (error instanceof CliUserError) {
-        stderr.write(`${translator.t(error.key, error.params)}\n`);
-        return error.exitCode;
-    }
+    const report = createCliErrorReport(error, translator);
 
-    stderr.write(
-        `${translator.t("errors.unexpected", {
-            message: error instanceof Error ? error.message : String(error),
-        })}\n`,
-    );
+    writeCliError(stderr, report, resolveErrorOutputFormatFromArgv(argv));
 
-    return 1;
+    return report.exitCode;
 }
 
 interface ClosableResource {
@@ -677,6 +683,13 @@ function createLazyStdin(): InteractiveInput {
     // a TTY handle and save the terminal state.  On exit it restores that state,
     // which can race with a downstream process (e.g. `fx`) that has already
     // switched the terminal to raw mode, breaking its keyboard input.
+    // A terminal fd 0 detached at startup must not be touched either, but it
+    // still reports as a TTY so `@-` / `--stdin` refuse it instead of reading
+    // an empty stream.
+    if (wasStdinTerminalDetached()) {
+        return createDetachedStdin({ isTTY: true });
+    }
+
     return createLazyInput(() => process.stdin);
 }
 
@@ -713,12 +726,15 @@ export function createLazyInput(factory: () => InteractiveInput): InteractiveInp
     };
 }
 
-function createDetachedStdin(): InteractiveInput {
+// Exported for testing.
+export function createDetachedStdin(
+    options: { isTTY?: boolean } = {},
+): InteractiveInput {
     // A detached stdin behaves like an already-ended empty stream: no `data`
     // is ever delivered, and `end` fires asynchronously so readers (e.g.
     // `--stdin`) resolve with an empty string instead of hanging on EOF.
     return {
-        isTTY: false,
+        isTTY: options.isTTY ?? false,
         on(event: "data" | "end", listener: (chunk: string | Uint8Array) => void) {
             if (event === "end") {
                 queueMicrotask(() => (listener as () => void)());

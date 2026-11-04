@@ -215,6 +215,8 @@ describe("requestOo", () => {
                 path: "/v1/me/teams",
                 schema: itemSchema,
             })).rejects.toMatchObject({
+                code: "team.requestFailed",
+                details: { httpStatus: 404 },
                 exitCode: 1,
                 key: "errors.team.requestFailed",
                 params: { status: 404 },
@@ -331,6 +333,7 @@ describe("requestOo", () => {
                     return undefined;
                 },
             })).rejects.toMatchObject({
+                details: { billingUrl, httpStatus: 402 },
                 exitCode: 3,
                 key: "errors.billing.insufficientCredit",
                 params: { url: billingUrl },
