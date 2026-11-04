@@ -136,12 +136,13 @@ Use `oo connector schema` to inspect the relevant `oomol_console` actions:
 `list_team_skill_packages`, and `add_skill_package_to_team`. Call them through
 `oo connector run "oomol_console" --action "<action>" --data '<json>' --json`.
 For `add_skill_package_to_team`, append `--approval` only when the user has
-already confirmed the exact package and team access change. If it returns
-`approval_required`, ask the user to confirm that package and team, then retry
-the same mutation with `--approval`, preserving the team and input. The user's
-original request does not count as that confirmation. If the user cannot be
-asked, report the mutation as blocked instead of retrying. Do not add the flag
-to read actions.
+already confirmed the exact package and team access change, or explicitly
+waived confirmation for it. If it returns `approval_required` and neither
+holds, ask the user to confirm that package and team, then retry the same
+mutation with `--approval`, preserving the team and input. The user's original
+request does not count as that confirmation. If neither holds and the user
+cannot be asked, report the mutation as blocked instead of retrying. Do not add
+the flag to read actions.
 Select the intended team with `oo --team "<team-name>" connector run ...`, or
 use a verified team ID through `OO_TEAM_ID="<team-id>" oo connector run ...`.
 Keep this team selection for the diagnosis, change, and readback. These are
