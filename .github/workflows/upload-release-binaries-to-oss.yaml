@@ -94,7 +94,9 @@ jobs:
           role-to-assume: ${{ vars.ALIYUN_OOMOL_CLI_ROLE }}
           oidc-provider-arn: ${{ vars.ALIYUN_OIDC_PROVIDER }}
           role-session-name: github-action-session
-          role-session-expiration: 1800
+          # Cross-region uploads from GitHub runners to cn-hangzhou can exceed 30 minutes.
+          # The RAM role's MaxSessionDuration must be at least this value.
+          role-session-expiration: 7200
           audience: https://github.com/oomol-lab
 
       - name: Cache rclone
@@ -159,6 +161,9 @@ jobs:
             "${{ steps.prepare.outputs.upload_root }}" \
             "${{ steps.prepare.outputs.oss_uri }}" \
             --progress \
+            --transfers 8 \
+            --s3-upload-concurrency 8 \
+            --s3-chunk-size 16M \
             --retries 5 \
             --retries-sleep 10s \
             --low-level-retries 10
