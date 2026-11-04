@@ -465,9 +465,9 @@ export const enMessages = {
     "errors.connectorRun.requestError":
         "The connector action run request failed: {message}",
     "errors.connectorRun.approvalRequired":
-        "Action {action} was not executed (HTTP {status}, errorCode: {errorCode}). The policy for this action requires the user to confirm it before it runs. Show the user this operation and its key parameters and ask for confirmation. Retry the same action with --approval only after the user confirms, or when the user has explicitly said this action needs no confirmation. The original request to perform the action does not count as confirmation.",
+        "Action {action} was not executed (HTTP {status}, errorCode: {errorCode}). The policy for this action requires the user to confirm it before it runs. Show the user this operation and its key parameters and ask for confirmation. Retry the same action with the same key parameters and --approval only after the user confirms, or when the user has explicitly said this action needs no confirmation; ask again if any key parameter changes. The original request to perform the action does not count as confirmation.",
     "errors.connectorRun.asyncApprovalRequired":
-        "Task submission succeeded, but this result query for {action} was not executed (HTTP {status}, errorCode: {errorCode}). Ask the user to confirm this result query. After the user confirms, resume the result action with --wait and --approval using the same team and connection. Do not resubmit the task.\nRecovery JSON:\n{recovery}",
+        "Task submission succeeded, but this result query for {action} was not executed (HTTP {status}, errorCode: {errorCode}). Ask the user to confirm this result query, unless the user has explicitly said it needs no confirmation. After the user confirms, resume the result action with --wait and --approval using the same team, connection and recovery input. Do not resubmit the task.\nRecovery JSON:\n{recovery}",
     "errors.connectorRun.requestFailed":
         "Connector action {action} returned HTTP {status}.",
     "errors.connectorRun.requestFailedWithBody":
@@ -1875,9 +1875,9 @@ export const zhMessages = {
     "errors.connectorRun.requestError":
         "运行 connector action 失败：{message}",
     "errors.connectorRun.approvalRequired":
-        "Action {action} 尚未执行（HTTP {status}，errorCode: {errorCode}）。该操作的策略要求执行前由用户确认。请向用户说明本次操作及关键参数并征得确认；只有用户确认后，或用户已明确表示该操作无需确认时，才使用 --approval 重试相同操作。用户最初要求执行该操作不算作确认。",
+        "Action {action} 尚未执行（HTTP {status}，errorCode: {errorCode}）。该操作的策略要求执行前由用户确认。请向用户说明本次操作及关键参数并征得确认；只有用户确认后，或用户已明确表示该操作无需确认时，才保持关键参数不变并使用 --approval 重试相同操作；关键参数有变化时需重新确认。用户最初要求执行该操作不算作确认。",
     "errors.connectorRun.asyncApprovalRequired":
-        "任务已成功提交，但本次结果查询 {action} 尚未执行（HTTP {status}，errorCode: {errorCode}）。请先让用户确认本次结果查询。用户确认后，使用原团队和连接，带 --wait 和 --approval 继续结果查询。不要重新提交任务。\n恢复 JSON：\n{recovery}",
+        "任务已成功提交，但本次结果查询 {action} 尚未执行（HTTP {status}，errorCode: {errorCode}）。请先让用户确认本次结果查询，除非用户已明确表示无需确认。用户确认后，使用原团队、连接和恢复参数，带 --wait 和 --approval 继续结果查询。不要重新提交任务。\n恢复 JSON：\n{recovery}",
     "errors.connectorRun.requestFailed":
         "Connector action {action} 返回了 HTTP {status}。",
     "errors.connectorRun.requestFailedWithBody":

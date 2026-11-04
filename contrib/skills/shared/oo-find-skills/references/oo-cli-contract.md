@@ -159,6 +159,9 @@ When missing team configuration is established as the cause, the user asked to
 fix the installation, and the package and team are clear, use existing
 authorization to add the missing package when the caller has the necessary
 access. Do not require another confirmation solely because this is a repair.
+If the mutation returns `approval_required`, the confirmation rule above still
+applies: existing authorization and the original request do not count as
+confirmation.
 If the user only asked why installation failed, report the cause
 without changing access. Ask only for unresolved package, team, or authorization
 choices that affect the change.

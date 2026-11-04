@@ -1271,8 +1271,9 @@ Validate input data and run one connector action.
 - Options: `--approval` declares that the user confirmed this operation. When
   an action returns `approval_required`, its policy requires user confirmation:
   the caller asks the user to confirm the operation and its key parameters
-  before passing `--approval`. The original request to perform the action is
-  not that confirmation.
+  before passing `--approval`, unless the user has explicitly said the action
+  needs no confirmation. The original request to perform the action is not
+  that confirmation.
 - Options: `--dry-run` validates the payload without executing the action.
 - Options: `--wait` polls the selected action until it reaches a terminal state.
   This option is only valid when the selected action schema declares an async
@@ -1308,7 +1309,8 @@ Validate input data and run one connector action.
   (`connectorRun.approvalRequired` for `approval_required`); see
   [JSON Errors](#json-errors). For `errorCode: approval_required`,
   stderr explains that the blocked action was not executed and that it can be
-  retried with `--approval` only after the user confirms it. The HTTP status
+  retried with unchanged key parameters and `--approval` only after the user
+  confirms it or has explicitly said it needs no confirmation. The HTTP status
   is retained and the exit code is `1`. The CLI does not retry automatically.
 - Errors: if `--wait-result` successfully submits a task but a result query
   returns `approval_required`, the command exits `1` and explains that the task

@@ -1061,7 +1061,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   运行该 action。可用 `oo connector apps <serviceName>` 查看可用连接名称。
 - 选项：`--approval` 声明用户已确认本次操作。action 返回 `approval_required`
   表示其策略要求用户确认：调用方需先请用户确认本次操作及关键参数，再传
-  `--approval`。用户最初要求执行该操作不算作这次确认。
+  `--approval`，除非用户已明确表示该操作无需确认。用户最初要求执行该操作不算作
+  这次确认。
 - 选项：`--dry-run` 只做 payload 校验，不执行 action。
 - 选项：`--wait` 会轮询选中的 action，直到进入终态。只有选中 action 的
   schema 声明了异步结果 lifecycle 时，这个选项才有效。
@@ -1090,7 +1091,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   `connectorRun.requestFailed`（`approval_required` 时为
   `connectorRun.approvalRequired`）的结构化 JSON 错误输出，见
   [JSON 错误](#json-错误)。对于 `errorCode: approval_required`，
-  stderr 会说明被拦截的 action 尚未执行，只有用户确认后才可用 `--approval` 重试。
+  stderr 会说明被拦截的 action 尚未执行，只有用户确认后，或用户已明确表示
+  该操作无需确认时，才可保持关键参数不变并用 `--approval` 重试。
   保留 HTTP 状态，退出码为 `1`，不会自动重试。
 - 错误：`--wait-result` 成功提交任务后，如果结果查询返回 `approval_required`，
   命令以 `1` 退出，并说明任务已提交、本次结果查询未执行。stderr 附恢复 JSON

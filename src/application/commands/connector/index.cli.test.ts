@@ -2207,7 +2207,7 @@ describe("connectorCommand CLI", () => {
             expect(message).toContain("409");
             expect(message).toContain("approval_required");
             expect(message).toContain("Ask the user to confirm this result query");
-            expect(message).toContain("same team and connection");
+            expect(message).toContain("same team, connection and recovery input");
             expect(message).toContain("Do not resubmit");
             const recovery = JSON.parse(message.split("Recovery JSON:\n")[1]!);
             expect(errorPayload.error.details.recovery).toEqual(recovery);
