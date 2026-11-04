@@ -1268,9 +1268,12 @@ Validate input data and run one connector action.
 - Options: `--connection-name <connection-name>` runs the action with the
   connector app connection name. Use `oo connector apps <serviceName>` to list
   available connection names.
-- Options: `--approval` declares that the user has authorized this operation.
-  The caller assesses whether existing authorization covers the action and its
-  parameters in context. Ask the user only when authorization is insufficient.
+- Options: `--approval` declares that the user confirmed this operation. When
+  an action returns `approval_required`, its policy requires user confirmation:
+  the caller asks the user to confirm the operation and its key parameters
+  before passing `--approval`, unless the user has explicitly said the action
+  needs no confirmation. The original request to perform the action is not
+  that confirmation.
 - Options: `--dry-run` validates the payload without executing the action.
 - Options: `--wait` polls the selected action until it reaches a terminal state.
   This option is only valid when the selected action schema declares an async
@@ -1306,16 +1309,18 @@ Validate input data and run one connector action.
   (`connectorRun.approvalRequired` for `approval_required`); see
   [JSON Errors](#json-errors). For `errorCode: approval_required`,
   stderr explains that the blocked action was not executed and that it can be
-  retried with `--approval` once user authorization is satisfied. The HTTP status
+  retried with unchanged key parameters and `--approval` only after the user
+  confirms it or has explicitly said it needs no confirmation. The HTTP status
   is retained and the exit code is `1`. The CLI does not retry automatically.
 - Errors: if `--wait-result` successfully submits a task but a result query
   returns `approval_required`, the command exits `1` and explains that the task
   was submitted but that result query was not executed. Stderr includes recovery
   JSON `{ service, action, input, submitExecutionId }`, where `action` and
-  `input` describe the result query. Stdout remains empty. After authorization,
-  resume that result query with `--wait --approval`, preserving the original
-  team and connection selection. Do not resubmit the task. With `--json`, the
-  same recovery object is also available as `error.details.recovery`.
+  `input` describe the result query. Stdout remains empty. After the user
+  confirms, resume that result query with `--wait --approval`, preserving the
+  original team and connection selection. Do not resubmit the task. With
+  `--json`, the same recovery object is also available as
+  `error.details.recovery`.
 - Notes: `--wait` passes an explicit `--approval` declaration on every poll of
   the selected action. With `--wait-result`, it applies only to submission;
   the derived result action does not inherit it.

@@ -135,11 +135,14 @@ Use `oo connector schema` to inspect the relevant `oomol_console` actions:
 `get_current_scope`, `list_members`, `list_my_skill_packages`,
 `list_team_skill_packages`, and `add_skill_package_to_team`. Call them through
 `oo connector run "oomol_console" --action "<action>" --data '<json>' --json`.
-For `add_skill_package_to_team`, append `--approval` when existing authorization
-covers the exact package and team access change. If it returns
-`approval_required`, retry the same mutation with `--approval` only when that
-authorization is sufficient, preserving the team and input. The error itself
-does not supply authorization. Do not add the flag to read actions.
+For `add_skill_package_to_team`, append `--approval` only when the user has
+already confirmed the exact package and team access change, or explicitly
+waived confirmation for it. If it returns `approval_required` and neither
+holds, ask the user to confirm that package and team, then retry the same
+mutation with `--approval`, preserving the team and input. The user's original
+request does not count as that confirmation. If neither holds and the user
+cannot be asked, report the mutation as blocked instead of retrying. Do not add
+the flag to read actions.
 Select the intended team with `oo --team "<team-name>" connector run ...`, or
 use a verified team ID through `OO_TEAM_ID="<team-id>" oo connector run ...`.
 Keep this team selection for the diagnosis, change, and readback. These are
@@ -156,6 +159,9 @@ When missing team configuration is established as the cause, the user asked to
 fix the installation, and the package and team are clear, use existing
 authorization to add the missing package when the caller has the necessary
 access. Do not require another confirmation solely because this is a repair.
+If the mutation returns `approval_required`, the confirmation rule above still
+applies: existing authorization and the original request do not count as
+confirmation.
 If the user only asked why installation failed, report the cause
 without changing access. Ask only for unresolved package, team, or authorization
 choices that affect the change.

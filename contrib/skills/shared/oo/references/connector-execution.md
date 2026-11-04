@@ -84,6 +84,8 @@ An explicit user instruction plus complete required payload values is sufficient
 confidence for non-destructive send, post, create, or invite actions. For
 destructive actions or broad sharing, follow the host's confirmation rules. Ask
 when authorization, recipient, content, or destination choices remain unclear.
+An `approval_required` response overrides this; follow
+[advisory confirmation](#advisory-confirmation).
 
 ## Execute the connector path
 
@@ -144,22 +146,36 @@ This requirement depends on the effective user, team and connection policy;
 it is not part of the static action schema. Do not reconnect, refresh the schema,
 or switch teams or connections to avoid it.
 
-Use your judgment to assess whether the user's authorization covers the concrete
-operation and input values in the conversation context. Consider the user's
-current request and any applicable standing instructions, including permission
-to proceed without further questions. If that authorization is sufficient,
-use `--approval` without asking again. If it is insufficient, ask the user to
-confirm the operation and relevant parameters. Follow the host's existing
-confirmation rules.
+The policy owner configured this action to ask the user before it runs, so
+confirming it is the user's decision, not yours. This overrides the
+[external side effects](#external-side-effects) rule.
 
-When the confirmation requirement is already known and authorization is
-sufficient, you may include `--approval` on the initial call. After an
-`approval_required` response, apply the same judgment before retrying; the error
-itself does not supply authorization. Keep the original team, connection and
-operation parameters on retries. Never add the flag mechanically or put it in
-default command templates. It is a CLI option, not a field in the provider
-input. The CLI does not prompt or retry automatically. `--dry-run` only validates
-input and does not establish authorization.
+Pass `--approval` only when one of these holds:
+
+- The user saw the concrete operation and confirmed it in reply. Name the
+  service and action and show the key parameters, such as recipients, content,
+  destination, amounts and the affected resources.
+- The user has said in this conversation that this specific action, or a scope
+  they named explicitly, needs no confirmation.
+
+Nothing else counts, including the user's original request to perform the
+action, even with complete payload values, or a general instruction to proceed
+without asking.
+
+On `approval_required`, if one of the conditions above already holds and the
+retry keeps the key parameters unchanged, retry with `--approval`. Otherwise,
+stop and ask the user to confirm the concrete operation. Ask again when a retry
+would change any key parameter. If no condition holds and you cannot ask the
+user, for example in an unattended or scheduled run, do not retry: report the
+blocked service, action and key parameters, how to resume, and end the task as
+blocked.
+
+The same conditions apply to including `--approval` on the initial call. Keep
+the original team, connection and operation parameters on retries. Never add
+the flag mechanically or put it in default command templates. It is a CLI
+option, not a field in the provider input. The CLI does not prompt or retry
+automatically. `--dry-run` only validates input and does not establish
+confirmation.
 
 For async execution:
 
@@ -170,8 +186,8 @@ For async execution:
 - If submission succeeded but a result query requires confirmation, stderr
   includes recovery JSON with `service`, result `action`, result-query `input`
   and `submitExecutionId`. The task already exists. Do not submit it again.
-  Assess authorization for the result query, then resume using the recovery
-  service, action and input with `--wait` and, once authorized, `--approval`.
+  Ask the user to confirm the result query, then resume using the recovery
+  service, action and input with `--wait` and `--approval`.
   Retain the original team selection (including environment variables) and
   `--app-id` or `--connection-name`. `submitExecutionId` identifies the original
   submission; it is not an input parameter or a CLI option.

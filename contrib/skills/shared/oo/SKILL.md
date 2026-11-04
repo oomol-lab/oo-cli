@@ -222,11 +222,14 @@ proves its output.
    host's confirmation rules.
 7. Execute
    Execute the selected connector path through `oo`, using only the canonical
-   shape documented in the reference read at step 5. For advisory confirmation,
-   assess the operation, context and existing user instructions using the
-   [advisory confirmation rules](references/connector-execution.md#advisory-confirmation).
-   Ask only when authorization is insufficient. An `approval_required` error
-   does not itself authorize `--approval`.
+   shape documented in the reference read at step 5. On `approval_required`,
+   follow the
+   [advisory confirmation rules](references/connector-execution.md#advisory-confirmation):
+   retry with `--approval` only when the user already confirmed this operation
+   or explicitly waived confirmation for it and the key parameters are
+   unchanged; otherwise ask the user first. The original request does not count
+   as that confirmation. When neither holds and the user cannot be asked,
+   report the action as blocked instead of retrying.
 8. Materialize
    Save outputs locally only when doing so helps the user and the selected path
    exposes an explicit artifact URL.

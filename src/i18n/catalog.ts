@@ -465,9 +465,9 @@ export const enMessages = {
     "errors.connectorRun.requestError":
         "The connector action run request failed: {message}",
     "errors.connectorRun.approvalRequired":
-        "Action {action} was not executed (HTTP {status}, errorCode: {errorCode}). This action requires advisory confirmation. Obtain or rely on existing applicable user authorization, then retry the same action with --approval.",
+        "Action {action} was not executed (HTTP {status}, errorCode: {errorCode}). The policy for this action requires the user to confirm it before it runs. Show the user this operation and its key parameters and ask for confirmation. Retry the same action with the same key parameters and --approval only after the user confirms, or when the user has explicitly said this action needs no confirmation; ask again if any key parameter changes. The original request to perform the action does not count as confirmation.",
     "errors.connectorRun.asyncApprovalRequired":
-        "Task submission succeeded, but this result query for {action} was not executed (HTTP {status}, errorCode: {errorCode}). Once user authorization is satisfied, resume the result action with --wait and --approval using the same team and connection. Do not resubmit the task.\nRecovery JSON:\n{recovery}",
+        "Task submission succeeded, but this result query for {action} was not executed (HTTP {status}, errorCode: {errorCode}). Ask the user to confirm this result query, unless the user has explicitly said it needs no confirmation. After the user confirms, resume the result action with --wait and --approval using the same team, connection and recovery input. Do not resubmit the task.\nRecovery JSON:\n{recovery}",
     "errors.connectorRun.requestFailed":
         "Connector action {action} returned HTTP {status}.",
     "errors.connectorRun.requestFailedWithBody":
@@ -1008,7 +1008,7 @@ export const enMessages = {
     "options.action": "Specify the target action name",
     "options.data": "Provide JSON input values or @path to a JSON file",
     "options.dryRun": "Validate the request without creating a task",
-    "options.connectorRunApproval": "Declare that user authorization for this action is satisfied",
+    "options.connectorRunApproval": "Declare that the user confirmed this action",
     "options.connectorRunWait":
         "Poll until an async result action reaches a terminal state",
     "options.connectorRunWaitResult":
@@ -1875,9 +1875,9 @@ export const zhMessages = {
     "errors.connectorRun.requestError":
         "运行 connector action 失败：{message}",
     "errors.connectorRun.approvalRequired":
-        "Action {action} 尚未执行（HTTP {status}，errorCode: {errorCode}）。该操作设置了执行前询问。获得用户授权或确认已有明确授权适用于本次操作后，使用 --approval 重试相同操作。",
+        "Action {action} 尚未执行（HTTP {status}，errorCode: {errorCode}）。该操作的策略要求执行前由用户确认。请向用户说明本次操作及关键参数并征得确认；只有用户确认后，或用户已明确表示该操作无需确认时，才保持关键参数不变并使用 --approval 重试相同操作；关键参数有变化时需重新确认。用户最初要求执行该操作不算作确认。",
     "errors.connectorRun.asyncApprovalRequired":
-        "任务已成功提交，但本次结果查询 {action} 尚未执行（HTTP {status}，errorCode: {errorCode}）。满足用户授权要求后，使用原团队和连接，带 --wait 和 --approval 继续结果查询。不要重新提交任务。\n恢复 JSON：\n{recovery}",
+        "任务已成功提交，但本次结果查询 {action} 尚未执行（HTTP {status}，errorCode: {errorCode}）。请先让用户确认本次结果查询，除非用户已明确表示无需确认。用户确认后，使用原团队、连接和恢复参数，带 --wait 和 --approval 继续结果查询。不要重新提交任务。\n恢复 JSON：\n{recovery}",
     "errors.connectorRun.requestFailed":
         "Connector action {action} 返回了 HTTP {status}。",
     "errors.connectorRun.requestFailedWithBody":
@@ -2413,7 +2413,7 @@ export const zhMessages = {
     "options.action": "指定目标 action 名称",
     "options.data": "提供 JSON 输入值，或使用 @路径 读取 JSON 文件",
     "options.dryRun": "仅校验请求，不真正创建任务",
-    "options.connectorRunApproval": "声明用户对本次操作的授权已满足",
+    "options.connectorRunApproval": "声明用户已确认本次操作",
     "options.connectorRunWait":
         "轮询异步结果 action，直到进入终态",
     "options.connectorRunWaitResult":

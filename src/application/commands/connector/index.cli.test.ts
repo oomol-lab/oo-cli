@@ -614,8 +614,8 @@ describe("connectorCommand CLI", () => {
     });
 
     test.each([
-        { lang: "en", description: "Declare that user authorization for this action is satisfied" },
-        { lang: "zh", description: "声明用户对本次操作的授权已满足" },
+        { lang: "en", description: "Declare that the user confirmed this action" },
+        { lang: "zh", description: "声明用户已确认本次操作" },
     ])("renders the approval option in $lang help", async ({ lang, description }) => {
         const sandbox = await createCliSandbox();
         try {
@@ -2054,7 +2054,10 @@ describe("connectorCommand CLI", () => {
                 expect(result.stderr).toContain("approval_required");
                 expect(result.stderr).toContain("--approval");
                 expect(result.stderr).toContain(lang === "en" ? "was not executed" : "尚未执行");
-                expect(result.stderr).toContain(lang === "en" ? "user authorization" : "用户授权");
+                expect(result.stderr).toContain(lang === "en" ? "only after the user confirms" : "只有用户确认后");
+                expect(result.stderr).toContain(lang === "en"
+                    ? "does not count as confirmation"
+                    : "不算作确认");
             }
             expect(requests).toHaveLength(2);
             expect(requests.every(request => request.method === "POST")).toBe(true);
@@ -2203,7 +2206,8 @@ describe("connectorCommand CLI", () => {
             expect(message).toContain("was not executed");
             expect(message).toContain("409");
             expect(message).toContain("approval_required");
-            expect(message).toContain("same team and connection");
+            expect(message).toContain("Ask the user to confirm this result query");
+            expect(message).toContain("same team, connection and recovery input");
             expect(message).toContain("Do not resubmit");
             const recovery = JSON.parse(message.split("Recovery JSON:\n")[1]!);
             expect(errorPayload.error.details.recovery).toEqual(recovery);
