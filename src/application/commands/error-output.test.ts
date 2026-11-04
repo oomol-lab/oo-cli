@@ -107,6 +107,43 @@ describe("writeCliError", () => {
     });
 });
 
+describe("writeCliError output state", () => {
+    test("carries the debug log path and records the JSON report", () => {
+        const buffer = createTextBuffer();
+        const state = { debugLogPath: "/logs/oo.log", jsonReported: false };
+
+        writeCliError(buffer.writer, {
+            code: "unexpected",
+            exitCode: 1,
+            message: "Unexpected error: boom",
+        }, "json", state);
+
+        expect(JSON.parse(buffer.read())).toEqual({
+            error: {
+                code: "unexpected",
+                debugLogPath: "/logs/oo.log",
+                exitCode: 1,
+                message: "Unexpected error: boom",
+            },
+        });
+        expect(state.jsonReported).toBe(true);
+    });
+
+    test("leaves text reports unmarked", () => {
+        const buffer = createTextBuffer();
+        const state = { debugLogPath: "/logs/oo.log", jsonReported: false };
+
+        writeCliError(buffer.writer, {
+            code: "unexpected",
+            exitCode: 1,
+            message: "Unexpected error: boom",
+        }, "text", state);
+
+        expect(buffer.read()).toBe("Unexpected error: boom\n");
+        expect(state.jsonReported).toBe(false);
+    });
+});
+
 describe("resolveErrorOutputFormatFromArgv", () => {
     test("detects every JSON output flag form", () => {
         expect(resolveErrorOutputFormatFromArgv(["connector", "run", "--json"])).toBe("json");

@@ -310,6 +310,8 @@ and the exit code is unchanged:
   configured language and is meant for display only.
 - `exitCode` matches the process exit code: `2` for usage and input errors, `3`
   for insufficient OOMOL credit, and `1` for other runtime failures.
+- `debugLogPath` appears with `--debug`. It replaces the separate log path
+  line, so stderr stays one JSON value.
 - `details` is optional and only appears for errors that carry structured
   fields. Its fields depend on `code`; callers should ignore fields they do not
   recognize. Current fields:
