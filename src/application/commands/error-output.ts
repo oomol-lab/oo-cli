@@ -12,6 +12,17 @@ export interface CliErrorReport {
     message: string;
 }
 
+/**
+ * Shared by every writer of one invocation so the bootstrap knows whether a
+ * JSON report already owns stderr.
+ */
+export interface CliErrorOutputState {
+    /** Log file path carried inside JSON reports when `--debug` is active. */
+    debugLogPath?: string;
+    /** Set once a JSON error report has been written. */
+    jsonReported: boolean;
+}
+
 const unexpectedErrorCode = "unexpected";
 
 /**
@@ -42,18 +53,22 @@ export function createCliErrorReport(
 
 /**
  * Writes a failure to stderr. Text mode keeps the plain localized line; JSON
- * mode writes one `{ "error": { code, message, exitCode, details? } }` line so
+ * mode writes one
+ * `{ "error": { code, message, exitCode, details?, debugLogPath? } }` line so
  * programmatic callers never parse localized prose.
  */
 export function writeCliError(
     writer: Writer,
     report: CliErrorReport,
     format: CliErrorOutputFormat,
+    state?: CliErrorOutputState,
 ): void {
     if (format === "text") {
         writer.write(`${report.message}\n`);
         return;
     }
+
+    const debugLogPath = state?.debugLogPath;
 
     writer.write(`${JSON.stringify({
         error: {
@@ -61,8 +76,13 @@ export function writeCliError(
             message: report.message,
             exitCode: report.exitCode,
             ...(report.details === undefined ? {} : { details: report.details }),
+            ...(debugLogPath === undefined ? {} : { debugLogPath }),
         },
     })}\n`);
+
+    if (state !== undefined) {
+        state.jsonReported = true;
+    }
 }
 
 /**
