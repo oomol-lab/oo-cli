@@ -1,7 +1,8 @@
 import type { Logger } from "pino";
+import type { CliErrorOutputState } from "../commands/error-output.ts";
 import type { AuthStore } from "../contracts/auth-store.ts";
-import type { CacheStore } from "../contracts/cache.ts";
 
+import type { CacheStore } from "../contracts/cache.ts";
 import type {
     CliCatalog,
     CliExecutionContext,
@@ -213,12 +214,30 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
     let currentVersionActiveMarkerPromise:
         | ReturnType<typeof initializeCurrentVersionActiveMarker>
         | undefined;
-    const loggerHandle = createCliLogger({
-        appName: APP_NAME,
-        env: invocation.env,
-        logDirectoryPath: storePaths.logDirectoryPath,
-    });
+    let loggerHandle: ReturnType<typeof createCliLogger>;
+
+    try {
+        loggerHandle = createCliLogger({
+            appName: APP_NAME,
+            env: invocation.env,
+            logDirectoryPath: storePaths.logDirectoryPath,
+        });
+    }
+    catch (error) {
+        // Nothing is open yet and there is no logger to record the failure.
+        return writeBootstrapError(
+            error,
+            bootstrapTranslator,
+            invocation.stderr,
+            invocation.argv,
+        );
+    }
+
     const { logger, logFilePath } = loggerHandle;
+    const errorOutputState: CliErrorOutputState = {
+        ...(debugPathEnabled ? { debugLogPath: logFilePath } : {}),
+        jsonReported: false,
+    };
     const currentExecPath = invocation.execPath ?? process.execPath;
     const loggedArgv = redactSensitiveCliArguments(invocation.argv);
 
@@ -239,6 +258,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                 bootstrapTranslator,
                 invocation.stderr,
                 invocation.argv,
+                errorOutputState,
             );
             telemetryRecorder.observer.onCommandFailed?.({
                 errorKey: "errors.lang.invalidFlag",
@@ -397,6 +417,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                 argv: invocation.argv,
                 catalog,
                 context,
+                errorOutputState,
                 observer: telemetryRecorder.observer,
             });
         }
@@ -428,6 +449,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             translator,
             invocation.stderr,
             invocation.argv,
+            errorOutputState,
         );
         telemetryRecorder.observer.onCommandFailed?.({
             errorKey: error instanceof CliUserError ? error.key : "errors.unexpected",
@@ -448,6 +470,8 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             logger,
             invocation.stderr,
             translator,
+            invocation.argv,
+            errorOutputState,
         );
 
         logger.debug(
@@ -488,7 +512,9 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
 
         loggerHandle.close();
 
-        if (debugPathEnabled) {
+        // A JSON error report already carries the path as `debugLogPath`, so
+        // stderr stays a single JSON value.
+        if (debugPathEnabled && !errorOutputState.jsonReported) {
             invocation.stderr.write(`${logFilePath}\n`);
         }
     }
@@ -628,10 +654,16 @@ function writeBootstrapError(
     translator: ReturnType<typeof createTranslator>,
     stderr: Writer,
     argv: readonly string[],
+    errorOutputState?: CliErrorOutputState,
 ): number {
     const report = createCliErrorReport(error, translator);
 
-    writeCliError(stderr, report, resolveErrorOutputFormatFromArgv(argv));
+    writeCliError(
+        stderr,
+        report,
+        resolveErrorOutputFormatFromArgv(argv),
+        errorOutputState,
+    );
 
     return report.exitCode;
 }
@@ -646,6 +678,8 @@ async function closeCleanupResources(
     logger: Logger,
     stderr: Writer,
     translator: ReturnType<typeof createTranslator>,
+    argv: readonly string[],
+    errorOutputState: CliErrorOutputState,
 ): Promise<number> {
     let nextExitCode = exitCode;
 
@@ -665,12 +699,19 @@ async function closeCleanupResources(
                 },
                 "Failed to close a resource cleanly.",
             );
-            stderr.write(
-                `${translator.t("errors.unexpected", {
-                    message: error instanceof Error ? error.message : String(error),
-                })}\n`,
+            // A failure that was already reported keeps its report and exit
+            // code; the cleanup failure is only logged.
+            if (nextExitCode !== 0) {
+                continue;
+            }
+
+            nextExitCode = writeBootstrapError(
+                error,
+                translator,
+                stderr,
+                argv,
+                errorOutputState,
             );
-            nextExitCode = 1;
         }
     }
 

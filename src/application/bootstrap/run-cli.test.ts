@@ -446,6 +446,66 @@ describe("runCli bootstrap", () => {
         }
     });
 
+    test("keeps the debug log path inside a JSON error report", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const logDirectoryPath = resolveStorePaths({
+                appName: APP_NAME,
+                env: sandbox.env,
+                platform: process.platform,
+            }).logDirectoryPath;
+            const result = await sandbox.run(["--debug", "--lang", "fr", "--help", "--json"]);
+            const logFileNames = (await readdir(logDirectoryPath))
+                .filter(fileName => fileName.endsWith(".log"));
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stderr.trim().split("\n")).toHaveLength(1);
+            expect(JSON.parse(result.stderr)).toEqual({
+                error: {
+                    code: "lang.invalidFlag",
+                    debugLogPath: join(logDirectoryPath, logFileNames.at(-1)!),
+                    exitCode: 2,
+                    message: expect.stringContaining("Invalid value for --lang"),
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports logger initialization failures as JSON bootstrap errors", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const blockingFilePath = join(sandbox.cwd, "not-a-directory");
+
+            await Bun.write(blockingFilePath, "");
+
+            const stdout = createTextBuffer();
+            const stderr = createTextBuffer();
+            const exitCode = await executeCli({
+                argv: ["--help", "--json"],
+                cwd: sandbox.cwd,
+                env: { ...sandbox.env, OO_LOG_DIR: join(blockingFilePath, "logs") },
+                stdout: stdout.writer,
+                stderr: stderr.writer,
+                systemLocale: "en-US",
+                version: packageManifest.version,
+            });
+
+            expect(exitCode).toBe(1);
+            expect(stdout.read()).toBe("");
+            expect(JSON.parse(stderr.read())).toMatchObject({
+                error: { code: "unexpected", exitCode: 1 },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("records telemetry for invalid global inputs before store initialization", async () => {
         const sandbox = await createCliSandbox();
 
@@ -790,6 +850,60 @@ describe("runCli bootstrap", () => {
         }
     });
 
+    test("keeps an already reported JSON error when cleanup fails", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await runCleanupFailureScenario(
+                sandbox,
+                ["cache", "fileUpload"],
+                ["no-such-command", "--json"],
+            );
+
+            expect(result.exitCode).toBe(2);
+            expect(result.closeOrder).toEqual([
+                "cache",
+                "fileUpload",
+                "fileDownloadSession",
+            ]);
+            expect(result.stderr.trim().split("\n")).toHaveLength(1);
+            expect(JSON.parse(result.stderr)).toMatchObject({
+                error: { code: "commander.unknownCommand", exitCode: 2 },
+            });
+            expect(result.logContent).toContain("cache store close failed");
+            expect(result.logContent).toContain("file upload store close failed");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("reports a cleanup failure after success as one JSON error", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await runCleanupFailureScenario(
+                sandbox,
+                ["cache", "fileUpload"],
+                ["--help", "--json"],
+            );
+
+            expect(result.exitCode).toBe(1);
+            expect(result.stderr.trim().split("\n")).toHaveLength(1);
+            expect(JSON.parse(result.stderr)).toEqual({
+                error: {
+                    code: "unexpected",
+                    exitCode: 1,
+                    message: "Unexpected error: cache store close failed",
+                },
+            });
+            expect(result.logContent).toContain("file upload store close failed");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("continues cleanup when multiple stores fail to close", async () => {
         const sandbox = await createCliSandbox();
 
@@ -806,20 +920,14 @@ describe("runCli bootstrap", () => {
                 "fileUpload",
                 "fileDownloadSession",
             ]);
-            expect(result.stderr).toBe([
-                "Unexpected error: cache store close failed",
-                "Unexpected error: file upload store close failed",
-                "Unexpected error: file download session store close failed",
-                "",
-            ].join("\n"));
-            expect(result.logContent).toContain(
-                "Failed to close a resource cleanly.",
+            // Only the first failure is reported; the rest go to the log.
+            expect(result.stderr).toBe(
+                "Unexpected error: cache store close failed\n",
             );
+            expect(result.logContent).toContain("cache store close failed");
+            expect(result.logContent).toContain("file upload store close failed");
             expect(result.logContent).toContain(
-                "Failed to close a resource cleanly.",
-            );
-            expect(result.logContent).toContain(
-                "Failed to close a resource cleanly.",
+                "file download session store close failed",
             );
         }
         finally {
@@ -836,6 +944,7 @@ type CleanupResourceName
 async function runCleanupFailureScenario(
     sandbox: Awaited<ReturnType<typeof createCliSandbox>>,
     failingResources: readonly CleanupResourceName[],
+    argv: readonly string[] = ["--help"],
 ): Promise<{
     closeOrder: CleanupResourceName[];
     exitCode: number;
@@ -847,7 +956,7 @@ async function runCleanupFailureScenario(
     const closeOrder: CleanupResourceName[] = [];
     const resourceSet = new Set(failingResources);
     const exitCode = await executeCli({
-        argv: ["--help"],
+        argv,
         cacheStore: createCleanupCacheStore(closeOrder, resourceSet),
         cwd: sandbox.cwd,
         env: sandbox.env,

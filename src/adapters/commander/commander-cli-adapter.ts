@@ -1,7 +1,10 @@
 import type { OptionValues } from "commander";
 import type { ZodError, ZodType } from "zod";
 
-import type { CliErrorOutputFormat } from "../../application/commands/error-output.ts";
+import type {
+    CliErrorOutputFormat,
+    CliErrorOutputState,
+} from "../../application/commands/error-output.ts";
 import type {
     CliCatalog,
     CliCommandDefinition,
@@ -37,6 +40,7 @@ interface CommanderCliRunRequest {
     argv: readonly string[];
     catalog: CliCatalog;
     context: CliExecutionContext;
+    errorOutputState?: CliErrorOutputState;
     observer?: CliCommandObserver;
 }
 
@@ -159,7 +163,7 @@ export class CommanderCliAdapter {
         error: unknown,
         state: CommanderRunState,
     ): number {
-        const { context, observer } = state;
+        const { context, errorOutputState, observer } = state;
         const errorFormat = state.errorOutput.format;
 
         if (error instanceof CliUserError) {
@@ -171,6 +175,7 @@ export class CommanderCliAdapter {
                 context.stderr,
                 createCliErrorReport(error, context.translator),
                 errorFormat,
+                errorOutputState,
             );
 
             return error.exitCode;
@@ -207,6 +212,7 @@ export class CommanderCliAdapter {
                     message: localizedMessage,
                 },
                 errorFormat,
+                errorOutputState,
             );
 
             observer?.onCommandFailed?.({
@@ -224,6 +230,7 @@ export class CommanderCliAdapter {
             context.stderr,
             createCliErrorReport(error, context.translator),
             errorFormat,
+            errorOutputState,
         );
 
         return 1;
