@@ -424,6 +424,28 @@ describe("runCli bootstrap", () => {
         }
     });
 
+    test.each(["--json", "--format=json"])("formats invalid language errors as JSON with %s", async (flag) => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run(["--lang", "fr", "--help", flag]);
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stdout).toBe("");
+            expect(result.stderr.trim().split("\n")).toHaveLength(1);
+            expect(JSON.parse(result.stderr)).toEqual({
+                error: {
+                    code: "lang.invalidFlag",
+                    exitCode: 2,
+                    message: expect.stringContaining("Invalid value for --lang"),
+                },
+            });
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("records telemetry for invalid global inputs before store initialization", async () => {
         const sandbox = await createCliSandbox();
 

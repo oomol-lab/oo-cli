@@ -7,6 +7,7 @@ import {
     collectConnectorFileReferences,
     replaceFileReferencesWithPlaceholders,
 } from "./file-references.ts";
+import { validateConnectorActionInput } from "./validation.ts";
 
 describe("collectConnectorFileReferences", () => {
     test("finds nested references with RFC 6901 input paths", async () => {
@@ -95,6 +96,40 @@ describe("collectConnectorFileReferences", () => {
 });
 
 describe("replaceFileReferencesWithPlaceholders", () => {
+    test("preserves file identity when validating unique array items", async () => {
+        await withTemporaryDirectory(async (directory) => {
+            await Bun.write(join(directory, "a", "report.pdf"), "a");
+            await Bun.write(join(directory, "b", "report.pdf"), "b");
+
+            const schema = {
+                items: { format: "uri", type: "string" },
+                type: "array",
+                uniqueItems: true,
+            };
+            const distinctFiles = [
+                { $file: join("a", "report.pdf") },
+                { $file: join("b", "report.pdf") },
+            ];
+            const repeatedFile = [
+                distinctFiles[0],
+                { $file: join(directory, "a", "report.pdf") },
+            ];
+
+            for (const inputData of [distinctFiles, repeatedFile]) {
+                const references = await collectConnectorFileReferences(inputData, { cwd: directory });
+                const payload = replaceFileReferencesWithPlaceholders(inputData, references);
+                const validate = () => validateConnectorActionInput(payload, schema, { locale: "en" });
+
+                if (inputData === distinctFiles) {
+                    expect(validate).not.toThrow();
+                }
+                else {
+                    expect(validate).toThrow("errors.connectorRun.invalidPayload");
+                }
+            }
+        });
+    });
+
     test("replaces only the referenced locations", async () => {
         await withTemporaryDirectory(async (directory) => {
             await Bun.write(join(directory, "my report.pdf"), "pdf");
@@ -106,7 +141,7 @@ describe("replaceFileReferencesWithPlaceholders", () => {
             const references = await collectConnectorFileReferences(inputData, { cwd: directory });
 
             expect(replaceFileReferencesWithPlaceholders(inputData, references)).toEqual({
-                attachment: "https://oo-file-reference.invalid/my%20report.pdf",
+                attachment: "https://oo-file-reference.invalid/0/my%20report.pdf",
                 subject: "Report",
             });
             // The original payload is left untouched.

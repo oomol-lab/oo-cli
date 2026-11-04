@@ -232,13 +232,14 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
 
     try {
         if (rawCliLanguage !== undefined && parsedCliLanguage === undefined) {
-            invocation.stderr.write(
-                `${bootstrapTranslator.t("errors.lang.invalidFlag", {
+            exitCode = writeBootstrapError(
+                new CliUserError("errors.lang.invalidFlag", 2, {
                     value: rawCliLanguage,
-                })}\n`,
+                }),
+                bootstrapTranslator,
+                invocation.stderr,
+                invocation.argv,
             );
-
-            exitCode = 2;
             telemetryRecorder.observer.onCommandFailed?.({
                 errorKey: "errors.lang.invalidFlag",
                 exitCode,

@@ -78,10 +78,17 @@ export function replaceFileReferencesWithPlaceholders(
     inputData: unknown,
     references: readonly ConnectorFileReference[],
 ): unknown {
-    const urlByInputPath = new Map(references.map(reference => [
-        reference.inputPath,
-        `${placeholderUrlPrefix}${encodeURIComponent(reference.sourceFile.fileName)}`,
-    ]));
+    const urlByAbsolutePath = new Map<string, string>();
+    const urlByInputPath = new Map(references.map((reference) => {
+        let url = urlByAbsolutePath.get(reference.absolutePath);
+
+        if (url === undefined) {
+            url = `${placeholderUrlPrefix}${urlByAbsolutePath.size}/${encodeURIComponent(reference.sourceFile.fileName)}`;
+            urlByAbsolutePath.set(reference.absolutePath, url);
+        }
+
+        return [reference.inputPath, url];
+    }));
 
     return replaceFileReferenceMarkers(inputData, "", urlByInputPath);
 }
