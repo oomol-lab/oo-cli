@@ -162,11 +162,13 @@ Nothing else counts, including the user's original request to perform the
 action, even with complete payload values, or a general instruction to proceed
 without asking.
 
-On `approval_required`, stop and ask the user to confirm the concrete
-operation. Ask again when a retry would change any key parameter. If you cannot
-ask the user, for example in an unattended or scheduled run, do not retry:
-report the blocked service, action and key parameters, how to resume, and end
-the task as blocked.
+On `approval_required`, if one of the conditions above already holds and the
+retry keeps the key parameters unchanged, retry with `--approval`. Otherwise,
+stop and ask the user to confirm the concrete operation. Ask again when a retry
+would change any key parameter. If no condition holds and you cannot ask the
+user, for example in an unattended or scheduled run, do not retry: report the
+blocked service, action and key parameters, how to resume, and end the task as
+blocked.
 
 The same conditions apply to including `--approval` on the initial call. Keep
 the original team, connection and operation parameters on retries. Never add
