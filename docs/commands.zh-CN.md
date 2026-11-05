@@ -164,6 +164,14 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   operation 通过 `$alias` 引用 `node.add` 声明的别名；后续请求使用响应 `nodes`
   map 返回的稳定引用。input binding 提供数据，execution edge 独立控制执行顺序。
   `text.edit` 替换一次精确匹配；修改前先读取目标文本。
+- `oo flow state show <flow> --scope <draft|live> --json` 返回持久业务值的
+  元数据、去重空间概览和存储限制；添加 `--key <key>` 则读取单个业务值。
+  Draft 与 Live State 相互隔离，所有 State 操作都必须显式指定 `--scope`。
+- `oo flow state clear <flow> --scope <draft|live> --yes` 清除该作用域内的
+  全部业务值；添加 `--key <key>` 则只清除对应值。
+  `oo flow dedupe clear <flow> --scope <draft|live> --space <space> --yes`
+  清除指定去重空间的记录，space 接受 `flow` 或 `node:<node-id>`。
+  两种清理操作都必须带 `--yes`。
 - Run 和发布命令可用 `0` 表示已接受异步操作、`1` 表示错误或未成功的终态 Run、
   `2` 表示尚未解决的 Wait/Approval、`3` 表示等待超时或发布仍在进行。
   `--timeout` 是毫秒等待预算，默认 60000；超时不会取消操作。后续使用
@@ -176,7 +184,8 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   `enable/disable <flow> --expected-publication <publication-id>` 控制。
 - `oo flow check <flow> [--revision <revision-id>]` 校验不可变 Revision。
   读取与编辑不会运行或发布 Flow；credential 当前是否可用以及 Connector 的
-  真实副作用只会由显式 `oo flow run` 检查。
+  真实副作用只会由显式 `oo flow run` 检查。所选部署必须支持
+  `open-flow-engine/v10`，才能使用此版本 CLI 进行检查、运行或发布。
 - `oo flow open [flow]` 会在系统浏览器打开所选部署的 Workbench，并同时输出 URL；
   `oo flow workbench [flow]` 只输出相同 URL，不打开浏览器，适用于脚本和 Agent
   内置预览。省略 `flow` 时打开 Flow 列表，提供 `flow` 时打开对应 Flow 的设计页。

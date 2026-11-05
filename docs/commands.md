@@ -203,6 +203,15 @@ a Hosted or self-hosted Server still require a connection to that service.
   requests use stable references from the response's `nodes` map. Input bindings
   supply data independently of execution edges. `text.edit` replaces one exact
   occurrence; read the selected text before editing it.
+- `oo flow state show <flow> --scope <draft|live> --json` returns persistent
+  business value metadata, deduplication space summaries, and storage limits.
+  Add `--key <key>` to read one business value instead. Draft and Live State
+  are isolated; every State operation requires an explicit `--scope`.
+- `oo flow state clear <flow> --scope <draft|live> --yes` clears all business
+  values in that scope; add `--key <key>` to clear only that value.
+  `oo flow dedupe clear <flow> --scope <draft|live> --space <space> --yes`
+  clears deduplication records in the selected space, either `flow` or
+  `node:<node-id>`. Both clear operations require `--yes`.
 - Run and publication commands may return `0` for an accepted asynchronous
   operation, `1` for an error or unsuccessful terminal Run, `2` for an
   unresolved Wait/Approval, or `3` when a wait times out or publication remains
@@ -218,7 +227,8 @@ a Hosted or self-hosted Server still require a connection to that service.
 - `oo flow check <flow> [--revision <revision-id>]` validates the immutable
   Revision. Reading and editing do not run or publish a Flow; credential
   availability and real Connector side effects are checked only by an explicit
-  `oo flow run`.
+  `oo flow run`. The selected deployment must support `open-flow-engine/v10`
+  to check, run, or publish with this version of the CLI.
 - `oo flow open [flow]` opens the selected deployment's Workbench in the system
   browser and also prints its URL. `oo flow workbench [flow]` prints the same
   URL without launching a browser, for scripts and agent-hosted previews.
