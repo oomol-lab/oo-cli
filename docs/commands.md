@@ -181,6 +181,15 @@ a Hosted or self-hosted Server still require a connection to that service.
   sensitive data in code, prompts, and business JSON before sharing a template.
   Configure missing resources and check the imported Draft before running or
   publishing it.
+- Add `--include-dependencies` to `oo flow export <flow>` to export a bundle
+  containing the entry and all referenced workflow Drafts. Bundle operations
+  require a Cloud deployment with the beta.82 bundle APIs. Import accepts both
+  single-workflow files and bundles. Repeat `--tag <tag-id>` to apply tags to
+  every imported workflow; `--name` overrides only the entry name. Bundle JSON
+  output includes the entry `flow` and all created `flows`. Imports allocate new
+  Flow identities and rewrite structured workflow references. Configure and
+  publish dependencies, then refresh their callers' interfaces before running.
+  Retry uncertain imports with the same file, name, Team, tags, and key.
 - `oo flow read <flow> --json` returns a Draft graph outline. Supply `nodes`
   for selected node details or `text` for a Code/prompt excerpt; these modes
   are mutually exclusive. Keep the returned `revision` for subsequent reads.
