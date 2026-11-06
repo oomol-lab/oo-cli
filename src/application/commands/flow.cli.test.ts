@@ -844,7 +844,13 @@ describe("flow CLI", () => {
         }
     });
 
-    test.each([{ args: [] }, { args: ["--help"] }, { args: ["--version"] }])("runs the bundled command offline with arguments %j", async ({ args }) => {
+    test.each([
+        { args: [], expected: "oo flow" },
+        { args: ["--help"], expected: "oo flow" },
+        { args: ["--version"], expected: openFlowVersion },
+        { args: ["export", "--help"], expected: "--include-dependencies" },
+        { args: ["import", "--help"], expected: "--tag" },
+    ])("runs the bundled command offline with arguments %j", async ({ args, expected }) => {
         const sandbox = await createCliSandbox();
         let output = "";
         let requestCount = 0;
@@ -864,7 +870,7 @@ describe("flow CLI", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stderr).toBe("");
             expect(requestCount).toBe(0);
-            expect(output).toContain(args[0] === "--version" ? openFlowVersion : "oo flow");
+            expect(output).toContain(expected);
         }
         finally {
             stdout.mockRestore();

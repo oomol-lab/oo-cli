@@ -146,6 +146,12 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   资源选择，保留图、共享代码 Module、固定输入、prompt、模型选择和布局。
   分享模板前应检查代码、prompt 和业务 JSON 中直接写入的敏感数据；运行或发布
   导入的 Draft 前，先配置缺失资源并执行检查。
+- `oo flow export <flow> --include-dependencies` 导出包含入口及全部被引用
+  工作流 Draft 的 bundle。导入同时接受单工作流文件和 bundle；重复传入
+  `--tag <tag-id>`，为所有导入成员分配标签，`--name` 只覆盖入口名称。
+  bundle 的 JSON 输出包含入口 `flow` 和全部新建 `flows`。导入分配新的
+  Flow 身份并重写结构化工作流引用；先配置并发布依赖，再刷新调用方接口后运行。
+  导入结果不确定时，使用相同文件、名称、Team、标签和 key 重试。
 - `oo flow read <flow> --json` 返回 Draft graph 概览。传入 `nodes` 读取选定节点
   的详情，或传入 `text` 读取 Code/prompt 片段；两种模式互斥。后续读取保留返回的
   `revision`。文本通过 `nextStart` 分页，直到 `truncated` 为 false。
