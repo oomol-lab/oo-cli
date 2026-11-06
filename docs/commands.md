@@ -182,7 +182,8 @@ a Hosted or self-hosted Server still require a connection to that service.
   Configure missing resources and check the imported Draft before running or
   publishing it.
 - Add `--include-dependencies` to `oo flow export <flow>` to export a bundle
-  containing the entry and all referenced workflow Drafts. Import accepts both
+  containing the entry and all referenced workflow Drafts. Bundle operations
+  require a Cloud deployment with the beta.82 bundle APIs. Import accepts both
   single-workflow files and bundles. Repeat `--tag <tag-id>` to apply tags to
   every imported workflow; `--name` overrides only the entry name. Bundle JSON
   output includes the entry `flow` and all created `flows`. Imports allocate new
