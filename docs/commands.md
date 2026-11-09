@@ -2853,25 +2853,25 @@ oo website create "My website" --dir ./my-site --team my-team --json
 oo website deploy <site-id> --project ./my-site --team my-team --json
 oo website list --team my-team --json
 oo website get <site-id> --team my-team --json
-oo website analytics <site-id> --days 7 --team my-team --json
 oo website inquiries <site-id> --team my-team --json
 oo website deployments <site-id> --team my-team --json
 oo website deployment <site-id> <deployment-id> --team my-team --json
-oo website retry <site-id> <deployment-id> --team my-team --json
 oo website rollback <site-id> <deployment-id> --team my-team --json
 ```
 
-`create` allocates a team-owned draft and scaffolds an Astro Cloudflare SSR project. `--dir` must identify an empty directory. Edit the project before publishing. The project association is saved in `leina-website.json`. Retrying an incomplete create keeps the operation key and preserves conflicting local edits.
+These commands use the existing OO account and team selection and talk to the websites service at `https://websites-api.<account endpoint>` (for example `websites-api.oomol.com`). No Cloudflare account is required for the website owner. Every write request carries an `Idempotency-Key`, and a transient gateway failure is retried with the same key.
 
-`deploy` verifies the project association, installs dependencies, builds Astro and waits for Workers for Platforms publication. It uses the platform's Cloudflare credentials. A failed build preserves the active release. Repeating a publish after success is a new release; retrying an unresolved publish of the same bundle reuses its persisted operation key.
+`create` allocates a team-owned draft website and scaffolds an Astro Cloudflare SSR project. `--dir` must identify an empty directory. Edit the project before publishing. The project association is saved in `leina-website.json` as `{website_id, team_id}`. Retrying an incomplete create reuses the same idempotency key and preserves conflicting local edits. The template's contact form posts inquiries to the website's `/_leina/inquiry` endpoint.
 
-The site JSON includes `id`, `teamId`, `name`, `status`, `publicUrl`, `consoleUrl`, `basePath` and `analyticsStatus`. `list` returns `{items: Website[]}`. Analytics returns either `{status:"pending",siteId}` or `{status:"ready",siteId,days,from,to,visitors,pageviews,inquiries,daily}`. The date range includes today and uses UTC calendar days. Supported `--days` values are 7 and 30.
+`deploy` verifies the project association, installs dependencies, builds Astro and publishes the result as a new deployment. Static assets from the build are hashed and only the files the platform does not already have are uploaded, straight to Cloudflare; the Worker bundle is sent with the publish request. A failed build or rejected deployment keeps the current version live. When the platform rejects the deployment, the reason is shown. Running `deploy` again always creates a new deployment. The text output is the website URL; `--json` returns `{website, deployment}`.
 
-Each command accepts `--api-url` for an explicitly selected service endpoint (HTTPS or loopback HTTP). The default is `https://websites.<account endpoint>`. The existing OO account and team selection apply. No Cloudflare or Umami account is required for the website owner.
+Websites have `id`, `team_id`, `name`, `status` (`draft`, `live`), `hostname`, `url`, `active_deployment_id`, `created_at` and `updated_at`. Times are Unix milliseconds. `create`, `get` and `rollback` return one website; `list` returns `{items: Website[]}`.
 
-`deploy --no-wait` returns `{deployment}` after the server durably accepts the bundle. Without this flag, it waits up to five minutes; a timeout leaves the server job running. `deployments` returns `{items: Deployment[]}` and `deployment` returns one release. Releases have `id`, `siteId`, `status` (`publishing`, `succeeded`, `failed`), `error`, `createdAt` and optional `attempts`, `prunedAt`, `pruning`. `retry` resubmits a failed stored job and returns `{deployment}`; `rollback` switches to a retained successful release and returns the website. Rollback is unavailable while another release is publishing or after a release is pruned.
+`deployments` returns `{items: Deployment[]}` (newest first) and `deployment` returns one deployment. Deployments have `id`, `website_id`, `status` (`uploading`, `succeeded`, `failed`, `expired`), `active`, `restorable`, `file_count`, `total_bytes`, `error_message`, `upload_expires_at`, `created_at`, `published_at` and `pruned_at`. `rollback` switches the website to a deployment whose `restorable` is true.
 
-`inquiries` returns `{items,nextCursor}` with up to 50 inquiry records (`id`, `email`, `message`, `receivedAt`, `status`). Pass the returned `nextCursor` with `--cursor` for the next page. This command requires a team creator or administrator. Inquiry content is not included in telemetry.
+`inquiries` returns `{items, next_cursor}` with up to 50 inquiry records (`id`, `website_id`, `path`, `email`, `message`, `status`, `received_at`, `updated_at`). Pass the returned `next_cursor` with `--cursor` for the next page. This command requires a team manager or a team token. Inquiry content is not included in telemetry.
+
+Service errors are reported with the service message and its error code, for example `website_busy` or `deployment_limit_reached`; `--json` error output carries the code as `details.serviceCode`.
 
 ### `oo website upload <filePath>`
 

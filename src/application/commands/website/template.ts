@@ -1,4 +1,6 @@
-export function websiteTemplate(name: string, basePath: string): Record<string, string> {
+// Each website is served from the root of its own hostname. The edge in front
+// of it reserves `/_leina/` and accepts only `POST /_leina/inquiry` there.
+export function websiteTemplate(name: string): Record<string, string> {
     return {
         "public/favicon.svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 32 32\"><rect width=\"32\" height=\"32\" rx=\"6\" fill=\"#284f38\"/><path d=\"M10 8v16h13v-4h-9V8z\" fill=\"white\"/></svg>",
         "package.json": JSON.stringify({
@@ -15,7 +17,6 @@ import cloudflare from "@astrojs/cloudflare";
 
 export default defineConfig({
   output: "server",
-  base: ${JSON.stringify(basePath)},
   adapter: cloudflare({ imageService: "passthrough" }),
 });
 `,
@@ -43,7 +44,6 @@ const base = import.meta.env.BASE_URL.replace(/\\/?$/, "/");
     <meta name="description" content={description} />
     <title>{title} | {site.name}</title>
     <link rel="icon" href={base + "favicon.svg"} type="image/svg+xml" />
-    <script is:inline defer src={base + "_leina/tracker.js"}></script>
   </head>
   <body>
     <header>
@@ -106,13 +106,50 @@ import Site from "../layouts/Site.astro";
 ---
 <Site title="Contact">
   <h1>Contact us</h1>
-  <form method="post" action={import.meta.env.BASE_URL + "_leina/inquiry"} data-leina-inquiry>
+  <form data-leina-inquiry>
     <label>Email<input name="email" type="email" required maxlength="254" /></label>
     <label>Message<textarea name="message" required maxlength="2000"></textarea></label>
     <button type="submit">Send inquiry</button>
     <output role="status"></output>
   </form>
 </Site>
+<script>
+  // The id stays the same while one inquiry is retried, so the platform
+  // stores it only once.
+  for (const form of document.querySelectorAll<HTMLFormElement>("form[data-leina-inquiry]")) {
+    let id = crypto.randomUUID();
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const status = form.querySelector("output")!;
+      const button = form.querySelector("button")!;
+      const data = new FormData(form);
+      button.disabled = true;
+      try {
+        const response = await fetch("/_leina/inquiry", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ id, email: data.get("email"), message: data.get("message"), path: location.pathname }),
+        });
+        if (response.ok) {
+          form.reset();
+          id = crypto.randomUUID();
+          status.textContent = "Thank you. We will get back to you soon.";
+        }
+        else {
+          status.textContent = response.status === 429
+            ? "Too many requests. Please try again in a minute."
+            : "Your inquiry could not be sent. Please try again.";
+        }
+      }
+      catch {
+        status.textContent = "Your inquiry could not be sent. Please try again.";
+      }
+      finally {
+        button.disabled = false;
+      }
+    });
+  }
+</script>
 `,
         "src/pages/404.astro": `---
 import Site from "../layouts/Site.astro";

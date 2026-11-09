@@ -50,7 +50,7 @@ Commands:
   update|upgrade [options]     Update the CLI
   variables|variable|var|vars  Manage cloud-stored variables
   version [options]            Print the CLI version
-  website                      Create, publish and analyze websites
+  website                      Create and publish websites
   help [command]               Show help for a command
 "
 ,
@@ -89,7 +89,7 @@ Commands:
   update|upgrade [options]     更新 CLI
   variables|variable|var|vars  管理云端变量
   version [options]            输出 CLI 版本
-  website                      创建、发布和分析网站
+  website                      创建和发布网站
   help [command]               显示命令帮助
 "
 ,

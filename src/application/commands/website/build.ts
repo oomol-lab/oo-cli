@@ -1,14 +1,48 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
 
-import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, extname, isAbsolute, join, parse, relative, resolve, sep } from "node:path";
 import process from "node:process";
+import { z } from "zod";
 
-interface FilePart { name: string; content: string }
+// What `deploy` publishes: static assets stay on disk and go straight to
+// Cloudflare, while the Worker modules travel inline in the publish request.
+export interface WebsiteBuild {
+    assetsDir: string;
+    worker: WorkerBundle;
+}
+
+export interface WorkerBundle {
+    assets_binding: string;
+    assets_config: z.infer<typeof assetsConfigSchema>;
+    compatibility_date: string;
+    compatibility_flags: string[];
+    main_module: string;
+    modules: { content_base64: string; name: string }[];
+}
+
+const defaultCompatibilityDate = "2026-07-15";
+const workerModuleExtensions = new Set([".js", ".mjs", ".wasm"]);
+
+const assetsConfigSchema = z.object({
+    html_handling: z.enum(["auto-trailing-slash", "force-trailing-slash", "drop-trailing-slash", "none"]).optional(),
+    not_found_handling: z.enum(["single-page-application", "404-page", "none"]).optional(),
+    run_worker_first: z.union([z.boolean(), z.array(z.string())]).optional(),
+});
+
+// The Wrangler config the Astro Cloudflare adapter writes next to its server
+// output (dist/server/wrangler.json); paths in it are relative to that file.
+const generatedConfigSchema = z.object({
+    main: z.string().min(1),
+    compatibility_date: z.string().optional(),
+    compatibility_flags: z.array(z.string()).optional(),
+    assets: assetsConfigSchema.extend({
+        binding: z.string().optional(),
+        directory: z.string().min(1),
+    }),
+});
 
 function inside(root: string, path: string): string {
     const result = resolve(root, path);
@@ -47,71 +81,63 @@ async function run(command: string, args: string[], cwd: string, context: CliExe
     });
 }
 
-async function files(root: string): Promise<FilePart[]> {
-    const result: FilePart[] = [];
-    let bytes = 0;
-    async function visit(dir: string) {
-        for (const entry of await readdir(dir, { withFileTypes: true })) {
-            if (entry.name.startsWith("."))
-                continue;
-            const path = join(dir, entry.name);
-            if (entry.isSymbolicLink())
-                throw new Error("Symbolic links are not supported in website bundles.");
-            if (entry.isDirectory()) {
-                await visit(path);
-            }
-            else if (entry.isFile()) {
-                const content = await readFile(path);
-                bytes += content.byteLength;
-                if (bytes > 12 * 1024 * 1024 || result.length >= 1000)
-                    throw new Error("Website bundle exceeds the first-version limit.");
-                result.push({ name: relative(root, path).split(process.platform === "win32" ? "\\" : "/").join("/"), content: content.toString("base64") });
-            }
-        }
-    }
-    await visit(root);
-    return result.sort((a, b) => a.name.localeCompare(b.name));
+// Wrangler's dry run writes the bundled entry plus a README and source maps;
+// only executable modules are uploaded.
+async function readWorkerModules(root: string): Promise<WorkerBundle["modules"]> {
+    const entries = await readdir(root, { recursive: true, withFileTypes: true });
+    const files = entries
+        .filter(entry => entry.isFile() && workerModuleExtensions.has(extname(entry.name)))
+        .map(entry => join(entry.parentPath, entry.name));
+    const modules = await Promise.all(files.map(async file => ({
+        name: relative(root, file).split(sep).join("/"),
+        content_base64: (await readFile(file)).toString("base64"),
+    })));
+    return modules.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export async function buildWebsite(project: string, context: CliExecutionContext) {
+export async function buildWebsite(project: string, context: CliExecutionContext): Promise<WebsiteBuild> {
     await run("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund"], project, context);
     await run("npm", ["run", "build"], project, context);
     const dist = join(project, "dist");
     const generatedFile = join(dist, "server", "wrangler.json");
-    const config = JSON.parse(await readFile(generatedFile, "utf8")) as {
-        main: string;
-        compatibility_date?: string;
-        assets?: { directory?: string };
-    };
-    if (!config.main || !config.assets?.directory)
+    const parsed = generatedConfigSchema.safeParse(JSON.parse(await readFile(generatedFile, "utf8")));
+    if (!parsed.success)
         throw new Error("Expected an Astro Cloudflare SSR build.");
+    const config = parsed.data;
     const main = inside(dist, relative(dist, resolve(dirname(generatedFile), config.main)));
-    const assetDir = inside(dist, relative(dist, resolve(dirname(generatedFile), config.assets.directory)));
+    const assetsDir = inside(dist, relative(dist, resolve(dirname(generatedFile), config.assets.directory)));
+    const compatibilityDate = config.compatibility_date ?? defaultCompatibilityDate;
+    const compatibilityFlags = config.compatibility_flags ?? ["nodejs_compat"];
     const output = await mkdtemp(join(tmpdir(), "leina-website-bundle-"));
     try {
+        // Bundle the adapter's server output into one module so large sites
+        // stay within the platform's module count limit.
         const buildConfig = join(output, "wrangler.json");
         await writeFile(buildConfig, JSON.stringify({
             name: "website-build",
             main,
-            compatibility_date: config.compatibility_date ?? "2026-07-15",
-            compatibility_flags: ["nodejs_compat"],
+            compatibility_date: compatibilityDate,
+            compatibility_flags: compatibilityFlags,
         }));
         const wrangler = join(project, "node_modules", "wrangler", "bin", "wrangler.js");
-        await run("node", [wrangler, "deploy", "--dry-run", "--config", buildConfig, "--outdir", join(output, "modules")], project, context);
-        const modules = (await files(join(output, "modules"))).filter(file => file.name.endsWith(".js") || file.name.endsWith(".mjs") || file.name.endsWith(".wasm"));
-        const entry = modules.find(file => !file.name.includes("/") && (file.name.endsWith(".js") || file.name.endsWith(".mjs")));
-        if (!entry)
+        const modulesDir = join(output, "modules");
+        await run("node", [wrangler, "deploy", "--dry-run", "--config", buildConfig, "--outdir", modulesDir], project, context);
+        const modules = await readWorkerModules(modulesDir);
+        const mainModule = `${parse(main).name}.js`;
+        if (!modules.some(module => module.name === mainModule))
             throw new Error("Worker bundle has no entry module.");
-        const bundle = {
-            main: entry.name,
-            compatibilityDate: config.compatibility_date ?? "2026-07-15",
-            modules,
-            assets: await files(assetDir),
+        return {
+            assetsDir,
+            worker: {
+                assets_binding: config.assets.binding ?? "ASSETS",
+                // Drops the binding and directory, which are not asset options.
+                assets_config: assetsConfigSchema.parse(config.assets),
+                compatibility_date: compatibilityDate,
+                compatibility_flags: compatibilityFlags,
+                main_module: mainModule,
+                modules,
+            },
         };
-        const body = JSON.stringify(bundle);
-        if (Buffer.byteLength(body) > 20 * 1024 * 1024)
-            throw new Error("Website upload exceeds 20 MiB.");
-        return { bundle, hash: createHash("sha256").update(body).digest("hex") };
     }
     finally {
         await rm(output, { recursive: true, force: true });

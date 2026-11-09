@@ -32,7 +32,8 @@ type OoService
         | "fusion-api"
         | "registry"
         | "relation-control"
-        | "search";
+        | "search"
+        | "websites-api";
 
 export type OoRequestHost
     = | { endpoint: string; service: OoService }

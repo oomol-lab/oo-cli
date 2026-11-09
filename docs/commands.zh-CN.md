@@ -2382,25 +2382,25 @@ oo website create "品牌官网" --dir ./brand-site --team my-team --json
 oo website deploy <site-id> --project ./brand-site --team my-team --json
 oo website list --team my-team --json
 oo website get <site-id> --team my-team --json
-oo website analytics <site-id> --days 7 --team my-team --json
 oo website inquiries <site-id> --team my-team --json
 oo website deployments <site-id> --team my-team --json
 oo website deployment <site-id> <deployment-id> --team my-team --json
-oo website retry <site-id> <deployment-id> --team my-team --json
 oo website rollback <site-id> <deployment-id> --team my-team --json
 ```
 
-`create` 创建团队下的网站草稿, 并在 `--dir` 指定的空目录生成 Astro Cloudflare SSR 项目。编辑页面后再发布, 项目关联保存在 `leina-website.json`。重试未完成的创建会复用操作 ID, 不覆盖已修改的本地文件。
+这些命令复用 OO 现有的账号和团队选择, 请求 `https://websites-api.<账号 endpoint>` 上的网站服务 (例如 `websites-api.oomol.com`)。网站所有者无需 Cloudflare 账号。所有写请求都带 `Idempotency-Key`, 网关临时故障时用同一个键重试。
 
-`deploy` 校验网站与项目关联, 安装依赖、构建 Astro, 并等待 Workers for Platforms 发布完成。Cloudflare 凭证由平台托管。构建失败时继续使用已上线版本。成功后再次发布是新的版本, 结果未定的同一构建重试使用已保存的幂等键。
+`create` 创建团队下的网站草稿, 并在 `--dir` 指定的空目录生成 Astro Cloudflare SSR 项目。编辑页面后再发布, 项目关联以 `{website_id, team_id}` 保存在 `leina-website.json`。重试未完成的创建会复用同一个幂等键, 不覆盖已修改的本地文件。模板的联系表单把询盘提交到网站的 `/_leina/inquiry`。
 
-网站 JSON 包含 `id`、`teamId`、`name`、`status`、`publicUrl`、`consoleUrl`、`basePath`、`analyticsStatus`。`list` 返回 `{items: Website[]}`。分析返回 `{status:"pending",siteId}` 或 `{status:"ready",siteId,days,from,to,visitors,pageviews,inquiries,daily}`。时间范围为包含今天的 UTC 自然日, `--days` 支持 7 或 30。
+`deploy` 校验网站与项目关联, 安装依赖、构建 Astro, 并作为一次新的发布上线。构建出的静态资源先计算哈希, 只把平台还没有的文件直接上传到 Cloudflare; Worker 代码随发布请求提交。构建失败或发布被拒绝时继续使用当前线上版本, 被拒绝时会显示原因。再次运行 `deploy` 总是创建新的发布。文本输出为网站地址, `--json` 返回 `{website, deployment}`。
 
-各命令支持 `--api-url` 指定服务地址 (HTTPS 或本机 HTTP), 默认 `https://websites.<账号 endpoint>`。身份和团队复用 OO 的现有配置, 网站所有者无需注册 Cloudflare 或 Umami。
+网站包含 `id`、`team_id`、`name`、`status` (`draft`、`live`)、`hostname`、`url`、`active_deployment_id`、`created_at`、`updated_at`, 时间均为 Unix 毫秒。`create`、`get`、`rollback` 返回单个网站, `list` 返回 `{items: Website[]}`。
 
-`deploy --no-wait` 在服务端持久化接收后立即返回 `{deployment}`。默认最多等待五分钟, 超时不会取消后台任务。`deployments` 返回 `{items: Deployment[]}`, `deployment` 查询单次发布。发布记录包含 `id`、`siteId`、`status` (`publishing`、`succeeded`、`failed`)、`error`、`createdAt`, 可选字段为 `attempts`、`prunedAt`、`pruning`。`retry` 重试失败且仍保有构建产物的任务, 返回 `{deployment}`；`rollback` 切换到保留中的成功版本, 返回网站信息。发布进行中或目标版本已清理时不能回滚。
+`deployments` 返回 `{items: Deployment[]}` (最新在前), `deployment` 返回单次发布。发布包含 `id`、`website_id`、`status` (`uploading`、`succeeded`、`failed`、`expired`)、`active`、`restorable`、`file_count`、`total_bytes`、`error_message`、`upload_expires_at`、`created_at`、`published_at`、`pruned_at`。`rollback` 把网站切换到 `restorable` 为 true 的发布。
 
-`inquiries` 返回 `{items,nextCursor}`, 每页最多 50 条询盘 (`id`、`email`、`message`、`receivedAt`、`status`)。用 `--cursor` 传入上页的 `nextCursor` 继续读取。此命令需要团队创建者或管理员权限, 询盘内容不进入遥测。
+`inquiries` 返回 `{items, next_cursor}`, 每页最多 50 条询盘 (`id`、`website_id`、`path`、`email`、`message`、`status`、`received_at`、`updated_at`)。用 `--cursor` 传入上页的 `next_cursor` 继续读取。此命令需要团队管理员或团队 token, 询盘内容不进入遥测。
+
+服务端错误会显示服务返回的信息和错误码, 例如 `website_busy`、`deployment_limit_reached`; `--json` 的错误输出在 `details.serviceCode` 中给出错误码。
 
 ### `oo website upload <filePath>`
 

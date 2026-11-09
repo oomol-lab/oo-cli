@@ -1,5 +1,6 @@
 import type { MessageKey } from "../../../i18n/catalog.ts";
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
+import type { WebsitesApiTarget } from "./api.ts";
 
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
@@ -7,71 +8,47 @@ import { randomUUIDv7 } from "bun";
 import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
-import { requestOo } from "../shared/oo-request.ts";
 import { resolveAccountTeamIdentity, teamIdentityHeaders, teamIdentityInputShape, teamOption } from "../team/identity.ts";
+import { deploymentSchema, requestWebsitesApi, websitePath, websiteSchema } from "./api.ts";
 import { buildWebsite } from "./build.ts";
+import { publishWebsiteBuild } from "./publish.ts";
 import { websiteTemplate } from "./template.ts";
 
-const siteSchema = z.object({
+const inquirySchema = z.object({
     id: z.string(),
-    teamId: z.string(),
-    name: z.string(),
-    status: z.enum(["draft", "publishing", "live"]),
-    publicUrl: z.url(),
-    consoleUrl: z.url(),
-    basePath: z.string(),
-    analyticsStatus: z.enum(["pending", "ready"]),
-}).passthrough();
-const analyticsSchema = z.discriminatedUnion("status", [
-    z.object({ status: z.literal("pending"), siteId: z.string() }),
-    z.object({ status: z.literal("ready"), siteId: z.string(), days: z.number(), from: z.number(), to: z.number(), visitors: z.number(), pageviews: z.number(), inquiries: z.number(), daily: z.array(z.object({ date: z.string(), pageviews: z.number(), inquiries: z.number() })) }),
-]);
-const deploymentSchema = z.object({
-    id: z.string(),
-    siteId: z.string(),
-    status: z.enum(["publishing", "succeeded", "failed"]),
-    error: z.string().nullable(),
-    createdAt: z.number(),
-    attempts: z.number().optional(),
-    prunedAt: z.number().optional(),
-    pruning: z.boolean().optional(),
-}).passthrough();
-const acceptedSchema = z.object({ deployment: deploymentSchema });
+    website_id: z.string(),
+    path: z.string(),
+    email: z.string(),
+    message: z.string(),
+    status: z.enum(["new", "contacted", "closed"]),
+    received_at: z.number(),
+    updated_at: z.number(),
+});
 
-const optionsSchema = z.object({ ...teamIdentityInputShape, apiUrl: z.url().optional() });
+// The local association between an Astro project and its website, written by
+// `create` and checked by `deploy` before any build step runs.
+const projectLinkFile = "leina-website.json";
+const projectLinkSchema = z.object({ website_id: z.string(), team_id: z.string() });
+type ProjectLink = z.infer<typeof projectLinkSchema>;
+
+const optionsSchema = z.object({ ...teamIdentityInputShape });
 type Options = z.infer<typeof optionsSchema>;
 
-async function client(input: Options, context: CliExecutionContext) {
+async function resolveTarget(input: Options, context: CliExecutionContext): Promise<WebsitesApiTarget> {
     const { account } = await requireIdentity(context);
     const identity = await resolveAccountTeamIdentity(input, account, context);
-    const baseUrl = input.apiUrl ?? `https://websites.${account.endpoint}`;
-    const url = new URL(baseUrl);
-    if (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname))) {
-        throw new CliUserError("errors.websiteManaged.failure", 2, { message: "Use HTTPS or a loopback HTTP address." });
-    }
-    return { account, headers: teamIdentityHeaders(identity), baseUrl };
+    return { account, headers: teamIdentityHeaders(identity) };
 }
 
-async function call<T>(input: Options, context: CliExecutionContext, path: string, schema: z.ZodType<T>, body?: unknown, key?: string, extraHeaders: Record<string, string> = {}) {
-    const { account, headers, baseUrl } = await client(input, context);
-    return requestOo({
-        context,
-        authorization: account.apiKey,
-        host: { baseUrl },
-        headers: { ...headers, ...extraHeaders, ...(key ? { "Idempotency-Key": key } : {}) },
-        method: body === undefined ? "GET" : "POST",
-        path,
-        jsonBody: body,
-        schema,
-        errors: { scope: "websiteManaged" },
-        label: "Managed website",
+async function readOptionalFile(path: string): Promise<string | null> {
+    return await readFile(path, "utf8").catch((error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT")
+            return null;
+        throw error;
     });
 }
 
-const commonOptions = [
-    teamOption("options.variablesTeam"),
-    { name: "apiUrl", longFlag: "--api-url", valueName: "url", descriptionKey: "options.websiteManaged.apiUrl" as MessageKey },
-];
+const commonOptions = [teamOption("options.variablesTeam")];
 
 const createSchema = optionsSchema.extend({ name: z.string().trim().min(1).max(100), dir: z.string() });
 const create: CliCommandDefinition<z.infer<typeof createSchema>> = {
@@ -83,11 +60,13 @@ const create: CliCommandDefinition<z.infer<typeof createSchema>> = {
     options: [...commonOptions, { name: "dir", longFlag: "--dir", valueName: "directory", descriptionKey: "options.websiteManaged.dir" }],
     inputSchema: createSchema,
     handler: async (input, context) => {
-        const target = await client(input, context);
-        const scope = JSON.stringify({ baseUrl: target.baseUrl, headers: target.headers });
+        const target = await resolveTarget(input, context);
+        const scope = JSON.stringify({ endpoint: target.account.endpoint, headers: target.headers });
         const dir = resolve(context.cwd, input.dir);
         await mkdir(dir, { recursive: true });
         const entries = await readdir(dir);
+        // The journal keeps the create key across runs, so retrying after a
+        // lost response replays the same website instead of adding another.
         const journal = join(dir, ".leina-create.json");
         let key: string;
         if (entries.length === 0) {
@@ -97,26 +76,27 @@ const create: CliCommandDefinition<z.infer<typeof createSchema>> = {
         else {
             const pending = JSON.parse(await readFile(journal, "utf8").catch(() => "null")) as { key?: string; name?: string; scope?: string } | null;
             if (!pending?.key || pending.name !== input.name || pending.scope !== scope) {
-                throw new CliUserError("errors.websiteManaged.failure", 2, { message: "Choose an empty directory for a new site." });
+                throw new CliUserError("errors.websiteManaged.dirNotEmpty", 2);
             }
             key = pending.key;
         }
-        const site = await call(input, context, "/v1/websites", siteSchema, { name: input.name }, key);
-        const linkPath = join(dir, "leina-website.json");
-        const linked = await readFile(linkPath, "utf8").catch((error: NodeJS.ErrnoException) => {
-            if (error.code === "ENOENT")
-                return null;
-            throw error;
+        const { website } = await requestWebsitesApi(target, context, {
+            body: { name: input.name },
+            idempotencyKey: key,
+            path: "/v1/websites",
+            schema: z.object({ website: websiteSchema }),
         });
-        const expectedLink = { siteId: site.id, teamId: site.teamId, basePath: site.basePath };
+        const linkPath = join(dir, projectLinkFile);
+        const linked = await readOptionalFile(linkPath);
+        const expectedLink: ProjectLink = { website_id: website.id, team_id: website.team_id };
         if (linked !== null) {
-            const previous = JSON.parse(linked) as typeof expectedLink;
-            if (previous.siteId !== site.id || previous.teamId !== site.teamId) {
-                throw new CliUserError("errors.websiteManaged.failure", 2, { message: "This directory is linked to a different website." });
+            const previous = projectLinkSchema.safeParse(JSON.parse(linked));
+            if (!previous.success || previous.data.website_id !== website.id || previous.data.team_id !== website.team_id) {
+                throw new CliUserError("errors.websiteManaged.dirLinkedElsewhere", 2);
             }
         }
         else {
-            for (const [name, contents] of Object.entries(websiteTemplate(site.name, site.basePath))) {
+            for (const [name, contents] of Object.entries(websiteTemplate(website.name))) {
                 const path = join(dir, name);
                 await mkdir(dirname(path), { recursive: true });
                 try {
@@ -126,13 +106,13 @@ const create: CliCommandDefinition<z.infer<typeof createSchema>> = {
                     if ((error as NodeJS.ErrnoException).code !== "EEXIST")
                         throw error;
                     if (await readFile(path, "utf8") !== contents) {
-                        throw new CliUserError("errors.websiteManaged.failure", 2, { message: "A project file has changed. Keep your edits and resume from the existing website ID." });
+                        throw new CliUserError("errors.websiteManaged.templateChanged", 2, { id: website.id });
                     }
                 }
             }
             await writeFile(linkPath, JSON.stringify(expectedLink, null, 2), { flag: "wx" });
         }
-        context.output.emit(site, () => context.stdout.write(`${site.id}\n${site.consoleUrl}\n`));
+        context.output.emit(website, () => context.stdout.write(`${website.id}\n${website.url}\n`));
     },
 };
 
@@ -147,8 +127,11 @@ const get: CliCommandDefinition<z.infer<typeof siteInput>> = {
     arguments: [siteArgument],
     options: commonOptions,
     handler: async (input, context) => {
-        const site = await call(input, context, `/v1/websites/${encodeURIComponent(input.site)}`, siteSchema);
-        context.output.emit(site, () => context.stdout.write(`${site.name}  ${site.status}\n${site.publicUrl}\n${site.consoleUrl}\n`));
+        const { website } = await requestWebsitesApi(await resolveTarget(input, context), context, {
+            path: websitePath(input.site),
+            schema: z.object({ website: websiteSchema }),
+        });
+        context.output.emit(website, () => context.stdout.write(`${website.name}  ${website.status}\n${website.url}\n`));
     },
 };
 const list: CliCommandDefinition<Options> = {
@@ -159,29 +142,19 @@ const list: CliCommandDefinition<Options> = {
     inputSchema: optionsSchema,
     options: commonOptions,
     handler: async (input, context) => {
-        const result = await call(input, context, "/v1/websites", z.object({ items: z.array(siteSchema) }));
+        const result = await requestWebsitesApi(await resolveTarget(input, context), context, {
+            path: "/v1/websites",
+            schema: z.object({ items: z.array(websiteSchema) }),
+        });
         context.output.emit(result, () => {
-            for (const site of result.items) {
-                context.stdout.write(`${site.id}  ${site.name}  ${site.status}\n`);
+            for (const website of result.items) {
+                context.stdout.write(`${website.id}  ${website.name}  ${website.status}  ${website.url}\n`);
             }
         });
     },
 };
-const analyticsInput = siteInput.extend({ days: z.enum(["7", "30"]).default("7") });
-const analytics: CliCommandDefinition<z.infer<typeof analyticsInput>> = {
-    name: "analytics",
-    summaryKey: "commands.website.analytics.summary",
-    descriptionKey: "commands.website.analytics.summary",
-    output: "standard",
-    inputSchema: analyticsInput,
-    arguments: [siteArgument],
-    options: [...commonOptions, { name: "days", longFlag: "--days", valueName: "days", descriptionKey: "options.websiteManaged.days" }],
-    handler: async (input, context) => {
-        const result = await call(input, context, `/v1/websites/${encodeURIComponent(input.site)}/analytics?days=${input.days}`, analyticsSchema);
-        context.output.emit(result, () => context.stdout.write(`${JSON.stringify(result, null, 2)}\n`));
-    },
-};
-const deployInput = siteInput.extend({ project: z.string(), wait: z.boolean().default(true) });
+
+const deployInput = siteInput.extend({ project: z.string() });
 const deploy: CliCommandDefinition<z.infer<typeof deployInput>> = {
     name: "deploy",
     summaryKey: "commands.website.deploy.summary",
@@ -189,47 +162,29 @@ const deploy: CliCommandDefinition<z.infer<typeof deployInput>> = {
     output: "standard",
     inputSchema: deployInput,
     arguments: [siteArgument],
-    options: [...commonOptions, { name: "project", longFlag: "--project", valueName: "directory", descriptionKey: "options.websiteManaged.project" }, { name: "wait", longFlag: "--no-wait", descriptionKey: "options.websiteManaged.noWait" }],
+    options: [...commonOptions, { name: "project", longFlag: "--project", valueName: "directory", descriptionKey: "options.websiteManaged.project" }],
     handler: async (input, context) => {
         const project = resolve(context.cwd, input.project);
-        const site = await call(input, context, `/v1/websites/${encodeURIComponent(input.site)}`, siteSchema);
-        const link = JSON.parse(await readFile(join(project, "leina-website.json"), "utf8")) as { siteId?: string; teamId?: string };
-        if (link.siteId !== site.id || link.teamId !== site.teamId) {
-            throw new CliUserError("errors.websiteManaged.failure", 2, { message: "This project belongs to a different website or team." });
+        const linked = await readOptionalFile(join(project, projectLinkFile));
+        const link = linked === null ? undefined : projectLinkSchema.safeParse(JSON.parse(linked)).data;
+        if (link === undefined) {
+            throw new CliUserError("errors.websiteManaged.projectNotLinked", 2);
         }
-        const built = await buildWebsite(project, context);
-        const operationPath = join(project, ".leina-deploy.json");
-        const previous = await readFile(operationPath, "utf8").catch((error: NodeJS.ErrnoException) => {
-            if (error.code === "ENOENT")
-                return null;
-            throw error;
+        const target = await resolveTarget(input, context);
+        const { website } = await requestWebsitesApi(target, context, {
+            path: websitePath(input.site),
+            schema: z.object({ website: websiteSchema }),
         });
-        const pending = previous ? JSON.parse(previous) as { siteId: string; hash: string; key: string; completed: boolean } : null;
-        const operation = pending?.siteId === site.id && pending.hash === built.hash && !pending.completed
-            ? pending
-            : { siteId: site.id, hash: built.hash, key: randomUUIDv7(), completed: false };
-        await writeFile(operationPath, JSON.stringify(operation));
-        const { deployment } = await call(input, context, `/v1/websites/${encodeURIComponent(site.id)}/deployments`, acceptedSchema, built.bundle, operation.key, { Prefer: "respond-async" });
-        await writeFile(operationPath, JSON.stringify({ ...operation, deploymentId: deployment.id, completed: deployment.status === "succeeded" }));
-        if (!input.wait) {
-            context.output.emit({ deployment }, () => context.stdout.write(`Deployment ${deployment.status}: ${deployment.id}\n`));
-            return;
+        if (link.website_id !== website.id || link.team_id !== website.team_id) {
+            throw new CliUserError("errors.websiteManaged.projectMismatch", 2);
         }
-        const deadline = Date.now() + 300_000;
-        let current = deployment;
-        while (current.status === "publishing" && Date.now() < deadline) {
-            await Bun.sleep(2000);
-            current = await call(input, context, `/v1/websites/${encodeURIComponent(site.id)}/deployments/${encodeURIComponent(deployment.id)}`, deploymentSchema);
-        }
-        if (current.status !== "succeeded") {
-            const message = current.status === "failed" ? current.error ?? "Publish failed." : "Publish is still running.";
-            throw new CliUserError("errors.websiteManaged.failure", 1, {
-                message: `${message} Use oo website deployment ${site.id} ${deployment.id} --json to check it.`,
+        const build = await buildWebsite(project, context).catch((error: unknown) => {
+            throw new CliUserError("errors.websiteManaged.buildFailed", 1, {
+                message: error instanceof Error ? error.message : String(error),
             });
-        }
-        await writeFile(operationPath, JSON.stringify({ ...operation, deploymentId: deployment.id, completed: true }));
-        const deployed = await call(input, context, `/v1/websites/${encodeURIComponent(site.id)}`, siteSchema);
-        context.output.emit({ ...deployed, deploymentId: deployment.id }, () => context.stdout.write(`${deployed.publicUrl}\n${deployed.consoleUrl}\n`));
+        });
+        const result = await publishWebsiteBuild(target, website.id, build, context);
+        context.output.emit(result, () => context.stdout.write(`${result.website.url}\n`));
     },
 };
 
@@ -242,8 +197,16 @@ const deployments: CliCommandDefinition<z.infer<typeof siteInput>> = {
     arguments: [siteArgument],
     options: commonOptions,
     handler: async (input, context) => {
-        const result = await call(input, context, `/v1/websites/${encodeURIComponent(input.site)}/deployments`, z.object({ items: z.array(deploymentSchema) }));
-        context.output.emit(result, () => context.stdout.write(`${JSON.stringify(result, null, 2)}\n`));
+        const result = await requestWebsitesApi(await resolveTarget(input, context), context, {
+            path: websitePath(input.site, "/deployments"),
+            schema: z.object({ items: z.array(deploymentSchema) }),
+        });
+        context.output.emit(result, () => {
+            for (const deployment of result.items) {
+                const marker = deployment.active ? "  active" : "";
+                context.stdout.write(`${deployment.id}  ${deployment.status}  ${new Date(deployment.created_at).toISOString()}${marker}\n`);
+            }
+        });
     },
 };
 const releaseInput = siteInput.extend({ deployment: z.string().min(1) });
@@ -257,21 +220,11 @@ const deploymentStatus: CliCommandDefinition<z.infer<typeof releaseInput>> = {
     arguments: releaseArguments,
     options: commonOptions,
     handler: async (input, context) => {
-        const result = await call(input, context, `/v1/websites/${encodeURIComponent(input.site)}/deployments/${encodeURIComponent(input.deployment)}`, deploymentSchema);
-        context.output.emit(result, () => context.stdout.write(`${JSON.stringify(result, null, 2)}\n`));
-    },
-};
-const retry: CliCommandDefinition<z.infer<typeof releaseInput>> = {
-    name: "retry",
-    summaryKey: "commands.website.retry.summary",
-    descriptionKey: "commands.website.retry.summary",
-    output: "standard",
-    inputSchema: releaseInput,
-    arguments: releaseArguments,
-    options: commonOptions,
-    handler: async (input, context) => {
-        const result = await call(input, context, `/v1/websites/${encodeURIComponent(input.site)}/deployments/${encodeURIComponent(input.deployment)}/retry`, acceptedSchema, {}, randomUUIDv7());
-        context.output.emit(result, () => context.stdout.write(`${JSON.stringify(result, null, 2)}\n`));
+        const { deployment } = await requestWebsitesApi(await resolveTarget(input, context), context, {
+            path: websitePath(input.site, `/deployments/${encodeURIComponent(input.deployment)}`),
+            schema: z.object({ deployment: deploymentSchema }),
+        });
+        context.output.emit(deployment, () => context.stdout.write(`${JSON.stringify(deployment, null, 2)}\n`));
     },
 };
 const rollback: CliCommandDefinition<z.infer<typeof releaseInput>> = {
@@ -283,8 +236,12 @@ const rollback: CliCommandDefinition<z.infer<typeof releaseInput>> = {
     arguments: releaseArguments,
     options: commonOptions,
     handler: async (input, context) => {
-        const result = await call(input, context, `/v1/websites/${encodeURIComponent(input.site)}/rollback`, siteSchema, { deploymentId: input.deployment }, randomUUIDv7());
-        context.output.emit(result, () => context.stdout.write(`${result.publicUrl}\n`));
+        const { website } = await requestWebsitesApi(await resolveTarget(input, context), context, {
+            body: { deployment_id: input.deployment },
+            path: websitePath(input.site, "/rollback"),
+            schema: z.object({ website: websiteSchema }),
+        });
+        context.output.emit(website, () => context.stdout.write(`${website.url}\n`));
     },
 };
 
@@ -298,11 +255,13 @@ const inquiries: CliCommandDefinition<z.infer<typeof inquiriesInput>> = {
     arguments: [siteArgument],
     options: [...commonOptions, { name: "cursor", longFlag: "--cursor", valueName: "cursor", descriptionKey: "options.websiteManaged.cursor" }],
     handler: async (input, context) => {
-        const query = input.cursor ? `?${new URLSearchParams({ cursor: input.cursor })}` : "";
-        const schema = z.object({ items: z.array(z.object({ id: z.string(), email: z.string(), message: z.string(), receivedAt: z.number(), status: z.enum(["new", "contacted", "closed"]) })), nextCursor: z.string().nullable() });
-        const result = await call(input, context, `/v1/websites/${encodeURIComponent(input.site)}/inquiries${query}`, schema);
+        const result = await requestWebsitesApi(await resolveTarget(input, context), context, {
+            path: websitePath(input.site, "/inquiries"),
+            query: input.cursor === undefined ? undefined : { cursor: input.cursor },
+            schema: z.object({ items: z.array(inquirySchema), next_cursor: z.string().nullable() }),
+        });
         context.output.emit(result, () => context.stdout.write(`${JSON.stringify(result, null, 2)}\n`));
     },
 };
 
-export const managedWebsiteCommands = [create, list, get, deploy, analytics, deployments, deploymentStatus, retry, rollback, inquiries];
+export const managedWebsiteCommands = [create, list, get, deploy, deployments, deploymentStatus, rollback, inquiries];
