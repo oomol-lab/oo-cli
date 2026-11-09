@@ -149,8 +149,9 @@ These rules override every local heuristic.
    destination, or timing choices.
 9. Stop at real blockers. Stop and report clearly on auth, billing, catalog
    miss, unsupported input shape, missing required values, terminal task
-   failure, or an unsafe side effect. Before treating a discovery result as an
-   auth or catalog blocker, apply the one-time cross-team search fallback in
+   failure, or an unsafe side effect. Before declaring a read blocked because
+   the current team has no usable action or its authenticated connection
+   cannot find the requested resource, apply the cross-team fallback in
    [references/search-and-selection.md](references/search-and-selection.md#team-scope)
    when eligible. After discovery, stop operations on a disconnected or expired
    connection until authorization is repaired. A missing scope blocks the
@@ -222,7 +223,10 @@ proves its output.
    host's confirmation rules.
 7. Execute
    Execute the selected connector path through `oo`, using only the canonical
-   shape documented in the reference read at step 5. On `approval_required`,
+   shape documented in the reference read at step 5. If an authenticated read
+   cannot find the requested resource, follow
+   [resource lookup recovery](references/search-and-selection.md#recover-a-missing-read-only-resource)
+   before asking which team owns it. On `approval_required`,
    follow the
    [advisory confirmation rules](references/connector-execution.md#advisory-confirmation):
    retry with `--approval` only when the user already confirmed this operation
