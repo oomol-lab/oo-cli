@@ -2871,7 +2871,7 @@ Websites have `id`, `team_id`, `name`, `status` (`draft`, `live`), `hostname`, `
 
 `inquiries` returns `{items, next_cursor}` with up to 50 inquiry records (`id`, `website_id`, `path`, `email`, `message`, `status`, `received_at`, `updated_at`). Pass the returned `next_cursor` with `--cursor` for the next page. This command requires a team manager or a team token. Inquiry content is not included in telemetry.
 
-Service errors are reported with the service message and its error code, for example `website_busy` or `deployment_limit_reached`; `--json` error output carries the code as `details.serviceCode`.
+Service errors are reported with the service message and its error code, for example `website_busy` or `deployment_limit_reached`; `--json` error output carries the code as `error.details.serviceCode`.
 
 ### `oo website upload <filePath>`
 

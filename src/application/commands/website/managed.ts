@@ -31,6 +31,19 @@ const projectLinkFile = "leina-website.json";
 const projectLinkSchema = z.object({ website_id: z.string(), team_id: z.string() });
 type ProjectLink = z.infer<typeof projectLinkSchema>;
 
+const createJournalFile = ".leina-create.json";
+const createJournalSchema = z.object({ key: z.string().min(1), name: z.string(), scope: z.string() });
+
+// Parses a local JSON state file, treating unreadable content as absent.
+function parseJsonFile<Value>(text: string, schema: z.ZodType<Value>): Value | undefined {
+    try {
+        return schema.safeParse(JSON.parse(text)).data;
+    }
+    catch {
+        return undefined;
+    }
+}
+
 const optionsSchema = z.object({ ...teamIdentityInputShape });
 type Options = z.infer<typeof optionsSchema>;
 
@@ -67,18 +80,21 @@ const create: CliCommandDefinition<z.infer<typeof createSchema>> = {
         const entries = await readdir(dir);
         // The journal keeps the create key across runs, so retrying after a
         // lost response replays the same website instead of adding another.
-        const journal = join(dir, ".leina-create.json");
+        const journal = join(dir, createJournalFile);
+        const journalText = entries.includes(createJournalFile) ? await readOptionalFile(journal) : null;
+        const pending = journalText === null ? undefined : parseJsonFile(journalText, createJournalSchema);
         let key: string;
-        if (entries.length === 0) {
+        if (pending !== undefined && pending.name === input.name && pending.scope === scope) {
+            key = pending.key;
+        }
+        // A directory holding nothing but a stale or unreadable journal is
+        // still empty: no project file was written, so start a new attempt.
+        else if (entries.every(entry => entry === createJournalFile)) {
             key = randomUUIDv7();
-            await writeFile(journal, JSON.stringify({ key, name: input.name, scope }), { flag: "wx" });
+            await writeFile(journal, JSON.stringify({ key, name: input.name, scope }));
         }
         else {
-            const pending = JSON.parse(await readFile(journal, "utf8").catch(() => "null")) as { key?: string; name?: string; scope?: string } | null;
-            if (!pending?.key || pending.name !== input.name || pending.scope !== scope) {
-                throw new CliUserError("errors.websiteManaged.dirNotEmpty", 2);
-            }
-            key = pending.key;
+            throw new CliUserError("errors.websiteManaged.dirNotEmpty", 2);
         }
         const { website } = await requestWebsitesApi(target, context, {
             body: { name: input.name },
@@ -90,8 +106,8 @@ const create: CliCommandDefinition<z.infer<typeof createSchema>> = {
         const linked = await readOptionalFile(linkPath);
         const expectedLink: ProjectLink = { website_id: website.id, team_id: website.team_id };
         if (linked !== null) {
-            const previous = projectLinkSchema.safeParse(JSON.parse(linked));
-            if (!previous.success || previous.data.website_id !== website.id || previous.data.team_id !== website.team_id) {
+            const previous = parseJsonFile(linked, projectLinkSchema);
+            if (previous === undefined || previous.website_id !== website.id || previous.team_id !== website.team_id) {
                 throw new CliUserError("errors.websiteManaged.dirLinkedElsewhere", 2);
             }
         }
@@ -166,7 +182,7 @@ const deploy: CliCommandDefinition<z.infer<typeof deployInput>> = {
     handler: async (input, context) => {
         const project = resolve(context.cwd, input.project);
         const linked = await readOptionalFile(join(project, projectLinkFile));
-        const link = linked === null ? undefined : projectLinkSchema.safeParse(JSON.parse(linked)).data;
+        const link = linked === null ? undefined : parseJsonFile(linked, projectLinkSchema);
         if (link === undefined) {
             throw new CliUserError("errors.websiteManaged.projectNotLinked", 2);
         }

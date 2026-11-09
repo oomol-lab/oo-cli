@@ -159,6 +159,70 @@ describe("managed website commands", () => {
         finally { await sandbox.cleanup(); }
     });
 
+    test("starts a new create attempt when the directory holds only a stale or unreadable journal", async () => {
+        const sandbox = await createCliSandbox();
+        try {
+            await writeAuthFile(sandbox);
+            const dir = join(sandbox.env.HOME!, "stale-site");
+            const keys: (string | null)[] = [];
+            let rejecting = true;
+            const fetcher = async (input: string | URL | Request, init?: RequestInit) => {
+                keys.push(toRequest(input, init).headers.get("Idempotency-Key"));
+                return rejecting
+                    ? Response.json({ message: "Website limit reached", code: "website_limit_reached" }, { status: 409 })
+                    : Response.json({ website }, { status: 201 });
+            };
+            expect((await sandbox.run(["website", "create", "First name", "--dir", dir, "--team", "team-a"], { fetcher })).exitCode).toBe(1);
+            rejecting = false;
+            const renamed = await sandbox.run(["website", "create", website.name, "--dir", dir, "--team", "team-a", "--json"], { fetcher });
+            expect(renamed.exitCode).toBe(0);
+            expect(keys).toHaveLength(2);
+            expect(keys[1]).not.toBe(keys[0]);
+            expect(JSON.parse(await Bun.file(join(dir, ".leina-create.json")).text())).toMatchObject({ key: keys[1], name: website.name });
+
+            const corruptDir = join(sandbox.env.HOME!, "corrupt-site");
+            await Bun.write(join(corruptDir, ".leina-create.json"), "{not json");
+            const corrupt = await sandbox.run(["website", "create", website.name, "--dir", corruptDir, "--team", "team-a", "--json"], { fetcher });
+            expect(corrupt.exitCode).toBe(0);
+            expect(await Bun.file(join(corruptDir, "leina-website.json")).exists()).toBeTrue();
+
+            const busyDir = join(sandbox.env.HOME!, "busy-site");
+            await Bun.write(join(busyDir, "README.md"), "existing");
+            const busy = await sandbox.run(["website", "create", website.name, "--dir", busyDir, "--team", "team-a"], { fetcher });
+            expect(busy.exitCode).toBe(2);
+            expect(busy.stderr).toContain("empty directory");
+        }
+        finally { await sandbox.cleanup(); }
+    });
+
+    test("reports an unreadable project link instead of a parse error", async () => {
+        const sandbox = await createCliSandbox();
+        try {
+            await writeAuthFile(sandbox);
+            const dir = join(sandbox.env.HOME!, "linked-site");
+            const fetcher = async () => Response.json({ website }, { status: 201 });
+            const args = ["website", "create", website.name, "--dir", dir, "--team", "team-a"];
+            expect((await sandbox.run(args, { fetcher })).exitCode).toBe(0);
+            await Bun.write(join(dir, "leina-website.json"), "{not json");
+
+            const create = await sandbox.run(args, { fetcher });
+            expect(create.exitCode).toBe(2);
+            expect(create.stderr).toContain("linked to a different website");
+
+            const requests: string[] = [];
+            const deploy = await sandbox.run(["website", "deploy", website.id, "--project", dir, "--team", "team-a"], {
+                fetcher: async (input, init) => {
+                    requests.push(toRequest(input, init).url);
+                    return Response.json({ website });
+                },
+            });
+            expect(deploy.exitCode).toBe(2);
+            expect(deploy.stderr).toContain("leina-website.json");
+            expect(requests).toEqual([]);
+        }
+        finally { await sandbox.cleanup(); }
+    });
+
     test("shows the service message and code when a request fails", async () => {
         const sandbox = await createCliSandbox();
         try {

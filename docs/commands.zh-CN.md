@@ -2400,7 +2400,7 @@ oo website rollback <site-id> <deployment-id> --team my-team --json
 
 `inquiries` 返回 `{items, next_cursor}`, 每页最多 50 条询盘 (`id`、`website_id`、`path`、`email`、`message`、`status`、`received_at`、`updated_at`)。用 `--cursor` 传入上页的 `next_cursor` 继续读取。此命令需要团队管理员或团队 token, 询盘内容不进入遥测。
 
-服务端错误会显示服务返回的信息和错误码, 例如 `website_busy`、`deployment_limit_reached`; `--json` 的错误输出在 `details.serviceCode` 中给出错误码。
+服务端错误会显示服务返回的信息和错误码, 例如 `website_busy`、`deployment_limit_reached`; `--json` 的错误输出在 `error.details.serviceCode` 中给出错误码。
 
 ### `oo website upload <filePath>`
 
