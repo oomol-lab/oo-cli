@@ -677,8 +677,8 @@ oo flow
   - `chatCompletionsUrl`：规范化后的 OpenAI-compatible chat completions endpoint。
     原始 chat completions 请求应直接调用该 URL，不要自行给 `baseUrl` 追加路径。
   - `model`：默认模型名，当前为 `oomol-chat`。
-- 生产环境输出的 `baseUrl` 为 `https://llm.oomol.com/v1`，`chatCompletionsUrl`
-  为 `https://llm.oomol.com/v1/chat/completions`。
+- 生产环境输出的 `baseUrl` 为 `https://new-llm.oomol.com/v1`，`chatCompletionsUrl`
+  为 `https://new-llm.oomol.com/v1/chat/completions`。
 
 ### `oo llm json`
 

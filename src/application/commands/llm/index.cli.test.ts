@@ -35,13 +35,13 @@ describe("llm CLI", () => {
 
             expect(config).toEqual({
                 apiKey: "secret-1",
-                baseUrl: "https://llm.oomol.com/v1",
-                chatCompletionsUrl: "https://llm.oomol.com/v1/chat/completions",
+                baseUrl: "https://new-llm.oomol.com/v1",
+                chatCompletionsUrl: "https://new-llm.oomol.com/v1/chat/completions",
                 model: "oomol-chat",
             });
-            expect(config.baseUrl).not.toBe("https://llm.oomol.com/");
+            expect(config.baseUrl).not.toBe("https://new-llm.oomol.com/");
             expect(config.chatCompletionsUrl).not.toBe(
-                "https://llm.oomol.com/chat/completions",
+                "https://new-llm.oomol.com/chat/completions",
             );
         }
         finally {
@@ -73,14 +73,14 @@ describe("llm CLI", () => {
 
             expect(JSON.parse(jsonAliasResult.stdout)).toEqual({
                 apiKey: "secret-2",
-                baseUrl: "https://llm.staging.oomol.test/v1",
-                chatCompletionsUrl: "https://llm.staging.oomol.test/v1/chat/completions",
+                baseUrl: "https://new-llm.staging.oomol.test/v1",
+                chatCompletionsUrl: "https://new-llm.staging.oomol.test/v1/chat/completions",
                 model: "oomol-chat",
             });
             expect(JSON.parse(jsonFormatResult.stdout)).toEqual({
                 apiKey: "secret-2",
-                baseUrl: "https://llm.staging.oomol.test/v1",
-                chatCompletionsUrl: "https://llm.staging.oomol.test/v1/chat/completions",
+                baseUrl: "https://new-llm.staging.oomol.test/v1",
+                chatCompletionsUrl: "https://new-llm.staging.oomol.test/v1/chat/completions",
                 model: "oomol-chat",
             });
         }
@@ -199,10 +199,10 @@ describe("llm CLI", () => {
 
                     expect(request.method).toBe("POST");
                     expect(request.url).toBe(
-                        "https://llm.oomol.com/v1/chat/completions",
+                        "https://new-llm.oomol.com/v1/chat/completions",
                     );
                     expect(request.url).not.toBe(
-                        "https://llm.oomol.com/chat/completions",
+                        "https://new-llm.oomol.com/chat/completions",
                     );
                     expect(request.headers.get("Authorization")).toBe(
                         "Bearer secret-1",
@@ -504,8 +504,8 @@ describe("llm CLI", () => {
 
             expect(config).toEqual({
                 apiKey: "env-key",
-                baseUrl: "https://llm.oomol.dev/v1",
-                chatCompletionsUrl: "https://llm.oomol.dev/v1/chat/completions",
+                baseUrl: "https://new-llm.oomol.dev/v1",
+                chatCompletionsUrl: "https://new-llm.oomol.dev/v1/chat/completions",
                 model: "oomol-chat",
             });
         }

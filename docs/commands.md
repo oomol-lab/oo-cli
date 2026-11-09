@@ -819,8 +819,8 @@ Print the current account's LLM client configuration as JSON.
     endpoint. Call this URL directly for raw chat completions requests instead
     of appending a path to `baseUrl`.
   - `model`: the default model name, currently `oomol-chat`.
-- Production output uses `https://llm.oomol.com/v1` as `baseUrl` and
-  `https://llm.oomol.com/v1/chat/completions` as `chatCompletionsUrl`.
+- Production output uses `https://new-llm.oomol.com/v1` as `baseUrl` and
+  `https://new-llm.oomol.com/v1/chat/completions` as `chatCompletionsUrl`.
 
 ### `oo llm json`
 
