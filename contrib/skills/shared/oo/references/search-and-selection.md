@@ -139,9 +139,10 @@ reports that project as not found), check other authorized connections before
 asking the user which team owns it.
 
 1. Check another connection in the requested team if the user pinned a team but
-   left the connection open. If the team is unspecified in hosted mode, run one
-   focused `oo search "<text>" --all-teams --json` for the provider's lookup
-   action, or reuse the results if you already searched across teams.
+   left the connection open. If the team is unspecified in hosted mode, reuse
+   earlier cross-team results only if they include an available action for the
+   resource lookup. Otherwise, run one focused
+   `oo search "<text>" --all-teams --json` for that lookup action.
 2. Verify the schema, then shortlist available connections using the requested
    service and any known account, team, or resource clues. Use the smallest
    read-only provider lookup, preferably by exact ID or a filtered list, to
