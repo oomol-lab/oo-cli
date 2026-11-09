@@ -99,44 +99,74 @@ Examples:
 
 ## Team scope
 
-Ordinary `oo search` honors the current team (including environment and saved
-account selections). Preserve a user-selected team throughout the task. Do not
-infer that no current team exists just because the user did not name one, and
-do not run routine team/auth prechecks before search.
+An OOMOL team selects connector connections. A provider organization, workspace,
+or project lives inside the connected service. When the action schema exposes a
+provider organization selector, use it to narrow the read inside that connection.
 
-Use `oo search "<text>" --all-teams --json` when the user asks to search across
-teams, or current evidence establishes that no team has been selected and the
-task calls for finding a connection across memberships. This is hosted-only,
-ignores saved/env team selections, and conflicts with `--team`. For a known
-team, use `oo search "<text>" --team "<name>" --json`.
+- **Team named by the user:** use `oo search "<text>" --team "<name>" --json`
+  and preserve that team on execution. Keep any account or provider organization
+  constraint too.
+- **User asks to search or compare across teams:** start with
+  `oo search "<text>" --all-teams --json`. Use the same form if no team can be
+  resolved and the task calls for finding a connection across memberships. This
+  option is hosted only, ignores saved and environment team selections, and
+  conflicts with `--team`.
+- **Team unspecified:** start with ordinary `oo search "<text>" --json`, which
+  honors the effective team. If it succeeds but finds no matching available
+  action, repeat the search once with `--all-teams` in hosted mode. This covers
+  empty or irrelevant results and connections unavailable in discovery. A
+  successful read that finds the target ends team discovery. For a resource
+  miss after execution, use the recovery below.
 
-In Hosted mode, if a successful current-team search returns no matching,
-available action, repeat the same query once with `--all-teams --json` before
-reporting an auth or catalog blocker. This includes empty or irrelevant results
-and matching actions whose discovery status indicates an unavailable connection
-or authorization. Do not fall back when a matching action is available, when
-the user explicitly scoped the task to a team, or when the search command itself
-fails (including network, service, or authentication errors). A saved or
-environment-selected team alone does not prohibit this discovery fallback.
-Do not repeat an already cross-team search or use this fallback after connector
-execution fails. If no usable match is found, report the applicable blocker.
+Use `oo team list --json` when the distinction between `current` (effective
+team) and `isDefault` (account default) helps resolve a miss. A default is a
+routing hint. For a known team whose connections need inspection, use
+`oo connector apps "<service>" --team "<teamName>" --json`. Keep any override
+local to the invocation.
 
-When fallback finds a match, identify its team and connection. For a discovery
-request, report the results; for execution in another team, establish the user's
-intended team and connection before running. Do not change the saved team.
+An available search result identifies a callable action and connection. Confirm
+access to the requested resource with a provider lookup. Cross-team results
+carry `teamId`, `teamName`, and `appId`; keep the values from the same result
+together, even when several results share an action name. The hosted search
+returns up to 10 expanded entries, so a team can have a connection outside the
+shortlist.
 
-Cross-team results preserve `teamId`, `teamName`, and `appId`. Keep the selected
-triple together; do not deduplicate different connections solely by action ID.
-The hosted response contains at most 10 expanded result entries, not 10 distinct
-actions or all connections. Absence from this shortlist does not prove a team
-has no connection. When several team/connection choices fit and the intended
-account or destination is unclear, ask which one to use instead of choosing by
-search order. Discovery does not authorize execution in another team.
+### Recover a missing read-only resource
 
-If team choice needs clarification, `oo team list --json` reports `current`
-(the effective selection) separately from `isDefault` (the backend default).
-An existing current team takes precedence; the default marker does not grant
-permission to switch teams or choose an ambiguous destination.
+When an authenticated connection cannot find a specific resource (for example,
+an exact project is missing from the available project list or the provider
+reports that project as not found), check other authorized connections before
+asking the user which team owns it.
+
+1. Check another connection in the requested team if the user pinned a team but
+   left the connection open. If the team is unspecified in hosted mode, reuse
+   earlier cross-team results only if they include an available action for the
+   resource lookup. Otherwise, run one focused
+   `oo search "<text>" --all-teams --json` for that lookup action.
+2. Verify the schema, then shortlist available connections using the requested
+   service and any known account, team, or resource clues. Use the smallest
+   read-only provider lookup, preferably by exact ID or a filtered list, to
+   confirm the target. Keep other candidates at the metadata lookup stage.
+   Use the selected team and connection together as documented in
+   [connector execution](connector-execution.md#execute-the-connector-path).
+3. If a match establishes the intended resource and identity, continue the
+   requested read without a team question. If several plausible matches remain,
+   ask one focused question with the matching team or account choices. For an
+   explicitly cross-team report, label each result with its source team and
+   provider organization or project when available. If no candidate can be
+   verified, report which scopes were checked and what is still needed.
+
+Apply this recovery only to a resource-specific miss on a read. Preserve explicit
+team, account, and provider organization constraints. Stop on explicit access
+denials, expired credentials, missing scopes, or `approval_required` and follow
+the corresponding blocker procedure. Handle search or execution failures
+involving network, service, or billing separately. For writes and other side
+effects, establish the intended identity and destination before execution.
+
+Example: to read analytics for a named PostHog project, use
+`oo search "list PostHog projects" --all-teams --json` if the current
+connection's project lookup misses. Check the project's ID under the relevant
+available connections, then query events through the connection that can see it.
 
 ## Discovery command
 
