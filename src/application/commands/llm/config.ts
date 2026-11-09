@@ -34,7 +34,7 @@ export const llmConfigCommand: CliCommandDefinition = {
 };
 
 export function createLlmBaseUrl(endpoint: string): string {
-    return new URL(`https://llm.${endpoint}/v1`).toString();
+    return new URL(`https://new-llm.${endpoint}/v1`).toString();
 }
 
 export function createLlmChatCompletionsUrl(endpoint: string): string {
