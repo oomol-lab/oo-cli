@@ -2846,6 +2846,33 @@ Delete expired or stale file transfer records.
 
 ## Website
 
+### Managed Astro websites
+
+```bash
+oo website create "My website" --dir ./my-site --team my-team --json
+oo website deploy <site-id> --project ./my-site --team my-team --json
+oo website list --team my-team --json
+oo website get <site-id> --team my-team --json
+oo website analytics <site-id> --days 7 --team my-team --json
+oo website inquiries <site-id> --team my-team --json
+oo website deployments <site-id> --team my-team --json
+oo website deployment <site-id> <deployment-id> --team my-team --json
+oo website retry <site-id> <deployment-id> --team my-team --json
+oo website rollback <site-id> <deployment-id> --team my-team --json
+```
+
+`create` allocates a team-owned draft and scaffolds an Astro Cloudflare SSR project. `--dir` must identify an empty directory. Edit the project before publishing. The project association is saved in `leina-website.json`. Retrying an incomplete create keeps the operation key and preserves conflicting local edits.
+
+`deploy` verifies the project association, installs dependencies, builds Astro and waits for Workers for Platforms publication. It uses the platform's Cloudflare credentials. A failed build preserves the active release. Repeating a publish after success is a new release; retrying an unresolved publish of the same bundle reuses its persisted operation key.
+
+The site JSON includes `id`, `teamId`, `name`, `status`, `publicUrl`, `consoleUrl`, `basePath` and `analyticsStatus`. `list` returns `{items: Website[]}`. Analytics returns either `{status:"pending",siteId}` or `{status:"ready",siteId,days,from,to,visitors,pageviews,inquiries,daily}`. The date range includes today and uses UTC calendar days. Supported `--days` values are 7 and 30.
+
+Each command accepts `--api-url` for an explicitly selected service endpoint (HTTPS or loopback HTTP). The default is `https://websites.<account endpoint>`. The existing OO account and team selection apply. No Cloudflare or Umami account is required for the website owner.
+
+`deploy --no-wait` returns `{deployment}` after the server durably accepts the bundle. Without this flag, it waits up to five minutes; a timeout leaves the server job running. `deployments` returns `{items: Deployment[]}` and `deployment` returns one release. Releases have `id`, `siteId`, `status` (`publishing`, `succeeded`, `failed`), `error`, `createdAt` and optional `attempts`, `prunedAt`, `pruning`. `retry` resubmits a failed stored job and returns `{deployment}`; `rollback` switches to a retained successful release and returns the website. Rollback is unavailable while another release is publishing or after a release is pruned.
+
+`inquiries` returns `{items,nextCursor}` with up to 50 inquiry records (`id`, `email`, `message`, `receivedAt`, `status`). Pass the returned `nextCursor` with `--cursor` for the next page. This command requires a team creator or administrator. Inquiry content is not included in telemetry.
+
 ### `oo website upload <filePath>`
 
 Upload one HTML file to long-term website storage and print the public URL it

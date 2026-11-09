@@ -2375,6 +2375,33 @@ message，也不会出现在 `path` / `sourcePath` 字段之外的额外文件�
 
 ## 网站
 
+### 托管 Astro 独立站
+
+```bash
+oo website create "品牌官网" --dir ./brand-site --team my-team --json
+oo website deploy <site-id> --project ./brand-site --team my-team --json
+oo website list --team my-team --json
+oo website get <site-id> --team my-team --json
+oo website analytics <site-id> --days 7 --team my-team --json
+oo website inquiries <site-id> --team my-team --json
+oo website deployments <site-id> --team my-team --json
+oo website deployment <site-id> <deployment-id> --team my-team --json
+oo website retry <site-id> <deployment-id> --team my-team --json
+oo website rollback <site-id> <deployment-id> --team my-team --json
+```
+
+`create` 创建团队下的网站草稿, 并在 `--dir` 指定的空目录生成 Astro Cloudflare SSR 项目。编辑页面后再发布, 项目关联保存在 `leina-website.json`。重试未完成的创建会复用操作 ID, 不覆盖已修改的本地文件。
+
+`deploy` 校验网站与项目关联, 安装依赖、构建 Astro, 并等待 Workers for Platforms 发布完成。Cloudflare 凭证由平台托管。构建失败时继续使用已上线版本。成功后再次发布是新的版本, 结果未定的同一构建重试使用已保存的幂等键。
+
+网站 JSON 包含 `id`、`teamId`、`name`、`status`、`publicUrl`、`consoleUrl`、`basePath`、`analyticsStatus`。`list` 返回 `{items: Website[]}`。分析返回 `{status:"pending",siteId}` 或 `{status:"ready",siteId,days,from,to,visitors,pageviews,inquiries,daily}`。时间范围为包含今天的 UTC 自然日, `--days` 支持 7 或 30。
+
+各命令支持 `--api-url` 指定服务地址 (HTTPS 或本机 HTTP), 默认 `https://websites.<账号 endpoint>`。身份和团队复用 OO 的现有配置, 网站所有者无需注册 Cloudflare 或 Umami。
+
+`deploy --no-wait` 在服务端持久化接收后立即返回 `{deployment}`。默认最多等待五分钟, 超时不会取消后台任务。`deployments` 返回 `{items: Deployment[]}`, `deployment` 查询单次发布。发布记录包含 `id`、`siteId`、`status` (`publishing`、`succeeded`、`failed`)、`error`、`createdAt`, 可选字段为 `attempts`、`prunedAt`、`pruning`。`retry` 重试失败且仍保有构建产物的任务, 返回 `{deployment}`；`rollback` 切换到保留中的成功版本, 返回网站信息。发布进行中或目标版本已清理时不能回滚。
+
+`inquiries` 返回 `{items,nextCursor}`, 每页最多 50 条询盘 (`id`、`email`、`message`、`receivedAt`、`status`)。用 `--cursor` 传入上页的 `nextCursor` 继续读取。此命令需要团队创建者或管理员权限, 询盘内容不进入遥测。
+
 ### `oo website upload <filePath>`
 
 将单个 HTML 文件上传到长期网站存储，并输出其公开访问 URL。

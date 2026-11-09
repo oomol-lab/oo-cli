@@ -640,6 +640,56 @@ const commandTelemetryDecisions = {
         kind: "generic",
         reason: "Command group; child commands record website dimensions where safe.",
     },
+    "website.create": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the existing team identity selection category; site data and contents are private.",
+    },
+    "website.list": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the existing team identity selection category; site data and contents are private.",
+    },
+    "website.get": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the existing team identity selection category; site data and contents are private.",
+    },
+    "website.deploy": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the existing team identity selection category; site data and contents are private.",
+    },
+    "website.analytics": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the existing team identity selection category; site data and contents are private.",
+    },
+    "website.deployments": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the selected identity category, without site or deployment identifiers.",
+    },
+    "website.deployment": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the selected identity category, without site or deployment identifiers.",
+    },
+    "website.retry": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the selected identity category, without site or deployment identifiers.",
+    },
+    "website.rollback": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the selected identity category, without site or deployment identifiers.",
+    },
+    "website.inquiries": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Only records identity category; inquiry content and resource identifiers are private.",
+    },
     "website.upload": {
         kind: "properties",
         properties: [
