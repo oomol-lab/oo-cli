@@ -1,4 +1,3 @@
-import type { MessageKey } from "../../../i18n/catalog.ts";
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
 import type { WebsitesApiTarget } from "./api.ts";
 
@@ -26,7 +25,8 @@ const inquirySchema = z.object({
 });
 
 // The local association between an Astro project and its website, written by
-// `create` and checked by `deploy` before any build step runs.
+// `create`. It names the website for `deploy` and, in the current directory,
+// for the commands that are not given `--site`.
 const projectLinkFile = "leina-website.json";
 const projectLinkSchema = z.object({ website_id: z.string(), team_id: z.string() });
 type ProjectLink = z.infer<typeof projectLinkSchema>;
@@ -61,9 +61,14 @@ async function readOptionalFile(path: string): Promise<string | null> {
     });
 }
 
+async function readProjectLink(dir: string): Promise<ProjectLink | undefined> {
+    const text = await readOptionalFile(join(dir, projectLinkFile));
+    return text === null ? undefined : parseJsonFile(text, projectLinkSchema);
+}
+
 const commonOptions = [teamOption("options.variablesTeam")];
 
-const createSchema = optionsSchema.extend({ name: z.string().trim().min(1).max(100), dir: z.string() });
+const createSchema = optionsSchema.extend({ name: z.string().trim().min(1).max(100), dir: z.string().optional() });
 const create: CliCommandDefinition<z.infer<typeof createSchema>> = {
     name: "create",
     summaryKey: "commands.website.create.summary",
@@ -75,7 +80,7 @@ const create: CliCommandDefinition<z.infer<typeof createSchema>> = {
     handler: async (input, context) => {
         const target = await resolveTarget(input, context);
         const scope = JSON.stringify({ endpoint: target.account.endpoint, headers: target.headers });
-        const dir = resolve(context.cwd, input.dir);
+        const dir = resolve(context.cwd, input.dir ?? ".");
         await mkdir(dir, { recursive: true });
         const entries = await readdir(dir);
         // The journal keeps the create key across runs, so retrying after a
@@ -132,19 +137,29 @@ const create: CliCommandDefinition<z.infer<typeof createSchema>> = {
     },
 };
 
-const siteInput = optionsSchema.extend({ site: z.string().min(1) });
-const siteArgument = { name: "site", descriptionKey: "arguments.websiteManaged.site" as MessageKey, required: true };
+const siteInput = optionsSchema.extend({ site: z.string().min(1).optional() });
+const siteOptions = [...commonOptions, { name: "site", longFlag: "--site", valueName: "website-id", descriptionKey: "options.websiteManaged.site" }];
+
+async function resolveSite(input: z.infer<typeof siteInput>, context: CliExecutionContext): Promise<string> {
+    if (input.site !== undefined)
+        return input.site;
+    const link = await readProjectLink(context.cwd);
+    if (link === undefined) {
+        throw new CliUserError("errors.websiteManaged.siteRequired", 2);
+    }
+    return link.website_id;
+}
 const get: CliCommandDefinition<z.infer<typeof siteInput>> = {
     name: "get",
     summaryKey: "commands.website.get.summary",
     descriptionKey: "commands.website.get.summary",
     output: "standard",
     inputSchema: siteInput,
-    arguments: [siteArgument],
-    options: commonOptions,
+    options: siteOptions,
     handler: async (input, context) => {
+        const site = await resolveSite(input, context);
         const { website } = await requestWebsitesApi(await resolveTarget(input, context), context, {
-            path: websitePath(input.site),
+            path: websitePath(site),
             schema: z.object({ website: websiteSchema }),
         });
         context.output.emit(website, () => context.stdout.write(`${website.name}  ${website.status}\n${website.url}\n`));
@@ -171,7 +186,7 @@ const list: CliCommandDefinition<Options> = {
 };
 
 // `deploy` takes no website ID: the project link written by `create` names it.
-const deployInput = optionsSchema.extend({ project: z.string() });
+const deployInput = optionsSchema.extend({ project: z.string().optional() });
 const deploy: CliCommandDefinition<z.infer<typeof deployInput>> = {
     name: "deploy",
     summaryKey: "commands.website.deploy.summary",
@@ -180,9 +195,8 @@ const deploy: CliCommandDefinition<z.infer<typeof deployInput>> = {
     inputSchema: deployInput,
     options: [...commonOptions, { name: "project", longFlag: "--project", valueName: "directory", descriptionKey: "options.websiteManaged.project" }],
     handler: async (input, context) => {
-        const project = resolve(context.cwd, input.project);
-        const linked = await readOptionalFile(join(project, projectLinkFile));
-        const link = linked === null ? undefined : parseJsonFile(linked, projectLinkSchema);
+        const project = resolve(context.cwd, input.project ?? ".");
+        const link = await readProjectLink(project);
         if (link === undefined) {
             throw new CliUserError("errors.websiteManaged.projectNotLinked", 2);
         }
@@ -210,11 +224,11 @@ const deployments: CliCommandDefinition<z.infer<typeof siteInput>> = {
     descriptionKey: "commands.website.deployments.summary",
     output: "standard",
     inputSchema: siteInput,
-    arguments: [siteArgument],
-    options: commonOptions,
+    options: siteOptions,
     handler: async (input, context) => {
+        const site = await resolveSite(input, context);
         const result = await requestWebsitesApi(await resolveTarget(input, context), context, {
-            path: websitePath(input.site, "/deployments"),
+            path: websitePath(site, "/deployments"),
             schema: z.object({ items: z.array(deploymentSchema) }),
         });
         context.output.emit(result, () => {
@@ -226,7 +240,7 @@ const deployments: CliCommandDefinition<z.infer<typeof siteInput>> = {
     },
 };
 const releaseInput = siteInput.extend({ deployment: z.string().min(1) });
-const releaseArguments = [siteArgument, { name: "deployment", descriptionKey: "arguments.websiteManaged.deployment", required: true }];
+const releaseArguments = [{ name: "deployment", descriptionKey: "arguments.websiteManaged.deployment", required: true }];
 const deploymentStatus: CliCommandDefinition<z.infer<typeof releaseInput>> = {
     name: "deployment",
     summaryKey: "commands.website.deployment.summary",
@@ -234,10 +248,11 @@ const deploymentStatus: CliCommandDefinition<z.infer<typeof releaseInput>> = {
     output: "standard",
     inputSchema: releaseInput,
     arguments: releaseArguments,
-    options: commonOptions,
+    options: siteOptions,
     handler: async (input, context) => {
+        const site = await resolveSite(input, context);
         const { deployment } = await requestWebsitesApi(await resolveTarget(input, context), context, {
-            path: websitePath(input.site, `/deployments/${encodeURIComponent(input.deployment)}`),
+            path: websitePath(site, `/deployments/${encodeURIComponent(input.deployment)}`),
             schema: z.object({ deployment: deploymentSchema }),
         });
         context.output.emit(deployment, () => context.stdout.write(`${JSON.stringify(deployment, null, 2)}\n`));
@@ -250,11 +265,12 @@ const rollback: CliCommandDefinition<z.infer<typeof releaseInput>> = {
     output: "standard",
     inputSchema: releaseInput,
     arguments: releaseArguments,
-    options: commonOptions,
+    options: siteOptions,
     handler: async (input, context) => {
+        const site = await resolveSite(input, context);
         const { website } = await requestWebsitesApi(await resolveTarget(input, context), context, {
             body: { deployment_id: input.deployment },
-            path: websitePath(input.site, "/rollback"),
+            path: websitePath(site, "/rollback"),
             schema: z.object({ website: websiteSchema }),
         });
         context.output.emit(website, () => context.stdout.write(`${website.url}\n`));
@@ -268,11 +284,11 @@ const inquiries: CliCommandDefinition<z.infer<typeof inquiriesInput>> = {
     descriptionKey: "commands.website.inquiries.summary",
     output: "standard",
     inputSchema: inquiriesInput,
-    arguments: [siteArgument],
-    options: [...commonOptions, { name: "cursor", longFlag: "--cursor", valueName: "cursor", descriptionKey: "options.websiteManaged.cursor" }],
+    options: [...siteOptions, { name: "cursor", longFlag: "--cursor", valueName: "cursor", descriptionKey: "options.websiteManaged.cursor" }],
     handler: async (input, context) => {
+        const site = await resolveSite(input, context);
         const result = await requestWebsitesApi(await resolveTarget(input, context), context, {
-            path: websitePath(input.site, "/inquiries"),
+            path: websitePath(site, "/inquiries"),
             query: input.cursor === undefined ? undefined : { cursor: input.cursor },
             schema: z.object({ items: z.array(inquirySchema), next_cursor: z.string().nullable() }),
         });

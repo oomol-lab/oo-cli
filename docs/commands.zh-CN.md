@@ -2379,20 +2379,23 @@ message，也不会出现在 `path` / `sourcePath` 字段之外的额外文件�
 
 ```bash
 oo website create "品牌官网" --dir ./brand-site --team my-team --json
-oo website deploy --project ./brand-site --team my-team --json
+cd ./brand-site
+oo website deploy --team my-team --json
+oo website get --team my-team --json
+oo website inquiries --team my-team --json
+oo website deployments --team my-team --json
+oo website deployment <deployment-id> --team my-team --json
+oo website rollback <deployment-id> --team my-team --json
 oo website list --team my-team --json
-oo website get <site-id> --team my-team --json
-oo website inquiries <site-id> --team my-team --json
-oo website deployments <site-id> --team my-team --json
-oo website deployment <site-id> <deployment-id> --team my-team --json
-oo website rollback <site-id> <deployment-id> --team my-team --json
 ```
+
+网站 ID 由服务端生成。在项目目录里不需要传 ID: `get`、`inquiries`、`deployments`、`deployment`、`rollback` 默认操作当前目录 `leina-website.json` 关联的网站。要操作其他网站或在别的目录运行时传 `--site <网站 ID>`, 要发布别处的项目时给 `deploy` 传 `--project <目录>`。
 
 这些命令复用 OO 现有的账号和团队选择, 请求 `https://websites-api.<账号 endpoint>` 上的网站服务 (例如 `websites-api.oomol.com`)。网站所有者无需 Cloudflare 账号。所有写请求都带 `Idempotency-Key`, 网关临时故障时用同一个键重试。
 
-`create` 创建团队下的网站草稿, 并在 `--dir` 指定的空目录生成 Astro Cloudflare SSR 项目。编辑页面后再发布, 项目关联以 `{website_id, team_id}` 保存在 `leina-website.json`。重试未完成的创建会复用同一个幂等键, 不覆盖已修改的本地文件。模板的联系表单把询盘提交到网站的 `/_leina/inquiry`。
+`create` 创建团队下的网站草稿, 并在 `--dir` 指定的空目录 (默认当前目录) 生成 Astro Cloudflare SSR 项目。编辑页面后再发布, 项目关联以 `{website_id, team_id}` 保存在 `leina-website.json`。重试未完成的创建会复用同一个幂等键, 不覆盖已修改的本地文件。模板的联系表单把询盘提交到网站的 `/_leina/inquiry`。
 
-`deploy` 不需要网站 ID: 它从项目的 `leina-website.json` 读出网站, 确认属于所选团队后安装依赖、构建 Astro, 并作为一次新的发布上线。构建出的静态资源先计算哈希, 只把平台还没有的文件直接上传到 Cloudflare; Worker 代码随发布请求提交。构建失败或发布被拒绝时继续使用当前线上版本, 被拒绝时会显示原因。再次运行 `deploy` 总是创建新的发布。文本输出为网站地址, `--json` 返回 `{website, deployment}`。
+`deploy` 不需要网站 ID: 它从 `--project` 目录 (默认当前目录) 的 `leina-website.json` 读出网站, 确认属于所选团队后安装依赖、构建 Astro, 并作为一次新的发布上线。构建出的静态资源先计算哈希, 只把平台还没有的文件直接上传到 Cloudflare; Worker 代码随发布请求提交。构建失败或发布被拒绝时继续使用当前线上版本, 被拒绝时会显示原因。再次运行 `deploy` 总是创建新的发布。文本输出为网站地址, `--json` 返回 `{website, deployment}`。
 
 网站包含 `id`、`team_id`、`name`、`status` (`draft`、`live`)、`hostname`、`url`、`active_deployment_id`、`created_at`、`updated_at`, 时间均为 Unix 毫秒。`create`、`get`、`rollback` 返回单个网站, `list` 返回 `{items: Website[]}`。
 

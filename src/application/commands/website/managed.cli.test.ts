@@ -35,7 +35,7 @@ describe("managed website commands", () => {
         try {
             await writeAuthFile(sandbox);
             let request: Request | undefined;
-            const result = await sandbox.run(["website", "inquiries", website.id, "--cursor", "cursor-a", "--team", "team-a", "--json"], {
+            const result = await sandbox.run(["website", "inquiries", "--site", website.id, "--cursor", "cursor-a", "--team", "team-a", "--json"], {
                 fetcher: async (input, init) => {
                     request = toRequest(input, init);
                     return Response.json({ items: [], next_cursor: null });
@@ -56,8 +56,8 @@ describe("managed website commands", () => {
         try {
             await writeAuthFile(sandbox);
             const cases = [
-                { args: ["deployments", website.id], path: `/v1/websites/${website.id}/deployments`, body: { items: [deployment] }, output: { items: [deployment] } },
-                { args: ["deployment", website.id, deployment.id], path: `/v1/websites/${website.id}/deployments/${deployment.id}`, body: { deployment }, output: deployment },
+                { args: ["deployments", "--site", website.id], path: `/v1/websites/${website.id}/deployments`, body: { items: [deployment] }, output: { items: [deployment] } },
+                { args: ["deployment", deployment.id, "--site", website.id], path: `/v1/websites/${website.id}/deployments/${deployment.id}`, body: { deployment }, output: deployment },
             ];
             for (const item of cases) {
                 let request: Request | undefined;
@@ -83,7 +83,7 @@ describe("managed website commands", () => {
         try {
             await writeAuthFile(sandbox);
             let request: Request | undefined;
-            const result = await sandbox.run(["website", "rollback", website.id, deployment.id, "--team", "team-a", "--json"], {
+            const result = await sandbox.run(["website", "rollback", deployment.id, "--site", website.id, "--team", "team-a", "--json"], {
                 fetcher: async (input, init) => {
                     request = toRequest(input, init);
                     return Response.json({ website: { ...website, status: "live", active_deployment_id: deployment.id } });
@@ -223,17 +223,60 @@ describe("managed website commands", () => {
         finally { await sandbox.cleanup(); }
     });
 
+    test("defaults to the current directory for the project and its website", async () => {
+        const sandbox = await createCliSandbox();
+        try {
+            await writeAuthFile(sandbox);
+            const paths: string[] = [];
+            const fetcher = async (input: string | URL | Request, init?: RequestInit) => {
+                const request = toRequest(input, init);
+                paths.push(`${request.method} ${new URL(request.url).pathname}`);
+                if (request.method === "POST" && !request.url.endsWith("/rollback"))
+                    return Response.json({ website }, { status: 201 });
+                return Response.json({ website, deployment, items: [], next_cursor: null });
+            };
+
+            // Without a project link there is no website to act on.
+            const unlinked = await sandbox.run(["website", "get", "--team", "team-a"], { fetcher });
+            expect(unlinked.exitCode).toBe(2);
+            expect(unlinked.stderr).toContain("--site");
+            expect(paths).toEqual([]);
+
+            const created = await sandbox.run(["website", "create", website.name, "--team", "team-a", "--json"], { fetcher });
+            expect(created.exitCode).toBe(0);
+            expect(JSON.parse(await Bun.file(join(sandbox.cwd, "leina-website.json")).text()).website_id).toBe(website.id);
+
+            const base = `/v1/websites/${website.id}`;
+            const cases = [
+                { args: ["get"], request: `GET ${base}` },
+                { args: ["deployments"], request: `GET ${base}/deployments` },
+                { args: ["deployment", deployment.id], request: `GET ${base}/deployments/${deployment.id}` },
+                { args: ["rollback", deployment.id], request: `POST ${base}/rollback` },
+                { args: ["inquiries"], request: `GET ${base}/inquiries` },
+                // An explicit website wins over the project link.
+                { args: ["get", "--site", "other-site"], request: "GET /v1/websites/other-site" },
+            ];
+            for (const item of cases) {
+                paths.length = 0;
+                const result = await sandbox.run(["website", ...item.args, "--team", "team-a", "--json"], { fetcher });
+                expect(result.exitCode).toBe(0);
+                expect(paths).toEqual([item.request]);
+            }
+        }
+        finally { await sandbox.cleanup(); }
+    });
+
     test("shows the service message and code when a request fails", async () => {
         const sandbox = await createCliSandbox();
         try {
             await writeAuthFile(sandbox);
             const fetcher = async () => Response.json({ message: "Website not found", code: "website_not_found" }, { status: 404 });
-            const result = await sandbox.run(["website", "get", website.id, "--team", "team-a"], { fetcher });
+            const result = await sandbox.run(["website", "get", "--site", website.id, "--team", "team-a"], { fetcher });
             expect(result.exitCode).toBe(1);
             expect(result.stderr).toContain("Website not found");
             expect(result.stderr).toContain("website_not_found");
             expect(result.stderr).toContain("404");
-            const json = await sandbox.run(["website", "get", website.id, "--team", "team-a", "--json"], { fetcher });
+            const json = await sandbox.run(["website", "get", "--site", website.id, "--team", "team-a", "--json"], { fetcher });
             expect(json.exitCode).toBe(1);
             expect(JSON.parse(json.stderr).error.details).toEqual({ httpStatus: 404, serviceCode: "website_not_found" });
         }
@@ -266,7 +309,7 @@ describe("managed website commands", () => {
         try {
             await writeAuthFile(sandbox);
             const requests: string[] = [];
-            const result = await sandbox.run(["website", "deploy", "--project", sandbox.cwd, "--team", "team-a"], {
+            const result = await sandbox.run(["website", "deploy", "--team", "team-a"], {
                 fetcher: async (input, init) => {
                     requests.push(toRequest(input, init).url);
                     return Response.json({ website });
