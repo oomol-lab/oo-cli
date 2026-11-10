@@ -359,14 +359,20 @@ function writeCustomDomain(domain: CustomDomain | null, context: CliExecutionCon
         context.stdout.write(`${t("websiteManaged.text.noCustomDomain")}\n`);
         return;
     }
+    // Ownership comes first: until the TXT record is found the service does not
+    // issue a certificate, so that record is listed ahead of the CNAME.
+    const unverified = domain.verification !== undefined && domain.verified_at === null;
     const fields = [
         [t("labels.status"), domain.status],
         [t("websiteManaged.text.url"), domain.url],
-        [t("websiteManaged.text.dnsRecord"), `${domain.dns.type} ${domain.dns.name} -> ${domain.dns.value}`],
     ];
+    if (unverified && domain.verification !== undefined)
+        fields.push([t("websiteManaged.text.ownershipRecord"), `${domain.verification.type} ${domain.verification.name} -> ${domain.verification.value}`]);
+    fields.push([t("websiteManaged.text.dnsRecord"), `${domain.dns.type} ${domain.dns.name} -> ${domain.dns.value}`]);
     if (domain.message !== null)
         fields.push([t("websiteManaged.text.message"), domain.message]);
-    const hint = domain.status === "active" ? "" : `${t("websiteManaged.text.dnsHint")}\n`;
+    const hintKey = unverified ? "websiteManaged.text.verifyHint" : "websiteManaged.text.dnsHint";
+    const hint = domain.status === "active" ? "" : `${t(hintKey)}\n`;
     context.stdout.write(`${domain.hostname}\n${fields.map(([label, value]) => `  - ${label}: ${value}\n`).join("")}${hint}`);
 }
 
@@ -410,8 +416,9 @@ const domainRemove: CliCommandDefinition<z.infer<typeof siteInput>> = {
         context.output.emit(result, () => writeCustomDomain(result.custom_domain, context));
     },
 };
-// `domain` alone shows the binding; the service checks it against the
-// certificate and DNS state on each read, so rerunning it follows a pending one.
+// `domain` alone shows the binding; the service checks it against the ownership
+// record, the certificate and the DNS state on each read, so rerunning it
+// follows an unverified or pending one.
 const domain: CliCommandDefinition<z.infer<typeof siteInput>> = {
     name: "domain",
     summaryKey: "commands.website.domain.summary",

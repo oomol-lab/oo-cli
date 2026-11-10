@@ -33,8 +33,10 @@ const customDomain = {
     url: "https://www.example.com/",
     status: "pending",
     message: null,
+    verification: { type: "TXT", name: "_leina.www.example.com", value: "0123456789abcdef0123456789abcdef" },
     dns: { type: "CNAME", name: "www.example.com", value: "cname.leina.site" },
     created_at: 1,
+    verified_at: 1,
     checked_at: null,
 };
 
@@ -391,6 +393,50 @@ describe("managed website commands", () => {
                 "  - Status: active",
                 "  - URL: https://www.example.com/",
                 "  - DNS record: CNAME www.example.com -> cname.leina.site",
+                "",
+            ].join("\n"));
+        }
+        finally { await sandbox.cleanup(); }
+    });
+
+    test("lists the ownership record until the domain is verified", async () => {
+        const sandbox = await createCliSandbox();
+        try {
+            await writeAuthFile(sandbox);
+            const args = ["website", "domain", "--site", website.id, "--team", "team-a"];
+            const unverified = {
+                ...customDomain,
+                status: "unverified",
+                message: "TXT record _leina.www.example.com not found",
+                verified_at: null,
+            };
+            const claimed = await sandbox.run(args, {
+                fetcher: async () => Response.json({ custom_domain: unverified }),
+            });
+            expect(claimed.exitCode).toBe(0);
+            expect(claimed.stdout).toBe([
+                "www.example.com",
+                "  - Status: unverified",
+                "  - URL: https://www.example.com/",
+                "  - Ownership record: TXT _leina.www.example.com -> 0123456789abcdef0123456789abcdef",
+                "  - DNS record: CNAME www.example.com -> cname.leina.site",
+                "  - Message: TXT record _leina.www.example.com not found",
+                "Add both records at your DNS provider, then run oo website domain to verify ownership of the domain.",
+                "",
+            ].join("\n"));
+
+            // A service without ownership verification sends neither field.
+            const { verification: _verification, verified_at: _verifiedAt, ...legacy } = customDomain;
+            const old = await sandbox.run(args, {
+                fetcher: async () => Response.json({ custom_domain: legacy }),
+            });
+            expect(old.exitCode).toBe(0);
+            expect(old.stdout).toBe([
+                "www.example.com",
+                "  - Status: pending",
+                "  - URL: https://www.example.com/",
+                "  - DNS record: CNAME www.example.com -> cname.leina.site",
+                "Add the DNS record at your DNS provider, then run oo website domain to check the status.",
                 "",
             ].join("\n"));
         }

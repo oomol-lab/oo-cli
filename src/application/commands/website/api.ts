@@ -20,10 +20,14 @@ export interface WebsitesApiTarget {
 export const customDomainSchema = z.object({
     hostname: z.string(),
     url: z.string(),
-    status: z.enum(["pending", "active", "error"]),
+    status: z.enum(["unverified", "pending", "active", "error"]),
     message: z.string().nullable(),
+    // The TXT record that proves ownership of the domain. Optional, like
+    // `verified_at`, so a service without ownership verification still parses.
+    verification: z.object({ type: z.string(), name: z.string(), value: z.string() }).optional(),
     dns: z.object({ type: z.string(), name: z.string(), value: z.string() }),
     created_at: z.number(),
+    verified_at: z.number().nullable().optional(),
     checked_at: z.number().nullable(),
 });
 
