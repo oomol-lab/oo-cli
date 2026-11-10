@@ -11,7 +11,7 @@ import { CliUserError } from "../../contracts/cli.ts";
 import { resolveAccountTeamIdentity, teamIdentityHeaders, teamIdentityInputShape, teamOption } from "../team/identity.ts";
 import { customDomainSchema, deploymentSchema, requestWebsitesApi, websitePath, websiteSchema } from "./api.ts";
 import { buildWebsite } from "./build.ts";
-import { publishWebsiteBuild } from "./publish.ts";
+import { deployText, publishWebsiteBuild } from "./publish.ts";
 import { websiteTemplate } from "./template.ts";
 
 const inquirySchema = z.object({
@@ -198,6 +198,7 @@ const get: CliCommandDefinition<z.infer<typeof siteInput>> = {
                 [t("websiteManaged.text.url"), website.url],
                 [t("websiteManaged.text.activeDeployment"), website.active_deployment_id ?? t("websiteManaged.text.notPublished")],
                 [t("websiteManaged.text.customDomain"), website.custom_domain ? `${website.custom_domain.hostname} (${website.custom_domain.status})` : t("websiteManaged.text.none")],
+                [t("websiteManaged.text.analytics"), website.analytics?.report_url ?? t("websiteManaged.text.analyticsNotReady")],
                 [t("websiteManaged.text.createdAt"), new Date(website.created_at).toISOString()],
                 [t("websiteManaged.text.updatedAt"), new Date(website.updated_at).toISOString()],
             ];
@@ -254,7 +255,11 @@ const deploy: CliCommandDefinition<z.infer<typeof deployInput>> = {
             });
         });
         const result = await publishWebsiteBuild(target, website.id, build, context);
-        context.output.emit(result, () => context.stdout.write(`${result.website.url}\n`));
+        context.output.emit(result, () => {
+            const text = deployText(result, context.translator);
+            context.stdout.write(text.stdout);
+            context.stderr.write(text.stderr);
+        });
     },
 };
 

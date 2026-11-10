@@ -2398,9 +2398,9 @@ oo website list --team my-team --json
 
 `create` 创建团队下的网站草稿, 并在 `--dir` 指定的空目录生成 Astro Cloudflare SSR 项目。不传 `--dir` 时, 当前目录为空就用当前目录, 否则用以网站名命名的子目录 (转小写, 空白与路径字符换成短横线)。文本输出依次是网站 ID、URL 和项目目录, `--json` 在网站对象上附带 `project_dir`。编辑页面后再发布, 项目关联以 `{website_id, team_id}` 保存在 `leina-website.json`。重试未完成的创建会复用同一个幂等键, 不覆盖已修改的本地文件。模板的联系表单把询盘提交到网站的 `/_leina/inquiry`。
 
-`deploy` 不需要网站 ID: 它从 `--project` 目录 (默认当前目录) 的 `leina-website.json` 读出网站, 确认属于所选团队后安装依赖、构建 Astro, 并作为一次新的发布上线。构建出的静态资源先计算哈希, 只把平台还没有的文件直接上传到 Cloudflare; Worker 代码随发布请求提交。构建失败或发布被拒绝时继续使用当前线上版本, 被拒绝时会显示原因。再次运行 `deploy` 总是创建新的发布。文本输出为网站地址, `--json` 返回 `{website, deployment}`。
+`deploy` 不需要网站 ID: 它从 `--project` 目录 (默认当前目录) 的 `leina-website.json` 读出网站, 确认属于所选团队后安装依赖、构建 Astro, 并作为一次新的发布上线。构建出的静态资源先计算哈希, 只把平台还没有的文件直接上传到 Cloudflare; Worker 代码随发布请求提交。构建失败或发布被拒绝时继续使用当前线上版本, 被拒绝时会显示原因。再次运行 `deploy` 总是创建新的发布。文本输出为网站地址 (stdout), 网站有访问统计报表时另在 stderr 输出报表地址, `--json` 返回 `{website, deployment}`。
 
-网站包含 `id`、`team_id`、`name`、`status` (`draft`、`live`)、`hostname`、`url`、`active_deployment_id`、`custom_domain` (自定义域名或 `null`)、`created_at`、`updated_at`, 时间均为 Unix 毫秒。`create` (附带 `project_dir`)、`get`、`rollback` 返回单个网站, `get` 的文本输出是名称, 随后是 ID、状态、地址、当前发布、自定义域名、创建与更新时间, `list` 返回 `{items: Website[]}`。
+网站包含 `id`、`team_id`、`name`、`status` (`draft`、`live`)、`hostname`、`url`、`active_deployment_id`、`custom_domain` (自定义域名或 `null`)、`analytics` (`{website_id, report_url}`, 首次发布上线并开通访问统计之前为 `null`)、`created_at`、`updated_at`, 时间均为 Unix 毫秒。`create` (附带 `project_dir`)、`get`、`rollback` 返回单个网站, `get` 的文本输出是名称, 随后是 ID、状态、地址、当前发布、自定义域名、访问统计报表地址、创建与更新时间, `list` 返回 `{items: Website[]}`。
 
 `deployments` 返回 `{items: Deployment[]}` (最新在前), `deployment` 返回单次发布。发布包含 `id`、`website_id`、`status` (`uploading`、`succeeded`、`failed`、`expired`)、`active`、`restorable`、`file_count`、`total_bytes`、`error_message`、`upload_expires_at`、`created_at`、`published_at`、`pruned_at`。`rollback` 把网站切换到 `restorable` 为 true 的发布。
 
