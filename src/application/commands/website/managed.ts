@@ -68,6 +68,26 @@ async function readProjectLink(dir: string): Promise<ProjectLink | undefined> {
 
 const commonOptions = [teamOption("options.variablesTeam")];
 
+type CreateJournal = z.infer<typeof createJournalSchema>;
+
+async function readCreateState(dir: string): Promise<{ entries: string[]; pending: CreateJournal | undefined }> {
+    await mkdir(dir, { recursive: true });
+    const entries = await readdir(dir);
+    const text = entries.includes(createJournalFile) ? await readOptionalFile(join(dir, createJournalFile)) : null;
+    return { entries, pending: text === null ? undefined : parseJsonFile(text, createJournalSchema) };
+}
+
+// eslint-disable-next-line no-control-regex
+const unsafeDirChars = /[\s\\/:*?"<>|\u0000-\u001F]+/g;
+const dirNameEdges = /^[-.]+|[-.]+$/g;
+
+// A directory name for the website: path separators, whitespace and the
+// characters Windows forbids become dashes.
+function projectDirName(name: string): string {
+    const slug = name.toLowerCase().replace(unsafeDirChars, "-").replace(dirNameEdges, "");
+    return slug === "" ? "website" : slug;
+}
+
 const createSchema = optionsSchema.extend({ name: z.string().trim().min(1).max(100), dir: z.string().optional() });
 const create: CliCommandDefinition<z.infer<typeof createSchema>> = {
     name: "create",
@@ -80,21 +100,28 @@ const create: CliCommandDefinition<z.infer<typeof createSchema>> = {
     handler: async (input, context) => {
         const target = await resolveTarget(input, context);
         const scope = JSON.stringify({ endpoint: target.account.endpoint, headers: target.headers });
-        const dir = resolve(context.cwd, input.dir ?? ".");
-        await mkdir(dir, { recursive: true });
-        const entries = await readdir(dir);
         // The journal keeps the create key across runs, so retrying after a
         // lost response replays the same website instead of adding another.
-        const journal = join(dir, createJournalFile);
-        const journalText = entries.includes(createJournalFile) ? await readOptionalFile(journal) : null;
-        const pending = journalText === null ? undefined : parseJsonFile(journalText, createJournalSchema);
-        let key: string;
-        if (pending !== undefined && pending.name === input.name && pending.scope === scope) {
-            key = pending.key;
-        }
+        const resumes = (pending: CreateJournal | undefined): pending is CreateJournal =>
+            pending !== undefined && pending.name === input.name && pending.scope === scope;
         // A directory holding nothing but a stale or unreadable journal is
-        // still empty: no project file was written, so start a new attempt.
-        else if (entries.every(entry => entry === createJournalFile)) {
+        // still empty: no project file was written.
+        const isEmpty = (entries: string[]): boolean => entries.every(entry => entry === createJournalFile);
+        let dir = resolve(context.cwd, input.dir ?? ".");
+        let state = await readCreateState(dir);
+        // Without --dir an empty current directory becomes the project;
+        // otherwise the project goes into a subdirectory named after the
+        // website, so an unrelated directory is never filled with a template.
+        if (input.dir === undefined && !resumes(state.pending) && !isEmpty(state.entries)) {
+            dir = join(dir, projectDirName(input.name));
+            state = await readCreateState(dir);
+        }
+        const journal = join(dir, createJournalFile);
+        let key: string;
+        if (resumes(state.pending)) {
+            key = state.pending.key;
+        }
+        else if (isEmpty(state.entries)) {
             key = randomUUIDv7();
             await writeFile(journal, JSON.stringify({ key, name: input.name, scope }));
         }
@@ -133,7 +160,7 @@ const create: CliCommandDefinition<z.infer<typeof createSchema>> = {
             }
             await writeFile(linkPath, JSON.stringify(expectedLink, null, 2), { flag: "wx" });
         }
-        context.output.emit(website, () => context.stdout.write(`${website.id}\n${website.url}\n`));
+        context.output.emit({ ...website, project_dir: dir }, () => context.stdout.write(`${website.id}\n${website.url}\n${dir}\n`));
     },
 };
 

@@ -112,7 +112,7 @@ describe("managed website commands", () => {
                 },
             });
             expect(result.exitCode).toBe(0);
-            expect(JSON.parse(result.stdout)).toEqual(website);
+            expect(JSON.parse(result.stdout)).toEqual({ ...website, project_dir: dir });
             expect(requests).toHaveLength(1);
             expect(requests[0]!.url).toBe(`${apiBase}/v1/websites`);
             expect(requests[0]!.headers.get("Authorization")).toBe("secret-1");
@@ -244,7 +244,21 @@ describe("managed website commands", () => {
 
             const created = await sandbox.run(["website", "create", website.name, "--team", "team-a", "--json"], { fetcher });
             expect(created.exitCode).toBe(0);
+            expect(JSON.parse(created.stdout).project_dir).toBe(sandbox.cwd);
             expect(JSON.parse(await Bun.file(join(sandbox.cwd, "leina-website.json")).text()).website_id).toBe(website.id);
+
+            // Retrying the same create stays in the current directory.
+            const retried = await sandbox.run(["website", "create", website.name, "--team", "team-a", "--json"], { fetcher });
+            expect(retried.exitCode).toBe(0);
+            expect(JSON.parse(retried.stdout).project_dir).toBe(sandbox.cwd);
+
+            // A directory that already holds files gets a subdirectory named
+            // after the website instead.
+            const nested = await sandbox.run(["website", "create", " Second/Site: v2. ", "--team", "team-a", "--json"], { fetcher });
+            expect(nested.exitCode).toBe(0);
+            const nestedDir = join(sandbox.cwd, "second-site-v2");
+            expect(JSON.parse(nested.stdout).project_dir).toBe(nestedDir);
+            expect(JSON.parse(await Bun.file(join(nestedDir, "leina-website.json")).text()).website_id).toBe(website.id);
 
             const base = `/v1/websites/${website.id}`;
             const cases = [
