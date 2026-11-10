@@ -132,7 +132,7 @@ export async function buildWebsite(project: string, context: CliExecutionContext
     const assetsDir = inside(dist, relative(dist, resolve(dirname(generatedFile), config.assets.directory)));
     const compatibilityDate = config.compatibility_date ?? defaultCompatibilityDate;
     const compatibilityFlags = config.compatibility_flags ?? ["nodejs_compat"];
-    const output = await mkdtemp(join(tmpdir(), "leina-website-bundle-"));
+    const output = await mkdtemp(join(tmpdir(), "oo-website-bundle-"));
     try {
         // Bundle the adapter's server output into one module so large sites
         // stay within the platform's module count limit.

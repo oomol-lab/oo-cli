@@ -29,11 +29,18 @@ const inquirySchema = z.object({
 // The local association between an Astro project and its website, written by
 // `create`. It names the website for `deploy` and, in the current directory,
 // for the commands that are not given `--site`.
-const projectLinkFile = "leina-website.json";
+const projectLinkFile = "sitelive-website.json";
+// Projects created before the file was renamed keep the association under
+// this name. It is still read, and never written.
+const legacyProjectLinkFile = "leina-website.json";
 const projectLinkSchema = z.object({ website_id: z.string(), team_id: z.string() });
 type ProjectLink = z.infer<typeof projectLinkSchema>;
 
-const createJournalFile = ".leina-create.json";
+const createJournalFile = ".sitelive-create.json";
+// The journal name used before the rename: still read, so retrying a create
+// in an older project replays the same website instead of adding another.
+const legacyCreateJournalFile = ".leina-create.json";
+const createJournalFiles = [createJournalFile, legacyCreateJournalFile];
 const createJournalSchema = z.object({ key: z.string().min(1), name: z.string(), scope: z.string() });
 
 // Parses a local JSON state file, treating unreadable content as absent.
@@ -63,8 +70,14 @@ async function readOptionalFile(path: string): Promise<string | null> {
     });
 }
 
+// The current link file wins; the legacy name is the fallback.
+async function readProjectLinkText(dir: string): Promise<string | null> {
+    return await readOptionalFile(join(dir, projectLinkFile))
+        ?? await readOptionalFile(join(dir, legacyProjectLinkFile));
+}
+
 async function readProjectLink(dir: string): Promise<ProjectLink | undefined> {
-    const text = await readOptionalFile(join(dir, projectLinkFile));
+    const text = await readProjectLinkText(dir);
     return text === null ? undefined : parseJsonFile(text, projectLinkSchema);
 }
 
@@ -75,7 +88,8 @@ type CreateJournal = z.infer<typeof createJournalSchema>;
 async function readCreateState(dir: string): Promise<{ entries: string[]; pending: CreateJournal | undefined }> {
     await mkdir(dir, { recursive: true });
     const entries = await readdir(dir);
-    const text = entries.includes(createJournalFile) ? await readOptionalFile(join(dir, createJournalFile)) : null;
+    const file = createJournalFiles.find(name => entries.includes(name));
+    const text = file === undefined ? null : await readOptionalFile(join(dir, file));
     return { entries, pending: text === null ? undefined : parseJsonFile(text, createJournalSchema) };
 }
 
@@ -108,7 +122,7 @@ const create: CliCommandDefinition<z.infer<typeof createSchema>> = {
             pending !== undefined && pending.name === input.name && pending.scope === scope;
         // A directory holding nothing but a stale or unreadable journal is
         // still empty: no project file was written.
-        const isEmpty = (entries: string[]): boolean => entries.every(entry => entry === createJournalFile);
+        const isEmpty = (entries: string[]): boolean => entries.every(entry => createJournalFiles.includes(entry));
         let dir = resolve(context.cwd, input.dir ?? ".");
         let state = await readCreateState(dir);
         // Without --dir an empty current directory becomes the project;
@@ -137,7 +151,7 @@ const create: CliCommandDefinition<z.infer<typeof createSchema>> = {
             schema: z.object({ website: websiteSchema }),
         });
         const linkPath = join(dir, projectLinkFile);
-        const linked = await readOptionalFile(linkPath);
+        const linked = await readProjectLinkText(dir);
         const expectedLink: ProjectLink = { website_id: website.id, team_id: website.team_id };
         if (linked !== null) {
             const previous = parseJsonFile(linked, projectLinkSchema);
