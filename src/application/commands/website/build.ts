@@ -62,7 +62,7 @@ interface PackageManager {
 // npm when the host has it. Otherwise the Bun runtime this CLI is built on:
 // with BUN_BE_BUN set, the CLI executable runs as Bun itself, so a host that
 // ships `node` without npm (an agent image, for example) can still build.
-export function resolvePackageManager(env: Record<string, string | undefined>, execPath = process.execPath): PackageManager {
+export function resolvePackageManager(env: Record<string, string | undefined>, execPath: string): PackageManager {
     // Windows spells the variable `Path`; a plain copy of the environment
     // loses the case-insensitive lookup the process environment has.
     const pathKey = Object.keys(env).find(key => key.toUpperCase() === "PATH");
@@ -119,7 +119,7 @@ async function readWorkerModules(root: string): Promise<WorkerBundle["modules"]>
 }
 
 export async function buildWebsite(project: string, context: CliExecutionContext): Promise<WebsiteBuild> {
-    const packages = resolvePackageManager(context.env);
+    const packages = resolvePackageManager(context.env, context.execPath);
     await run(packages.command, packages.installArgs, project, context, packages.env);
     await run(packages.command, ["run", "build"], project, context, packages.env);
     const dist = join(project, "dist");
