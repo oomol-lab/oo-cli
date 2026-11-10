@@ -63,7 +63,10 @@ interface PackageManager {
 // with BUN_BE_BUN set, the CLI executable runs as Bun itself, so a host that
 // ships `node` without npm (an agent image, for example) can still build.
 export function resolvePackageManager(env: Record<string, string | undefined>, execPath = process.execPath): PackageManager {
-    if (Bun.which("npm", { PATH: env.PATH ?? "" }) !== null) {
+    // Windows spells the variable `Path`; a plain copy of the environment
+    // loses the case-insensitive lookup the process environment has.
+    const pathKey = Object.keys(env).find(key => key.toUpperCase() === "PATH");
+    if (Bun.which("npm", { PATH: (pathKey === undefined ? undefined : env[pathKey]) ?? "" }) !== null) {
         return {
             command: process.platform === "win32" ? "npm.cmd" : "npm",
             env: {},

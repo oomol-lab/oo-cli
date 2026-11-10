@@ -22,6 +22,8 @@ describe("website build package manager", () => {
             const npm = process.platform === "win32" ? "npm.cmd" : "npm";
             await writeFile(join(dir, npm), "");
             await chmod(join(dir, npm), 0o755);
+            // Windows names the variable `Path`.
+            expect(resolvePackageManager({ Path: dir }, execPath).command).toBe(npm);
             expect(resolvePackageManager({ PATH: dir }, execPath)).toEqual({
                 command: npm,
                 env: {},
