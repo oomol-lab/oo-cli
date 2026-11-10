@@ -280,6 +280,33 @@ describe("managed website commands", () => {
         finally { await sandbox.cleanup(); }
     });
 
+    test("prints the website details as labeled text", async () => {
+        const sandbox = await createCliSandbox();
+        try {
+            await writeAuthFile(sandbox);
+            const draft = await sandbox.run(["website", "get", "--site", website.id, "--team", "team-a"], {
+                fetcher: async () => Response.json({ website }),
+            });
+            expect(draft.exitCode).toBe(0);
+            expect(draft.stdout).toBe([
+                website.name,
+                `  - ID: ${website.id}`,
+                "  - Status: draft",
+                `  - URL: ${website.url}`,
+                "  - Active deployment: none (not published yet)",
+                "  - Created at: 1970-01-01T00:00:00.001Z",
+                "  - Updated at: 1970-01-01T00:00:00.001Z",
+                "",
+            ].join("\n"));
+            const live = await sandbox.run(["website", "get", "--site", website.id, "--team", "team-a"], {
+                fetcher: async () => Response.json({ website: { ...website, status: "live", active_deployment_id: deployment.id } }),
+            });
+            expect(live.stdout).toContain("  - Status: live\n");
+            expect(live.stdout).toContain(`  - Active deployment: ${deployment.id}\n`);
+        }
+        finally { await sandbox.cleanup(); }
+    });
+
     test("shows the service message and code when a request fails", async () => {
         const sandbox = await createCliSandbox();
         try {

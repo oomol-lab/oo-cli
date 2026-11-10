@@ -189,7 +189,18 @@ const get: CliCommandDefinition<z.infer<typeof siteInput>> = {
             path: websitePath(site),
             schema: z.object({ website: websiteSchema }),
         });
-        context.output.emit(website, () => context.stdout.write(`${website.name}  ${website.status}\n${website.url}\n`));
+        context.output.emit(website, () => {
+            const t = context.translator.t.bind(context.translator);
+            const fields = [
+                [t("websiteManaged.text.id"), website.id],
+                [t("labels.status"), website.status],
+                [t("websiteManaged.text.url"), website.url],
+                [t("websiteManaged.text.activeDeployment"), website.active_deployment_id ?? t("websiteManaged.text.notPublished")],
+                [t("websiteManaged.text.createdAt"), new Date(website.created_at).toISOString()],
+                [t("websiteManaged.text.updatedAt"), new Date(website.updated_at).toISOString()],
+            ];
+            context.stdout.write(`${website.name}\n${fields.map(([label, value]) => `  - ${label}: ${value}\n`).join("")}`);
+        });
     },
 };
 const list: CliCommandDefinition<Options> = {
