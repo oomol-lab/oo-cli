@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createLogCapture, toRequest } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
 import { CliUserError } from "../../contracts/cli.ts";
-import { publishWebsiteBuild } from "./publish.ts";
+import { deployText, publishWebsiteBuild } from "./publish.ts";
 
 const apiBase = "https://websites-api.oomol.com";
 const uploadUrl = "https://api.cloudflare.com/client/v4/accounts/account-a/workers/assets/upload?base64=true";
@@ -169,6 +169,25 @@ describe("publishWebsiteBuild", () => {
         expect((error as CliUserError).key).toBe("errors.websiteManaged.deploymentRejected");
         expect((error as CliUserError).params).toEqual({ message: "Uncaught SyntaxError in entry.js" });
         expect((error as CliUserError).details).toEqual({ httpStatus: 422, serviceCode: "deployment_rejected" });
+    });
+});
+
+describe("deployText", () => {
+    const published = { ...deployment, status: "succeeded" as const, active: true };
+    const analytics = { website_id: websiteId, report_url: `https://analytics.oomol.com/teams/team-a/websites/${websiteId}` };
+
+    test("keeps stdout to the website URL and notes the analytics report on stderr", () => {
+        const text = deployText({ website: { ...website, status: "live", analytics }, deployment: published }, createTranslator("en"));
+
+        expect(text).toEqual({ stdout: `${website.url}\n`, stderr: `Analytics: ${analytics.report_url}\n` });
+    });
+
+    test("writes nothing to stderr while the website has no analytics report", () => {
+        for (const value of [null, undefined]) {
+            const text = deployText({ website: { ...website, status: "live", analytics: value }, deployment: published }, createTranslator("en"));
+
+            expect(text).toEqual({ stdout: `${website.url}\n`, stderr: "" });
+        }
     });
 });
 

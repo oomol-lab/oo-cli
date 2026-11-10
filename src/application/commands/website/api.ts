@@ -41,6 +41,10 @@ export const websiteSchema = z.object({
     active_deployment_id: z.string().nullable(),
     // Absent on a service version that predates custom domains.
     custom_domain: customDomainSchema.nullable().optional(),
+    // The visit report of the website. `null` until the first deployment is
+    // live and the report is provisioned; absent on a service version that
+    // predates analytics.
+    analytics: z.object({ website_id: z.string(), report_url: z.string() }).nullable().optional(),
     created_at: z.number(),
     updated_at: z.number(),
 });

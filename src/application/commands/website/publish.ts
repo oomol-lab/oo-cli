@@ -1,3 +1,4 @@
+import type { Translator } from "../../contracts/translator.ts";
 import type { OoRequestFailure } from "../shared/oo-request.ts";
 import type { WebsiteRequestContext, WebsitesApiTarget } from "./api.ts";
 import type { WebsiteBuild } from "./build.ts";
@@ -44,6 +45,18 @@ const uploadResponseSchema = z.object({
 const uploadErrorSchema = z.object({
     errors: z.array(z.object({ message: z.string() })).min(1),
 });
+
+// Text output of a successful deploy. stdout stays the website URL alone so a
+// script can capture it; the visit report is a note on stderr, next to the
+// build log, and is left out while the website has no report yet.
+export function deployText(result: PublishResult, translator: Translator): { stdout: string; stderr: string } {
+    const report = result.website.analytics?.report_url;
+
+    return {
+        stdout: `${result.website.url}\n`,
+        stderr: report === undefined ? "" : `${translator.t("websiteManaged.text.analytics")}: ${report}\n`,
+    };
+}
 
 // Publishes a finished build in the Workers for Platforms two-step flow:
 // the service registers the asset manifest and answers with the buckets

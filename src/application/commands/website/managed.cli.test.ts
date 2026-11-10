@@ -308,6 +308,7 @@ describe("managed website commands", () => {
                 `  - URL: ${website.url}`,
                 "  - Active deployment: none (not published yet)",
                 "  - Custom domain: none",
+                "  - Analytics: available after the first deploy",
                 "  - Created at: 1970-01-01T00:00:00.001Z",
                 "  - Updated at: 1970-01-01T00:00:00.001Z",
                 "",
@@ -321,6 +322,15 @@ describe("managed website commands", () => {
                 fetcher: async () => Response.json({ website: { ...website, custom_domain: { ...customDomain, status: "active" } } }),
             });
             expect(bound.stdout).toContain("  - Custom domain: www.example.com (active)\n");
+            const analytics = { website_id: website.id, report_url: `https://analytics.oomol.com/teams/team-a/websites/${website.id}` };
+            const tracked = await sandbox.run(["website", "get", "--site", website.id, "--team", "team-a"], {
+                fetcher: async () => Response.json({ website: { ...website, analytics } }),
+            });
+            expect(tracked.stdout).toContain(`  - Analytics: ${analytics.report_url}\n`);
+            const json = await sandbox.run(["website", "get", "--site", website.id, "--team", "team-a", "--json"], {
+                fetcher: async () => Response.json({ website: { ...website, analytics } }),
+            });
+            expect(JSON.parse(json.stdout).analytics).toEqual(analytics);
         }
         finally { await sandbox.cleanup(); }
     });
