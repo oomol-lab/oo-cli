@@ -28,6 +28,15 @@ const deployment = {
     published_at: 2,
     pruned_at: null,
 };
+const customDomain = {
+    hostname: "www.example.com",
+    url: "https://www.example.com/",
+    status: "pending",
+    message: null,
+    dns: { type: "CNAME", name: "www.example.com", value: "cname.leina.site" },
+    created_at: 1,
+    checked_at: null,
+};
 
 describe("managed website commands", () => {
     test("paginates inquiries without changing the selected team", async () => {
@@ -233,7 +242,7 @@ describe("managed website commands", () => {
                 paths.push(`${request.method} ${new URL(request.url).pathname}`);
                 if (request.method === "POST" && !request.url.endsWith("/rollback"))
                     return Response.json({ website }, { status: 201 });
-                return Response.json({ website, deployment, items: [], next_cursor: null });
+                return Response.json({ website, deployment, items: [], next_cursor: null, custom_domain: null });
             };
 
             // Without a project link there is no website to act on.
@@ -267,6 +276,8 @@ describe("managed website commands", () => {
                 { args: ["deployment", deployment.id], request: `GET ${base}/deployments/${deployment.id}` },
                 { args: ["rollback", deployment.id], request: `POST ${base}/rollback` },
                 { args: ["inquiries"], request: `GET ${base}/inquiries` },
+                { args: ["domain"], request: `GET ${base}/custom-domain` },
+                { args: ["domain", "remove"], request: `DELETE ${base}/custom-domain` },
                 // An explicit website wins over the project link.
                 { args: ["get", "--site", "other-site"], request: "GET /v1/websites/other-site" },
             ];
@@ -294,6 +305,7 @@ describe("managed website commands", () => {
                 "  - Status: draft",
                 `  - URL: ${website.url}`,
                 "  - Active deployment: none (not published yet)",
+                "  - Custom domain: none",
                 "  - Created at: 1970-01-01T00:00:00.001Z",
                 "  - Updated at: 1970-01-01T00:00:00.001Z",
                 "",
@@ -303,6 +315,104 @@ describe("managed website commands", () => {
             });
             expect(live.stdout).toContain("  - Status: live\n");
             expect(live.stdout).toContain(`  - Active deployment: ${deployment.id}\n`);
+            const bound = await sandbox.run(["website", "get", "--site", website.id, "--team", "team-a"], {
+                fetcher: async () => Response.json({ website: { ...website, custom_domain: { ...customDomain, status: "active" } } }),
+            });
+            expect(bound.stdout).toContain("  - Custom domain: www.example.com (active)\n");
+        }
+        finally { await sandbox.cleanup(); }
+    });
+
+    test("binds, shows and removes a custom domain", async () => {
+        const sandbox = await createCliSandbox();
+        try {
+            await writeAuthFile(sandbox);
+            const requests: Request[] = [];
+            let current: typeof customDomain | null = null;
+            const fetcher = async (input: string | URL | Request, init?: RequestInit) => {
+                const request = toRequest(input, init);
+                requests.push(request);
+                if (request.method === "POST")
+                    current = customDomain;
+                if (request.method === "DELETE")
+                    current = null;
+                return Response.json({ custom_domain: current });
+            };
+            const url = `${apiBase}/v1/websites/${website.id}/custom-domain`;
+
+            // The name is normalized the way the service stores it.
+            const bound = await sandbox.run(["website", "domain", "set", " WWW.Example.com. ", "--site", website.id, "--team", "team-a", "--json"], { fetcher });
+            expect(bound.exitCode).toBe(0);
+            expect(JSON.parse(bound.stdout)).toEqual({ custom_domain: customDomain });
+            expect(requests[0]!.method).toBe("POST");
+            expect(requests[0]!.url).toBe(url);
+            expect(requests[0]!.headers.get("x-oo-team-name")).toBe("team-a");
+            expect(requests[0]!.headers.get("Idempotency-Key")).toBeTruthy();
+            expect(await requests[0]!.json()).toEqual({ hostname: "www.example.com" });
+
+            const shown = await sandbox.run(["website", "domain", "--site", website.id, "--team", "team-a"], { fetcher });
+            expect(shown.exitCode).toBe(0);
+            expect(shown.stdout).toBe([
+                "www.example.com",
+                "  - Status: pending",
+                "  - URL: https://www.example.com/",
+                "  - DNS record: CNAME www.example.com -> cname.leina.site",
+                "Add the DNS record at your DNS provider, then run oo website domain to check the status.",
+                "",
+            ].join("\n"));
+            expect(requests[1]!.method).toBe("GET");
+            expect(requests[1]!.url).toBe(url);
+
+            const removed = await sandbox.run(["website", "domain", "remove", "--site", website.id, "--team", "team-a"], { fetcher });
+            expect(removed.exitCode).toBe(0);
+            expect(removed.stdout).toBe("No custom domain is bound.\n");
+            expect(requests[2]!.method).toBe("DELETE");
+            expect(requests[2]!.url).toBe(url);
+            expect(requests[2]!.headers.get("Idempotency-Key")).toBeNull();
+        }
+        finally { await sandbox.cleanup(); }
+    });
+
+    test("prints the failure reason of a custom domain and omits the hint once it is active", async () => {
+        const sandbox = await createCliSandbox();
+        try {
+            await writeAuthFile(sandbox);
+            const args = ["website", "domain", "--site", website.id, "--team", "team-a"];
+            const failed = await sandbox.run(args, {
+                fetcher: async () => Response.json({ custom_domain: { ...customDomain, status: "error", message: "CNAME record not found" } }),
+            });
+            expect(failed.stdout).toContain("  - Status: error\n");
+            expect(failed.stdout).toContain("  - Message: CNAME record not found\n");
+            const active = await sandbox.run(args, {
+                fetcher: async () => Response.json({ custom_domain: { ...customDomain, status: "active", checked_at: 2 } }),
+            });
+            expect(active.stdout).toBe([
+                "www.example.com",
+                "  - Status: active",
+                "  - URL: https://www.example.com/",
+                "  - DNS record: CNAME www.example.com -> cname.leina.site",
+                "",
+            ].join("\n"));
+        }
+        finally { await sandbox.cleanup(); }
+    });
+
+    test("rejects an invalid domain name before any request", async () => {
+        const sandbox = await createCliSandbox();
+        try {
+            await writeAuthFile(sandbox);
+            const requests: string[] = [];
+            for (const hostname of ["localhost", "https://www.example.com", "*.example.com", "example.com:8080"]) {
+                const result = await sandbox.run(["website", "domain", "set", hostname, "--site", website.id, "--team", "team-a"], {
+                    fetcher: async (input, init) => {
+                        requests.push(toRequest(input, init).url);
+                        return Response.json({ custom_domain: customDomain });
+                    },
+                });
+                expect(result.exitCode).toBe(2);
+                expect(result.stderr).toContain("not a valid domain name");
+            }
+            expect(requests).toEqual([]);
         }
         finally { await sandbox.cleanup(); }
     });

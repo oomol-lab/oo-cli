@@ -675,6 +675,21 @@ const commandTelemetryDecisions = {
         properties: ["identity_source"],
         reason: "Records only the selected identity category, without site or deployment identifiers.",
     },
+    "website.domain": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the selected identity category; the website and its domain name are private.",
+    },
+    "website.domain.set": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the selected identity category; the website and its domain name are private.",
+    },
+    "website.domain.remove": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the selected identity category; the website and its domain name are private.",
+    },
     "website.inquiries": {
         kind: "properties",
         properties: ["identity_source"],

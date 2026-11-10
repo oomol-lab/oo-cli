@@ -17,6 +17,16 @@ export interface WebsitesApiTarget {
     headers: Record<string, string>;
 }
 
+export const customDomainSchema = z.object({
+    hostname: z.string(),
+    url: z.string(),
+    status: z.enum(["pending", "active", "error"]),
+    message: z.string().nullable(),
+    dns: z.object({ type: z.string(), name: z.string(), value: z.string() }),
+    created_at: z.number(),
+    checked_at: z.number().nullable(),
+});
+
 export const websiteSchema = z.object({
     id: z.string(),
     team_id: z.string(),
@@ -25,6 +35,8 @@ export const websiteSchema = z.object({
     hostname: z.string(),
     url: z.string(),
     active_deployment_id: z.string().nullable(),
+    // Absent on a service version that predates custom domains.
+    custom_domain: customDomainSchema.nullable().optional(),
     created_at: z.number(),
     updated_at: z.number(),
 });
@@ -57,6 +69,8 @@ interface WebsitesApiRequest<Value> {
     body?: unknown;
     /** Reused across runs by callers that journal an attempt; fresh otherwise. */
     idempotencyKey?: string;
+    /** Only for requests that are neither a plain read nor a POST with a body. */
+    method?: "DELETE";
     path: string;
     query?: Record<string, string>;
     schema: z.ZodType<Value>;
@@ -87,7 +101,7 @@ export async function requestWebsitesApi<Value>(
         host: { endpoint: target.account.endpoint, service: "websites-api" },
         jsonBody: request.body,
         label: "Managed website",
-        method: isPost ? "POST" : "GET",
+        method: request.method ?? (isPost ? "POST" : "GET"),
         path: request.path,
         query: request.query,
         schema: request.schema,

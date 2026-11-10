@@ -2386,10 +2386,13 @@ oo website inquiries --team my-team --json
 oo website deployments --team my-team --json
 oo website deployment <deployment-id> --team my-team --json
 oo website rollback <deployment-id> --team my-team --json
+oo website domain set www.example.com --team my-team --json
+oo website domain --team my-team --json
+oo website domain remove --team my-team --json
 oo website list --team my-team --json
 ```
 
-网站 ID 由服务端生成。在项目目录里不需要传 ID: `get`、`inquiries`、`deployments`、`deployment`、`rollback` 默认操作当前目录 `leina-website.json` 关联的网站。要操作其他网站或在别的目录运行时传 `--site <网站 ID>`, 要发布别处的项目时给 `deploy` 传 `--project <目录>`。
+网站 ID 由服务端生成。在项目目录里不需要传 ID: `get`、`inquiries`、`deployments`、`deployment`、`rollback`、`domain` 默认操作当前目录 `leina-website.json` 关联的网站。要操作其他网站或在别的目录运行时传 `--site <网站 ID>`, 要发布别处的项目时给 `deploy` 传 `--project <目录>`。
 
 这些命令复用 OO 现有的账号和团队选择, 请求 `https://websites-api.<账号 endpoint>` 上的网站服务 (例如 `websites-api.oomol.com`)。网站所有者无需 Cloudflare 账号。所有写请求都带 `Idempotency-Key`, 网关临时故障时用同一个键重试。
 
@@ -2397,9 +2400,11 @@ oo website list --team my-team --json
 
 `deploy` 不需要网站 ID: 它从 `--project` 目录 (默认当前目录) 的 `leina-website.json` 读出网站, 确认属于所选团队后安装依赖、构建 Astro, 并作为一次新的发布上线。构建出的静态资源先计算哈希, 只把平台还没有的文件直接上传到 Cloudflare; Worker 代码随发布请求提交。构建失败或发布被拒绝时继续使用当前线上版本, 被拒绝时会显示原因。再次运行 `deploy` 总是创建新的发布。文本输出为网站地址, `--json` 返回 `{website, deployment}`。
 
-网站包含 `id`、`team_id`、`name`、`status` (`draft`、`live`)、`hostname`、`url`、`active_deployment_id`、`created_at`、`updated_at`, 时间均为 Unix 毫秒。`create` (附带 `project_dir`)、`get`、`rollback` 返回单个网站, `get` 的文本输出是名称, 随后是 ID、状态、地址、当前发布、创建与更新时间, `list` 返回 `{items: Website[]}`。
+网站包含 `id`、`team_id`、`name`、`status` (`draft`、`live`)、`hostname`、`url`、`active_deployment_id`、`custom_domain` (自定义域名或 `null`)、`created_at`、`updated_at`, 时间均为 Unix 毫秒。`create` (附带 `project_dir`)、`get`、`rollback` 返回单个网站, `get` 的文本输出是名称, 随后是 ID、状态、地址、当前发布、自定义域名、创建与更新时间, `list` 返回 `{items: Website[]}`。
 
 `deployments` 返回 `{items: Deployment[]}` (最新在前), `deployment` 返回单次发布。发布包含 `id`、`website_id`、`status` (`uploading`、`succeeded`、`failed`、`expired`)、`active`、`restorable`、`file_count`、`total_bytes`、`error_message`、`upload_expires_at`、`created_at`、`published_at`、`pruned_at`。`rollback` 把网站切换到 `restorable` 为 true 的发布。
+
+每个网站可以在自带地址之外绑定一个自定义域名。`domain set <域名>` 绑定一个完整域名, 例如 `www.example.com` (建议用子域名, 根域名需要 DNS 服务商支持 CNAME 拉平), 并输出要在 DNS 服务商处添加的记录: 一条从该域名指向平台目标的 `CNAME`。`domain` 查看绑定, 服务端在这次读取时核对 DNS 与证书状态, 重复运行直到 `status` 从 `pending` 变为 `active`。`domain remove` 解除绑定, 换绑其他域名需要先移除当前的。三个命令都返回 `{custom_domain}`, 未绑定时为 `null`。自定义域名包含 `hostname`、`url`、`status` (`pending`、`active`、`error`)、`message` (未生效时的原因, 否则为 `null`)、`dns` (`{type, name, value}`)、`created_at`、`checked_at`。域名已被其他网站绑定时返回 `custom_domain_taken`。
 
 `inquiries` 返回 `{items, next_cursor}`, 每页最多 50 条询盘 (`id`、`website_id`、`path`、`email`、`message`、`status`、`received_at`、`updated_at`)。用 `--cursor` 传入上页的 `next_cursor` 继续读取。此命令需要团队管理员或团队 token, 询盘内容不进入遥测。
 

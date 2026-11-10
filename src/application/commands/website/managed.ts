@@ -3,12 +3,13 @@ import type { WebsitesApiTarget } from "./api.ts";
 
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { domainToASCII } from "node:url";
 import { randomUUIDv7 } from "bun";
 import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { resolveAccountTeamIdentity, teamIdentityHeaders, teamIdentityInputShape, teamOption } from "../team/identity.ts";
-import { deploymentSchema, requestWebsitesApi, websitePath, websiteSchema } from "./api.ts";
+import { customDomainSchema, deploymentSchema, requestWebsitesApi, websitePath, websiteSchema } from "./api.ts";
 import { buildWebsite } from "./build.ts";
 import { publishWebsiteBuild } from "./publish.ts";
 import { websiteTemplate } from "./template.ts";
@@ -196,6 +197,7 @@ const get: CliCommandDefinition<z.infer<typeof siteInput>> = {
                 [t("labels.status"), website.status],
                 [t("websiteManaged.text.url"), website.url],
                 [t("websiteManaged.text.activeDeployment"), website.active_deployment_id ?? t("websiteManaged.text.notPublished")],
+                [t("websiteManaged.text.customDomain"), website.custom_domain ? `${website.custom_domain.hostname} (${website.custom_domain.status})` : t("websiteManaged.text.none")],
                 [t("websiteManaged.text.createdAt"), new Date(website.created_at).toISOString()],
                 [t("websiteManaged.text.updatedAt"), new Date(website.updated_at).toISOString()],
             ];
@@ -334,4 +336,98 @@ const inquiries: CliCommandDefinition<z.infer<typeof inquiriesInput>> = {
     },
 };
 
-export const managedWebsiteCommands = [create, list, get, deploy, deployments, deploymentStatus, rollback, inquiries];
+type CustomDomain = z.infer<typeof customDomainSchema>;
+const domainResponseSchema = z.object({ custom_domain: customDomainSchema.nullable() });
+
+// The service's own rule, checked here so a typo is reported before any
+// request: a full domain name, with internationalized names sent as punycode.
+const hostnameShape = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$/;
+const hostnameForbidden = /[\s/:@?#*]/;
+const trailingDot = /\.$/;
+
+function normalizeHostname(input: string): string | undefined {
+    const trimmed = input.trim().toLowerCase().replace(trailingDot, "");
+    if (trimmed === "" || hostnameForbidden.test(trimmed))
+        return undefined;
+    const ascii = domainToASCII(trimmed);
+    return hostnameShape.test(ascii) ? ascii : undefined;
+}
+
+function writeCustomDomain(domain: CustomDomain | null, context: CliExecutionContext): void {
+    const t = context.translator.t.bind(context.translator);
+    if (domain === null) {
+        context.stdout.write(`${t("websiteManaged.text.noCustomDomain")}\n`);
+        return;
+    }
+    const fields = [
+        [t("labels.status"), domain.status],
+        [t("websiteManaged.text.url"), domain.url],
+        [t("websiteManaged.text.dnsRecord"), `${domain.dns.type} ${domain.dns.name} -> ${domain.dns.value}`],
+    ];
+    if (domain.message !== null)
+        fields.push([t("websiteManaged.text.message"), domain.message]);
+    const hint = domain.status === "active" ? "" : `${t("websiteManaged.text.dnsHint")}\n`;
+    context.stdout.write(`${domain.hostname}\n${fields.map(([label, value]) => `  - ${label}: ${value}\n`).join("")}${hint}`);
+}
+
+const domainSetInput = siteInput.extend({ hostname: z.string().min(1) });
+const domainSet: CliCommandDefinition<z.infer<typeof domainSetInput>> = {
+    name: "set",
+    summaryKey: "commands.website.domain.set.summary",
+    descriptionKey: "commands.website.domain.set.summary",
+    output: "standard",
+    inputSchema: domainSetInput,
+    arguments: [{ name: "hostname", descriptionKey: "arguments.websiteManaged.hostname", required: true }],
+    options: siteOptions,
+    handler: async (input, context) => {
+        const hostname = normalizeHostname(input.hostname);
+        if (hostname === undefined) {
+            throw new CliUserError("errors.websiteManaged.invalidHostname", 2, { hostname: input.hostname });
+        }
+        const site = await resolveSite(input, context);
+        const result = await requestWebsitesApi(await resolveTarget(input, context), context, {
+            body: { hostname },
+            path: websitePath(site, "/custom-domain"),
+            schema: domainResponseSchema,
+        });
+        context.output.emit(result, () => writeCustomDomain(result.custom_domain, context));
+    },
+};
+const domainRemove: CliCommandDefinition<z.infer<typeof siteInput>> = {
+    name: "remove",
+    summaryKey: "commands.website.domain.remove.summary",
+    descriptionKey: "commands.website.domain.remove.summary",
+    output: "standard",
+    inputSchema: siteInput,
+    options: siteOptions,
+    handler: async (input, context) => {
+        const site = await resolveSite(input, context);
+        const result = await requestWebsitesApi(await resolveTarget(input, context), context, {
+            method: "DELETE",
+            path: websitePath(site, "/custom-domain"),
+            schema: domainResponseSchema,
+        });
+        context.output.emit(result, () => writeCustomDomain(result.custom_domain, context));
+    },
+};
+// `domain` alone shows the binding; the service checks it against the
+// certificate and DNS state on each read, so rerunning it follows a pending one.
+const domain: CliCommandDefinition<z.infer<typeof siteInput>> = {
+    name: "domain",
+    summaryKey: "commands.website.domain.summary",
+    descriptionKey: "commands.website.domain.summary",
+    output: "standard",
+    inputSchema: siteInput,
+    options: siteOptions,
+    children: [domainSet, domainRemove],
+    handler: async (input, context) => {
+        const site = await resolveSite(input, context);
+        const result = await requestWebsitesApi(await resolveTarget(input, context), context, {
+            path: websitePath(site, "/custom-domain"),
+            schema: domainResponseSchema,
+        });
+        context.output.emit(result, () => writeCustomDomain(result.custom_domain, context));
+    },
+};
+
+export const managedWebsiteCommands = [create, list, get, deploy, deployments, deploymentStatus, rollback, domain, inquiries];
