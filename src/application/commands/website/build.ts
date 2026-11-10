@@ -53,15 +53,38 @@ function inside(root: string, path: string): string {
     return result;
 }
 
-async function run(command: string, args: string[], cwd: string, context: CliExecutionContext) {
+interface PackageManager {
+    command: string;
+    env: Record<string, string>;
+    installArgs: string[];
+}
+
+// npm when the host has it. Otherwise the Bun runtime this CLI is built on:
+// with BUN_BE_BUN set, the CLI executable runs as Bun itself, so a host that
+// ships `node` without npm (an agent image, for example) can still build.
+export function resolvePackageManager(env: Record<string, string | undefined>, execPath: string): PackageManager {
+    // Windows spells the variable `Path`; a plain copy of the environment
+    // loses the case-insensitive lookup the process environment has.
+    const pathKey = Object.keys(env).find(key => key.toUpperCase() === "PATH");
+    if (Bun.which("npm", { PATH: (pathKey === undefined ? undefined : env[pathKey]) ?? "" }) !== null) {
+        return {
+            command: process.platform === "win32" ? "npm.cmd" : "npm",
+            env: {},
+            installArgs: ["install", "--ignore-scripts", "--no-audit", "--no-fund"],
+        };
+    }
+    return { command: execPath, env: { BUN_BE_BUN: "1" }, installArgs: ["install", "--ignore-scripts"] };
+}
+
+async function run(command: string, args: string[], cwd: string, context: CliExecutionContext, env: Record<string, string> = {}) {
     const childEnv = { ...context.env };
     for (const key of Object.keys(childEnv)) {
         if (key.startsWith("OO_") || key.startsWith("CLOUDFLARE_") || key.startsWith("CF_"))
             delete childEnv[key];
     }
-    const executable = process.platform === "win32" && command === "npm" ? "npm.cmd" : command;
+    Object.assign(childEnv, env);
     await new Promise<void>((resolvePromise, reject) => {
-        const child = spawn(executable, args, { cwd, env: childEnv, stdio: ["ignore", "pipe", "pipe"] });
+        const child = spawn(command, args, { cwd, env: childEnv, stdio: ["ignore", "pipe", "pipe"] });
         const timeout = setTimeout(() => {
             child.kill();
             reject(new Error("Website build timed out."));
@@ -96,8 +119,9 @@ async function readWorkerModules(root: string): Promise<WorkerBundle["modules"]>
 }
 
 export async function buildWebsite(project: string, context: CliExecutionContext): Promise<WebsiteBuild> {
-    await run("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund"], project, context);
-    await run("npm", ["run", "build"], project, context);
+    const packages = resolvePackageManager(context.env, context.execPath);
+    await run(packages.command, packages.installArgs, project, context, packages.env);
+    await run(packages.command, ["run", "build"], project, context, packages.env);
     const dist = join(project, "dist");
     const generatedFile = join(dist, "server", "wrangler.json");
     const parsed = generatedConfigSchema.safeParse(JSON.parse(await readFile(generatedFile, "utf8")));

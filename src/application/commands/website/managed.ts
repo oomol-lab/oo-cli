@@ -1,4 +1,5 @@
 import type { CliCommandDefinition, CliExecutionContext } from "../../contracts/cli.ts";
+import type { Translator } from "../../contracts/translator.ts";
 import type { WebsitesApiTarget } from "./api.ts";
 
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
@@ -9,7 +10,7 @@ import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { resolveAccountTeamIdentity, teamIdentityHeaders, teamIdentityInputShape, teamOption } from "../team/identity.ts";
-import { customDomainSchema, deploymentSchema, requestWebsitesApi, websitePath, websiteSchema } from "./api.ts";
+import { customDomainSchema, deploymentSchema, requestWebsitesApi, sendWebsitesApi, websitePath, websiteSchema } from "./api.ts";
 import { buildWebsite } from "./build.ts";
 import { deployText, publishWebsiteBuild } from "./publish.ts";
 import { websiteTemplate } from "./template.ts";
@@ -93,7 +94,7 @@ const createSchema = optionsSchema.extend({ name: z.string().trim().min(1).max(1
 const create: CliCommandDefinition<z.infer<typeof createSchema>> = {
     name: "create",
     summaryKey: "commands.website.create.summary",
-    descriptionKey: "commands.website.create.summary",
+    descriptionKey: "commands.website.create.description",
     output: "standard",
     arguments: [{ name: "name", descriptionKey: "arguments.websiteManaged.name", required: true }],
     options: [...commonOptions, { name: "dir", longFlag: "--dir", valueName: "directory", descriptionKey: "options.websiteManaged.dir" }],
@@ -177,6 +178,18 @@ async function resolveSite(input: z.infer<typeof siteInput>, context: CliExecuti
     }
     return link.website_id;
 }
+type Website = z.infer<typeof websiteSchema>;
+
+// One line for the billing state: when the next period is charged, or, for a
+// suspended website, since when and until when it can still be resumed.
+function billingText(billing: NonNullable<Website["billing"]>, translator: Translator): string {
+    const date = (time: number | null): string => time === null ? "-" : new Date(time).toISOString();
+
+    return billing.status === "suspended"
+        ? translator.t("websiteManaged.text.billingSuspended", { since: date(billing.suspended_at), deadline: date(billing.grace_ends_at) })
+        : translator.t("websiteManaged.text.billingActive", { date: date(billing.next_charge_at) });
+}
+
 const get: CliCommandDefinition<z.infer<typeof siteInput>> = {
     name: "get",
     summaryKey: "commands.website.get.summary",
@@ -199,6 +212,7 @@ const get: CliCommandDefinition<z.infer<typeof siteInput>> = {
                 [t("websiteManaged.text.activeDeployment"), website.active_deployment_id ?? t("websiteManaged.text.notPublished")],
                 [t("websiteManaged.text.customDomain"), website.custom_domain ? `${website.custom_domain.hostname} (${website.custom_domain.status})` : t("websiteManaged.text.none")],
                 [t("websiteManaged.text.analytics"), website.analytics?.report_url ?? t("websiteManaged.text.analyticsNotReady")],
+                ...(website.billing === undefined ? [] : [[t("websiteManaged.text.billing"), billingText(website.billing, context.translator)]]),
                 [t("websiteManaged.text.createdAt"), new Date(website.created_at).toISOString()],
                 [t("websiteManaged.text.updatedAt"), new Date(website.updated_at).toISOString()],
             ];
@@ -220,7 +234,8 @@ const list: CliCommandDefinition<Options> = {
         });
         context.output.emit(result, () => {
             for (const website of result.items) {
-                context.stdout.write(`${website.id}  ${website.name}  ${website.status}  ${website.url}\n`);
+                const suspended = website.billing?.status === "suspended" ? "  suspended" : "";
+                context.stdout.write(`${website.id}  ${website.name}  ${website.status}  ${website.url}${suspended}\n`);
             }
         });
     },
@@ -248,6 +263,11 @@ const deploy: CliCommandDefinition<z.infer<typeof deployInput>> = {
         });
         if (link.website_id !== website.id || link.team_id !== website.team_id) {
             throw new CliUserError("errors.websiteManaged.projectMismatch", 2);
+        }
+        // The service refuses to publish a suspended website; say so before
+        // spending minutes on a build.
+        if (website.billing?.status === "suspended") {
+            throw new CliUserError("errors.websiteManaged.suspended", 1, undefined, { details: { serviceCode: "website_suspended" } });
         }
         const build = await buildWebsite(project, context).catch((error: unknown) => {
             throw new CliUserError("errors.websiteManaged.buildFailed", 1, {
@@ -319,6 +339,46 @@ const rollback: CliCommandDefinition<z.infer<typeof releaseInput>> = {
             schema: z.object({ website: websiteSchema }),
         });
         context.output.emit(website, () => context.stdout.write(`${website.url}\n`));
+    },
+};
+
+// Charges a new period and puts a suspended website back online at once,
+// instead of waiting for the service's hourly balance check.
+const resume: CliCommandDefinition<z.infer<typeof siteInput>> = {
+    name: "resume",
+    summaryKey: "commands.website.resume.summary",
+    descriptionKey: "commands.website.resume.description",
+    output: "standard",
+    inputSchema: siteInput,
+    options: siteOptions,
+    handler: async (input, context) => {
+        const site = await resolveSite(input, context);
+        const { website } = await requestWebsitesApi(await resolveTarget(input, context), context, {
+            method: "POST",
+            path: websitePath(site, "/resume"),
+            schema: z.object({ website: websiteSchema }),
+        });
+        context.output.emit(website, () => context.stdout.write(`${website.url}\n`));
+    },
+};
+
+const removeInput = siteInput.extend({ yes: z.boolean().optional() });
+const remove: CliCommandDefinition<z.infer<typeof removeInput>> = {
+    name: "delete",
+    summaryKey: "commands.website.delete.summary",
+    descriptionKey: "commands.website.delete.description",
+    output: "standard",
+    inputSchema: removeInput,
+    options: [...siteOptions, { name: "yes", longFlag: "--yes", shortFlag: "-y", descriptionKey: "options.websiteManaged.deleteYes" }],
+    handler: async (input, context) => {
+        const site = await resolveSite(input, context);
+        // Nothing of a deleted website can be restored, so the command never
+        // deletes on the strength of a project link alone.
+        if (input.yes !== true) {
+            throw new CliUserError("errors.websiteManaged.deleteNotConfirmed", 2, { id: site });
+        }
+        await sendWebsitesApi(await resolveTarget(input, context), context, { method: "DELETE", path: websitePath(site) });
+        context.output.emit({ id: site, deleted: true }, () => context.stdout.write(`${context.translator.t("websiteManaged.text.deleted", { id: site })}\n`));
     },
 };
 
@@ -442,4 +502,4 @@ const domain: CliCommandDefinition<z.infer<typeof siteInput>> = {
     },
 };
 
-export const managedWebsiteCommands = [create, list, get, deploy, deployments, deploymentStatus, rollback, domain, inquiries];
+export const managedWebsiteCommands = [create, list, get, deploy, deployments, deploymentStatus, rollback, resume, remove, domain, inquiries];

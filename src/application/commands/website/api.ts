@@ -6,7 +6,8 @@ import { randomUUIDv7 } from "bun";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import { createRetryingFetcher } from "../../shared/retrying-fetcher.ts";
-import { requestOo } from "../shared/oo-request.ts";
+import { createInsufficientCreditError } from "../shared/billing.ts";
+import { requestOo, requestOoResponse } from "../shared/oo-request.ts";
 
 export type WebsiteRequestContext = Pick<CliExecutionContext, "fetcher" | "logger" | "translator">;
 
@@ -31,6 +32,16 @@ export const customDomainSchema = z.object({
     checked_at: z.number().nullable(),
 });
 
+// Every website is charged monthly from the team balance. A team that cannot
+// pay gets its website suspended, and deleted once `grace_ends_at` passes.
+const billingSchema = z.object({
+    status: z.enum(["active", "suspended"]),
+    // `null` while suspended: the next period starts when the website resumes.
+    next_charge_at: z.number().nullable(),
+    suspended_at: z.number().nullable(),
+    grace_ends_at: z.number().nullable(),
+});
+
 export const websiteSchema = z.object({
     id: z.string(),
     team_id: z.string(),
@@ -41,6 +52,8 @@ export const websiteSchema = z.object({
     active_deployment_id: z.string().nullable(),
     // Absent on a service version that predates custom domains.
     custom_domain: customDomainSchema.nullable().optional(),
+    // Absent on a service version that predates billing.
+    billing: billingSchema.optional(),
     // The visit report of the website. `null` until the first deployment is
     // live and the report is provisioned; absent on a service version that
     // predates analytics.
@@ -72,15 +85,18 @@ const serviceErrorSchema = z.object({ message: z.string(), code: z.string() });
 // Retry-After outlasts any in-process backoff.
 const retryableStatusCodes = [502, 503, 504] as const;
 
-interface WebsitesApiRequest<Value> {
+interface WebsitesApiCall {
     /** JSON body; its presence makes the request a POST. */
     body?: unknown;
     /** Reused across runs by callers that journal an attempt; fresh otherwise. */
     idempotencyKey?: string;
     /** Only for requests that are neither a plain read nor a POST with a body. */
-    method?: "DELETE";
+    method?: "DELETE" | "POST";
     path: string;
     query?: Record<string, string>;
+}
+
+interface WebsitesApiRequest<Value> extends WebsitesApiCall {
     schema: z.ZodType<Value>;
 }
 
@@ -89,9 +105,22 @@ export async function requestWebsitesApi<Value>(
     context: WebsiteRequestContext,
     request: WebsitesApiRequest<Value>,
 ): Promise<Value> {
-    const isPost = request.body !== undefined;
+    return await requestOo({ ...websitesApiOptions(target, context, request), schema: request.schema });
+}
 
-    return await requestOo({
+// For the calls the service answers without a body (204).
+export async function sendWebsitesApi(
+    target: WebsitesApiTarget,
+    context: WebsiteRequestContext,
+    request: WebsitesApiCall,
+): Promise<void> {
+    await requestOoResponse(websitesApiOptions(target, context, request));
+}
+
+function websitesApiOptions(target: WebsitesApiTarget, context: WebsiteRequestContext, request: WebsitesApiCall) {
+    const method = request.method ?? (request.body === undefined ? "GET" : "POST");
+
+    return {
         authorization: target.account.apiKey,
         context: {
             fetcher: createRetryingFetcher({
@@ -103,23 +132,32 @@ export async function requestWebsitesApi<Value>(
             translator: context.translator,
         },
         errors: { scope: "websiteManaged" },
-        headers: isPost
+        headers: method === "POST"
             ? { ...target.headers, "Idempotency-Key": request.idempotencyKey ?? randomUUIDv7() }
             : target.headers,
         host: { endpoint: target.account.endpoint, service: "websites-api" },
         jsonBody: request.body,
         label: "Managed website",
-        method: request.method ?? (isPost ? "POST" : "GET"),
+        method,
         path: request.path,
         query: request.query,
-        schema: request.schema,
         statusErrors: mapWebsitesApiError,
-    });
+    } as const;
 }
+
+// Service codes whose remedy is not obvious from the service message alone.
+const serviceErrorKeys: Record<string, string> = {
+    manager_required: "errors.websiteManaged.managerRequired",
+    website_busy: "errors.websiteManaged.busy",
+    website_limit_reached: "errors.websiteManaged.limitReached",
+    website_not_suspended: "errors.websiteManaged.notSuspended",
+    website_suspended: "errors.websiteManaged.suspended",
+};
 
 // The service reports every failure as `{ message, code }`. The message is
 // meant for people (for a rejected deployment it carries Cloudflare's reason),
-// so it is shown as is; the code stays available to scripts in the details.
+// so it is shown as is unless the code has a remedy worth spelling out; the
+// code stays available to scripts in the details either way.
 function mapWebsitesApiError(failure: OoRequestFailure): CliUserError | undefined {
     const parsed = parseServiceError(failure.bodyText);
 
@@ -128,6 +166,18 @@ function mapWebsitesApiError(failure: OoRequestFailure): CliUserError | undefine
     }
 
     const details = { httpStatus: failure.status, serviceCode: parsed.code };
+
+    // The team cannot pay for a website: the same condition, exit code and
+    // billing link as every other balance failure of the CLI.
+    if (parsed.code === "insufficient_balance") {
+        return createInsufficientCreditError(details);
+    }
+
+    const key = serviceErrorKeys[parsed.code];
+
+    if (key !== undefined) {
+        return new CliUserError(key, 1, undefined, { details });
+    }
 
     if (parsed.code === "deployment_rejected") {
         return new CliUserError("errors.websiteManaged.deploymentRejected", 1, {

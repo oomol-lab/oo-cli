@@ -277,6 +277,8 @@ describe("managed website commands", () => {
                 { args: ["deployments"], request: `GET ${base}/deployments` },
                 { args: ["deployment", deployment.id], request: `GET ${base}/deployments/${deployment.id}` },
                 { args: ["rollback", deployment.id], request: `POST ${base}/rollback` },
+                { args: ["resume"], request: `POST ${base}/resume` },
+                { args: ["delete", "--yes"], request: `DELETE ${base}` },
                 { args: ["inquiries"], request: `GET ${base}/inquiries` },
                 { args: ["domain"], request: `GET ${base}/custom-domain` },
                 { args: ["domain", "remove"], request: `DELETE ${base}/custom-domain` },
@@ -331,6 +333,90 @@ describe("managed website commands", () => {
                 fetcher: async () => Response.json({ website: { ...website, analytics } }),
             });
             expect(JSON.parse(json.stdout).analytics).toEqual(analytics);
+        }
+        finally { await sandbox.cleanup(); }
+    });
+
+    test("shows the billing state of a website and keeps it in JSON", async () => {
+        const sandbox = await createCliSandbox();
+        try {
+            await writeAuthFile(sandbox);
+            const active = { status: "active", next_charge_at: 86_400_000, suspended_at: null, grace_ends_at: null };
+            const suspended = { status: "suspended", next_charge_at: null, suspended_at: 86_400_000, grace_ends_at: 950_400_000 };
+            const paid = await sandbox.run(["website", "get", "--site", website.id, "--team", "team-a"], {
+                fetcher: async () => Response.json({ website: { ...website, billing: active } }),
+            });
+            expect(paid.stdout).toContain("  - Billing: active, next charge 1970-01-02T00:00:00.000Z\n");
+            const unpaid = await sandbox.run(["website", "get", "--site", website.id, "--team", "team-a"], {
+                fetcher: async () => Response.json({ website: { ...website, billing: suspended } }),
+            });
+            expect(unpaid.stdout).toContain("  - Billing: suspended since 1970-01-02T00:00:00.000Z");
+            expect(unpaid.stdout).toContain("oo website resume before 1970-01-12T00:00:00.000Z");
+            const json = await sandbox.run(["website", "get", "--site", website.id, "--team", "team-a", "--json"], {
+                fetcher: async () => Response.json({ website: { ...website, billing: suspended } }),
+            });
+            expect(JSON.parse(json.stdout).billing).toEqual(suspended);
+            const listed = await sandbox.run(["website", "list", "--team", "team-a"], {
+                fetcher: async () => Response.json({ items: [{ ...website, billing: active }, { ...website, name: "Unpaid", billing: suspended }] }),
+            });
+            expect(listed.stdout).toBe([
+                `${website.id}  ${website.name}  draft  ${website.url}`,
+                `${website.id}  Unpaid  draft  ${website.url}  suspended`,
+                "",
+            ].join("\n"));
+        }
+        finally { await sandbox.cleanup(); }
+    });
+
+    test("resumes a suspended website with an idempotency key and no body", async () => {
+        const sandbox = await createCliSandbox();
+        try {
+            await writeAuthFile(sandbox);
+            let request: Request | undefined;
+            const result = await sandbox.run(["website", "resume", "--site", website.id, "--team", "team-a"], {
+                fetcher: async (input, init) => {
+                    request = toRequest(input, init);
+                    return Response.json({ website: { ...website, status: "live" } });
+                },
+            });
+            expect(result.exitCode).toBe(0);
+            expect(result.stdout).toBe(`${website.url}\n`);
+            expect(request!.method).toBe("POST");
+            expect(request!.url).toBe(`${apiBase}/v1/websites/${website.id}/resume`);
+            expect(request!.headers.get("Idempotency-Key")).toBeTruthy();
+            expect(request!.headers.get("x-oo-team-name")).toBe("team-a");
+            expect(await request!.text()).toBe("");
+        }
+        finally { await sandbox.cleanup(); }
+    });
+
+    test("deletes a website only when the deletion is confirmed", async () => {
+        const sandbox = await createCliSandbox();
+        try {
+            await writeAuthFile(sandbox);
+            const requests: Request[] = [];
+            const fetcher = async (input: string | URL | Request, init?: RequestInit) => {
+                requests.push(toRequest(input, init));
+                return new Response(null, { status: 204 });
+            };
+            const unconfirmed = await sandbox.run(["website", "delete", "--site", website.id, "--team", "team-a"], { fetcher });
+            expect(unconfirmed.exitCode).toBe(2);
+            expect(unconfirmed.stderr).toContain("--yes");
+            expect(unconfirmed.stderr).toContain(website.id);
+            expect(requests).toEqual([]);
+
+            const confirmed = await sandbox.run(["website", "delete", "--site", website.id, "--team", "team-a", "--yes", "--json"], { fetcher });
+            expect(confirmed.exitCode).toBe(0);
+            expect(JSON.parse(confirmed.stdout)).toEqual({ id: website.id, deleted: true });
+            expect(requests).toHaveLength(1);
+            expect(requests[0]!.method).toBe("DELETE");
+            expect(requests[0]!.url).toBe(`${apiBase}/v1/websites/${website.id}`);
+            expect(requests[0]!.headers.get("x-oo-team-name")).toBe("team-a");
+            expect(requests[0]!.headers.get("Idempotency-Key")).toBeNull();
+
+            const text = await sandbox.run(["website", "delete", "--site", website.id, "--team", "team-a", "-y"], { fetcher });
+            expect(text.exitCode).toBe(0);
+            expect(text.stdout).toBe(`Deleted website ${website.id}.\n`);
         }
         finally { await sandbox.cleanup(); }
     });
@@ -486,6 +572,63 @@ describe("managed website commands", () => {
             const json = await sandbox.run(["website", "get", "--site", website.id, "--team", "team-a", "--json"], { fetcher });
             expect(json.exitCode).toBe(1);
             expect(JSON.parse(json.stderr).error.details).toEqual({ httpStatus: 404, serviceCode: "website_not_found" });
+        }
+        finally { await sandbox.cleanup(); }
+    });
+
+    test("explains billing and permission failures instead of echoing the service", async () => {
+        const sandbox = await createCliSandbox();
+        try {
+            await writeAuthFile(sandbox);
+            const failing = (status: number, code: string) => async () => Response.json({ message: "Service message", code }, { status });
+
+            // The team cannot pay: the CLI-wide insufficient balance contract.
+            const broke = await sandbox.run(["website", "create", website.name, "--team", "team-a", "--json"], { fetcher: failing(402, "insufficient_balance") });
+            expect(broke.exitCode).toBe(3);
+            const brokeError = JSON.parse(broke.stderr).error;
+            expect(brokeError.code).toBe("billing.insufficientCredit");
+            expect(brokeError.details).toEqual({ billingUrl: "https://console.oomol.com/billing", httpStatus: 402, serviceCode: "insufficient_balance" });
+
+            const cases = [
+                { args: ["rollback", deployment.id], status: 409, code: "website_suspended", hint: "oo website resume" },
+                { args: ["resume"], status: 409, code: "website_not_suspended", hint: "not suspended" },
+                { args: ["rollback", deployment.id], status: 409, code: "website_busy", hint: "Another operation" },
+                { args: ["domain", "set", "www.example.com"], status: 403, code: "manager_required", hint: "team creator or admin" },
+                { args: ["delete", "--yes"], status: 403, code: "manager_required", hint: "team creator or admin" },
+                { args: ["create", "Another"], status: 409, code: "website_limit_reached", hint: "website limit" },
+            ];
+            for (const item of cases) {
+                const args = ["website", ...item.args, ...(item.args[0] === "create" ? [] : ["--site", website.id]), "--team", "team-a"];
+                const result = await sandbox.run(args, { fetcher: failing(item.status, item.code) });
+                expect(result.exitCode).toBe(1);
+                expect(result.stderr).toContain(item.hint);
+                expect(result.stderr).not.toContain("Service message");
+                const json = await sandbox.run([...args, "--json"], { fetcher: failing(item.status, item.code) });
+                expect(JSON.parse(json.stderr).error.details).toEqual({ httpStatus: item.status, serviceCode: item.code });
+            }
+        }
+        finally { await sandbox.cleanup(); }
+    });
+
+    test("refuses to build a suspended website", async () => {
+        const sandbox = await createCliSandbox();
+        try {
+            await writeAuthFile(sandbox);
+            const dir = join(sandbox.env.HOME!, "unpaid-site");
+            await Bun.write(join(dir, "leina-website.json"), JSON.stringify({ website_id: website.id, team_id: website.team_id }));
+            const requests: string[] = [];
+            const result = await sandbox.run(["website", "deploy", "--project", dir, "--team", "team-a", "--json"], {
+                fetcher: async (input, init) => {
+                    requests.push(new URL(toRequest(input, init).url).pathname);
+                    return Response.json({ website: { ...website, billing: { status: "suspended", next_charge_at: null, suspended_at: 1, grace_ends_at: 2 } } });
+                },
+            });
+            // Only the website was read: no build ran and no deployment was created.
+            expect(requests).toEqual([`/v1/websites/${website.id}`]);
+            expect(result.exitCode).toBe(1);
+            const error = JSON.parse(result.stderr).error;
+            expect(error.message).toContain("oo website resume");
+            expect(error.details).toEqual({ serviceCode: "website_suspended" });
         }
         finally { await sandbox.cleanup(); }
     });
