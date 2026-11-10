@@ -2404,7 +2404,7 @@ oo website list --team my-team --json
 
 `deployments` 返回 `{items: Deployment[]}` (最新在前), `deployment` 返回单次发布。发布包含 `id`、`website_id`、`status` (`uploading`、`succeeded`、`failed`、`expired`)、`active`、`restorable`、`file_count`、`total_bytes`、`error_message`、`upload_expires_at`、`created_at`、`published_at`、`pruned_at`。`rollback` 把网站切换到 `restorable` 为 true 的发布。
 
-每个网站可以在自带地址之外绑定一个自定义域名。`domain set <域名>` 绑定一个完整域名, 例如 `www.example.com` (建议用子域名, 根域名需要 DNS 服务商支持 CNAME 拉平), 并输出要在 DNS 服务商处添加的记录: 一条从该域名指向平台目标的 `CNAME`。`domain` 查看绑定, 服务端在这次读取时核对 DNS 与证书状态, 重复运行直到 `status` 从 `pending` 变为 `active`。`domain remove` 解除绑定, 换绑其他域名需要先移除当前的。三个命令都返回 `{custom_domain}`, 未绑定时为 `null`。自定义域名包含 `hostname`、`url`、`status` (`pending`、`active`、`error`)、`message` (未生效时的原因, 否则为 `null`)、`dns` (`{type, name, value}`)、`created_at`、`checked_at`。域名已被其他网站绑定时返回 `custom_domain_taken`。
+每个网站可以在自带地址之外绑定一个自定义域名。`domain set <域名>` 绑定一个完整域名, 例如 `www.example.com` (建议用子域名, 根域名需要 DNS 服务商支持 CNAME 拉平), 并输出要在 DNS 服务商处添加的记录: 一条从该域名指向平台目标的 `CNAME`。`domain` 查看绑定, 服务端在这次读取时核对 DNS 与证书状态, 重复运行直到 `status` 从 `pending` 变为 `active`。`domain remove` 解除绑定, 换绑其他域名需要先移除当前的。三个命令都返回 `{custom_domain}`, 未绑定时为 `null`。自定义域名包含 `hostname`、`url`、`status` (`pending`、`active`、`error`)、`message` (未生效时的原因, 否则为 `null`)、`dns` (`{type, name, value}`)、`created_at`、`checked_at`。`domain set` 与 `domain remove` 需要团队管理员或团队 token (其他成员返回 `manager_required`), `domain` 所有团队成员都能运行。域名已被其他网站绑定时返回 `custom_domain_taken`。
 
 `inquiries` 返回 `{items, next_cursor}`, 每页最多 50 条询盘 (`id`、`website_id`、`path`、`email`、`message`、`status`、`received_at`、`updated_at`)。用 `--cursor` 传入上页的 `next_cursor` 继续读取。此命令需要团队管理员或团队 token, 询盘内容不进入遥测。
 
