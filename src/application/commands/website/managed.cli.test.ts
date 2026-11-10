@@ -210,7 +210,7 @@ describe("managed website commands", () => {
             expect(create.stderr).toContain("linked to a different website");
 
             const requests: string[] = [];
-            const deploy = await sandbox.run(["website", "deploy", website.id, "--project", dir, "--team", "team-a"], {
+            const deploy = await sandbox.run(["website", "deploy", "--project", dir, "--team", "team-a"], {
                 fetcher: async (input, init) => {
                     requests.push(toRequest(input, init).url);
                     return Response.json({ website });
@@ -240,17 +240,23 @@ describe("managed website commands", () => {
         finally { await sandbox.cleanup(); }
     });
 
-    test("refuses a project linked to another site before executing its build", async () => {
+    test("refuses a project linked to another team before executing its build", async () => {
         const sandbox = await createCliSandbox();
         try {
             await writeAuthFile(sandbox);
             const dir = join(sandbox.env.HOME!, "other-site");
-            await Bun.write(join(dir, "leina-website.json"), JSON.stringify({ website_id: "other", team_id: "team-b" }));
-            const result = await sandbox.run(["website", "deploy", website.id, "--project", dir, "--team", "team-a", "--json"], {
-                fetcher: async () => Response.json({ website }),
+            await Bun.write(join(dir, "leina-website.json"), JSON.stringify({ website_id: website.id, team_id: "team-b" }));
+            const requests: string[] = [];
+            const result = await sandbox.run(["website", "deploy", "--project", dir, "--team", "team-a", "--json"], {
+                fetcher: async (input, init) => {
+                    requests.push(new URL(toRequest(input, init).url).pathname);
+                    return Response.json({ website });
+                },
             });
+            // The website is the one the project link names, not a CLI argument.
+            expect(requests).toEqual([`/v1/websites/${website.id}`]);
             expect(result.exitCode).toBe(2);
-            expect(result.stderr).toContain("different website or team");
+            expect(result.stderr).toContain("different team");
         }
         finally { await sandbox.cleanup(); }
     });
@@ -260,7 +266,7 @@ describe("managed website commands", () => {
         try {
             await writeAuthFile(sandbox);
             const requests: string[] = [];
-            const result = await sandbox.run(["website", "deploy", website.id, "--project", sandbox.cwd, "--team", "team-a"], {
+            const result = await sandbox.run(["website", "deploy", "--project", sandbox.cwd, "--team", "team-a"], {
                 fetcher: async (input, init) => {
                     requests.push(toRequest(input, init).url);
                     return Response.json({ website });

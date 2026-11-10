@@ -2850,7 +2850,7 @@ Delete expired or stale file transfer records.
 
 ```bash
 oo website create "My website" --dir ./my-site --team my-team --json
-oo website deploy <site-id> --project ./my-site --team my-team --json
+oo website deploy --project ./my-site --team my-team --json
 oo website list --team my-team --json
 oo website get <site-id> --team my-team --json
 oo website inquiries <site-id> --team my-team --json
@@ -2863,7 +2863,7 @@ These commands use the existing OO account and team selection and talk to the we
 
 `create` allocates a team-owned draft website and scaffolds an Astro Cloudflare SSR project. `--dir` must identify an empty directory. Edit the project before publishing. The project association is saved in `leina-website.json` as `{website_id, team_id}`. Retrying an incomplete create reuses the same idempotency key and preserves conflicting local edits. The template's contact form posts inquiries to the website's `/_leina/inquiry` endpoint.
 
-`deploy` verifies the project association, installs dependencies, builds Astro and publishes the result as a new deployment. Static assets from the build are hashed and only the files the platform does not already have are uploaded, straight to Cloudflare; the Worker bundle is sent with the publish request. A failed build or rejected deployment keeps the current version live. When the platform rejects the deployment, the reason is shown. Running `deploy` again always creates a new deployment. The text output is the website URL; `--json` returns `{website, deployment}`.
+`deploy` takes no website ID: it reads the website from the project's `leina-website.json`, checks that it belongs to the selected team, installs dependencies, builds Astro and publishes the result as a new deployment. Static assets from the build are hashed and only the files the platform does not already have are uploaded, straight to Cloudflare; the Worker bundle is sent with the publish request. A failed build or rejected deployment keeps the current version live. When the platform rejects the deployment, the reason is shown. Running `deploy` again always creates a new deployment. The text output is the website URL; `--json` returns `{website, deployment}`.
 
 Websites have `id`, `team_id`, `name`, `status` (`draft`, `live`), `hostname`, `url`, `active_deployment_id`, `created_at` and `updated_at`. Times are Unix milliseconds. `create`, `get` and `rollback` return one website; `list` returns `{items: Website[]}`.
 

@@ -170,14 +170,14 @@ const list: CliCommandDefinition<Options> = {
     },
 };
 
-const deployInput = siteInput.extend({ project: z.string() });
+// `deploy` takes no website ID: the project link written by `create` names it.
+const deployInput = optionsSchema.extend({ project: z.string() });
 const deploy: CliCommandDefinition<z.infer<typeof deployInput>> = {
     name: "deploy",
     summaryKey: "commands.website.deploy.summary",
     descriptionKey: "commands.website.deploy.summary",
     output: "standard",
     inputSchema: deployInput,
-    arguments: [siteArgument],
     options: [...commonOptions, { name: "project", longFlag: "--project", valueName: "directory", descriptionKey: "options.websiteManaged.project" }],
     handler: async (input, context) => {
         const project = resolve(context.cwd, input.project);
@@ -188,7 +188,7 @@ const deploy: CliCommandDefinition<z.infer<typeof deployInput>> = {
         }
         const target = await resolveTarget(input, context);
         const { website } = await requestWebsitesApi(target, context, {
-            path: websitePath(input.site),
+            path: websitePath(link.website_id),
             schema: z.object({ website: websiteSchema }),
         });
         if (link.website_id !== website.id || link.team_id !== website.team_id) {
