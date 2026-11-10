@@ -1,17 +1,17 @@
 // Each website is served from the root of its own hostname. The edge in front
-// of it reserves `/_leina/` and accepts only `POST /_leina/inquiry` there.
+// of it reserves `/_sitelive/` and accepts only `POST /_sitelive/inquiry` there.
 export function websiteTemplate(name: string): Record<string, string> {
     return {
         "public/favicon.svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 32 32\"><rect width=\"32\" height=\"32\" rx=\"6\" fill=\"#284f38\"/><path d=\"M10 8v16h13v-4h-9V8z\" fill=\"white\"/></svg>",
         "package.json": JSON.stringify({
-            name: "leina-website",
+            name: "website",
             private: true,
             type: "module",
             scripts: { dev: "astro dev", build: "astro build" },
             dependencies: { "astro": "6.4.2", "@astrojs/cloudflare": "13.6.1" },
             devDependencies: { wrangler: "4.111.0" },
         }, null, 2),
-        ".gitignore": "node_modules/\ndist/\n.astro/\n.wrangler/\n.leina-build/\n.dev.vars*\n.leina-*.json\n",
+        ".gitignore": "node_modules/\ndist/\n.astro/\n.wrangler/\n.sitelive-build/\n.dev.vars*\n.sitelive-*.json\n",
         "astro.config.mjs": `import { defineConfig } from "astro/config";
 import cloudflare from "@astrojs/cloudflare";
 
@@ -21,7 +21,7 @@ export default defineConfig({
 });
 `,
         "wrangler.jsonc": JSON.stringify({
-            name: "leina-website-build",
+            name: "website-build",
             main: "./src/worker.ts",
             compatibility_date: "2026-07-15",
             compatibility_flags: ["nodejs_compat"],
@@ -106,7 +106,7 @@ import Site from "../layouts/Site.astro";
 ---
 <Site title="Contact">
   <h1>Contact us</h1>
-  <form data-leina-inquiry>
+  <form data-inquiry-form>
     <label>Email<input name="email" type="email" required maxlength="254" /></label>
     <label>Message<textarea name="message" required maxlength="2000"></textarea></label>
     <button type="submit">Send inquiry</button>
@@ -116,7 +116,7 @@ import Site from "../layouts/Site.astro";
 <script>
   // The id stays the same while one inquiry is retried, so the platform
   // stores it only once.
-  for (const form of document.querySelectorAll<HTMLFormElement>("form[data-leina-inquiry]")) {
+  for (const form of document.querySelectorAll<HTMLFormElement>("form[data-inquiry-form]")) {
     let id = crypto.randomUUID();
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -125,7 +125,7 @@ import Site from "../layouts/Site.astro";
       const data = new FormData(form);
       button.disabled = true;
       try {
-        const response = await fetch("/_leina/inquiry", {
+        const response = await fetch("/_sitelive/inquiry", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ id, email: data.get("email"), message: data.get("message"), path: location.pathname }),

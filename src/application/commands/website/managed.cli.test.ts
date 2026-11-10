@@ -1,3 +1,4 @@
+import { rename } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { createCliSandbox, toRequest, writeAuthFile } from "../../../../__tests__/helpers.ts";
@@ -8,8 +9,8 @@ const website = {
     team_id: "team-a",
     name: "Example website",
     status: "draft",
-    hostname: "0198a6f0-0000-7000-8000-000000000001.leina.site",
-    url: "https://0198a6f0-0000-7000-8000-000000000001.leina.site/",
+    hostname: "0198a6f0-0000-7000-8000-000000000001.sitelive.net",
+    url: "https://0198a6f0-0000-7000-8000-000000000001.sitelive.net/",
     active_deployment_id: null,
     created_at: 1,
     updated_at: 1,
@@ -33,8 +34,8 @@ const customDomain = {
     url: "https://www.example.com/",
     status: "pending",
     message: null,
-    verification: { type: "TXT", name: "_leina.www.example.com", value: "0123456789abcdef0123456789abcdef" },
-    dns: { type: "CNAME", name: "www.example.com", value: "cname.leina.site" },
+    verification: { type: "TXT", name: "_sitelive.www.example.com", value: "0123456789abcdef0123456789abcdef" },
+    dns: { type: "CNAME", name: "www.example.com", value: "cname.sitelive.net" },
     created_at: 1,
     verified_at: 1,
     checked_at: null,
@@ -130,7 +131,7 @@ describe("managed website commands", () => {
             expect(requests[0]!.headers.get("x-oo-team-name")).toBe("team-a");
             expect(requests[0]!.headers.get("Idempotency-Key")).toBeTruthy();
             expect(await requests[0]!.json()).toEqual({ name: website.name });
-            expect(JSON.parse(await Bun.file(join(dir, "leina-website.json")).text())).toEqual({
+            expect(JSON.parse(await Bun.file(join(dir, "sitelive-website.json")).text())).toEqual({
                 website_id: website.id,
                 team_id: website.team_id,
             });
@@ -140,8 +141,8 @@ describe("managed website commands", () => {
             expect(config).not.toContain("base:");
             expect(await Bun.file(join(dir, "src", "pages", "products", "featured.astro")).exists()).toBeTrue();
             const contact = await Bun.file(join(dir, "src", "pages", "contact.astro")).text();
-            expect(contact).toContain("data-leina-inquiry");
-            expect(contact).toContain("\"/_leina/inquiry\"");
+            expect(contact).toContain("data-inquiry-form");
+            expect(contact).toContain("\"/_sitelive/inquiry\"");
             expect(await Bun.file(join(dir, "src", "layouts", "Site.astro")).text()).not.toContain("tracker.js");
         }
         finally { await sandbox.cleanup(); }
@@ -189,13 +190,13 @@ describe("managed website commands", () => {
             expect(renamed.exitCode).toBe(0);
             expect(keys).toHaveLength(2);
             expect(keys[1]).not.toBe(keys[0]);
-            expect(JSON.parse(await Bun.file(join(dir, ".leina-create.json")).text())).toMatchObject({ key: keys[1], name: website.name });
+            expect(JSON.parse(await Bun.file(join(dir, ".sitelive-create.json")).text())).toMatchObject({ key: keys[1], name: website.name });
 
             const corruptDir = join(sandbox.env.HOME!, "corrupt-site");
-            await Bun.write(join(corruptDir, ".leina-create.json"), "{not json");
+            await Bun.write(join(corruptDir, ".sitelive-create.json"), "{not json");
             const corrupt = await sandbox.run(["website", "create", website.name, "--dir", corruptDir, "--team", "team-a", "--json"], { fetcher });
             expect(corrupt.exitCode).toBe(0);
-            expect(await Bun.file(join(corruptDir, "leina-website.json")).exists()).toBeTrue();
+            expect(await Bun.file(join(corruptDir, "sitelive-website.json")).exists()).toBeTrue();
 
             const busyDir = join(sandbox.env.HOME!, "busy-site");
             await Bun.write(join(busyDir, "README.md"), "existing");
@@ -214,7 +215,7 @@ describe("managed website commands", () => {
             const fetcher = async () => Response.json({ website }, { status: 201 });
             const args = ["website", "create", website.name, "--dir", dir, "--team", "team-a"];
             expect((await sandbox.run(args, { fetcher })).exitCode).toBe(0);
-            await Bun.write(join(dir, "leina-website.json"), "{not json");
+            await Bun.write(join(dir, "sitelive-website.json"), "{not json");
 
             const create = await sandbox.run(args, { fetcher });
             expect(create.exitCode).toBe(2);
@@ -228,8 +229,42 @@ describe("managed website commands", () => {
                 },
             });
             expect(deploy.exitCode).toBe(2);
-            expect(deploy.stderr).toContain("leina-website.json");
+            expect(deploy.stderr).toContain("sitelive-website.json");
             expect(requests).toEqual([]);
+        }
+        finally { await sandbox.cleanup(); }
+    });
+
+    test("keeps working in a project that carries the legacy link and journal names", async () => {
+        const sandbox = await createCliSandbox();
+        try {
+            await writeAuthFile(sandbox);
+            const requests: Request[] = [];
+            const fetcher = async (input: string | URL | Request, init?: RequestInit) => {
+                const request = toRequest(input, init);
+                requests.push(request);
+                return request.method === "POST"
+                    ? Response.json({ website }, { status: 201 })
+                    : Response.json({ website });
+            };
+            const args = ["website", "create", website.name, "--team", "team-a", "--json"];
+            expect((await sandbox.run(args, { fetcher })).exitCode).toBe(0);
+            // An older release wrote the same two files under these names.
+            await rename(join(sandbox.cwd, "sitelive-website.json"), join(sandbox.cwd, "leina-website.json"));
+            await rename(join(sandbox.cwd, ".sitelive-create.json"), join(sandbox.cwd, ".leina-create.json"));
+
+            const got = await sandbox.run(["website", "get", "--team", "team-a", "--json"], { fetcher });
+            expect(got.exitCode).toBe(0);
+            expect(new URL(requests.at(-1)!.url).pathname).toBe(`/v1/websites/${website.id}`);
+
+            // Retrying the create replays the same website in place: same
+            // key, same directory, and no second link file.
+            const retried = await sandbox.run(args, { fetcher });
+            expect(retried.exitCode).toBe(0);
+            expect(JSON.parse(retried.stdout).project_dir).toBe(sandbox.cwd);
+            expect(requests.at(-1)!.headers.get("Idempotency-Key")).toBe(requests[0]!.headers.get("Idempotency-Key"));
+            expect(await Bun.file(join(sandbox.cwd, "sitelive-website.json")).exists()).toBeFalse();
+            expect(await Bun.file(join(sandbox.cwd, ".sitelive-create.json")).exists()).toBeFalse();
         }
         finally { await sandbox.cleanup(); }
     });
@@ -256,7 +291,7 @@ describe("managed website commands", () => {
             const created = await sandbox.run(["website", "create", website.name, "--team", "team-a", "--json"], { fetcher });
             expect(created.exitCode).toBe(0);
             expect(JSON.parse(created.stdout).project_dir).toBe(sandbox.cwd);
-            expect(JSON.parse(await Bun.file(join(sandbox.cwd, "leina-website.json")).text()).website_id).toBe(website.id);
+            expect(JSON.parse(await Bun.file(join(sandbox.cwd, "sitelive-website.json")).text()).website_id).toBe(website.id);
 
             // Retrying the same create stays in the current directory.
             const retried = await sandbox.run(["website", "create", website.name, "--team", "team-a", "--json"], { fetcher });
@@ -269,7 +304,7 @@ describe("managed website commands", () => {
             expect(nested.exitCode).toBe(0);
             const nestedDir = join(sandbox.cwd, "second-site-v2");
             expect(JSON.parse(nested.stdout).project_dir).toBe(nestedDir);
-            expect(JSON.parse(await Bun.file(join(nestedDir, "leina-website.json")).text()).website_id).toBe(website.id);
+            expect(JSON.parse(await Bun.file(join(nestedDir, "sitelive-website.json")).text()).website_id).toBe(website.id);
 
             const base = `/v1/websites/${website.id}`;
             const cases = [
@@ -454,7 +489,7 @@ describe("managed website commands", () => {
                 "www.example.com",
                 "  - Status: pending",
                 "  - URL: https://www.example.com/",
-                "  - DNS record: CNAME www.example.com -> cname.leina.site",
+                "  - DNS record: CNAME www.example.com -> cname.sitelive.net",
                 "Add the DNS record at your DNS provider, then run oo website domain to check the status.",
                 "",
             ].join("\n"));
@@ -488,7 +523,7 @@ describe("managed website commands", () => {
                 "www.example.com",
                 "  - Status: active",
                 "  - URL: https://www.example.com/",
-                "  - DNS record: CNAME www.example.com -> cname.leina.site",
+                "  - DNS record: CNAME www.example.com -> cname.sitelive.net",
                 "",
             ].join("\n"));
         }
@@ -503,7 +538,7 @@ describe("managed website commands", () => {
             const unverified = {
                 ...customDomain,
                 status: "unverified",
-                message: "TXT record _leina.www.example.com not found",
+                message: "TXT record _sitelive.www.example.com not found",
                 verified_at: null,
             };
             const claimed = await sandbox.run(args, {
@@ -514,9 +549,9 @@ describe("managed website commands", () => {
                 "www.example.com",
                 "  - Status: unverified",
                 "  - URL: https://www.example.com/",
-                "  - Ownership record: TXT _leina.www.example.com -> 0123456789abcdef0123456789abcdef",
-                "  - DNS record: CNAME www.example.com -> cname.leina.site",
-                "  - Message: TXT record _leina.www.example.com not found",
+                "  - Ownership record: TXT _sitelive.www.example.com -> 0123456789abcdef0123456789abcdef",
+                "  - DNS record: CNAME www.example.com -> cname.sitelive.net",
+                "  - Message: TXT record _sitelive.www.example.com not found",
                 "Add both records at your DNS provider, then run oo website domain to verify ownership of the domain.",
                 "",
             ].join("\n"));
@@ -531,7 +566,7 @@ describe("managed website commands", () => {
                 "www.example.com",
                 "  - Status: pending",
                 "  - URL: https://www.example.com/",
-                "  - DNS record: CNAME www.example.com -> cname.leina.site",
+                "  - DNS record: CNAME www.example.com -> cname.sitelive.net",
                 "Add the DNS record at your DNS provider, then run oo website domain to check the status.",
                 "",
             ].join("\n"));
@@ -615,7 +650,7 @@ describe("managed website commands", () => {
         try {
             await writeAuthFile(sandbox);
             const dir = join(sandbox.env.HOME!, "unpaid-site");
-            await Bun.write(join(dir, "leina-website.json"), JSON.stringify({ website_id: website.id, team_id: website.team_id }));
+            await Bun.write(join(dir, "sitelive-website.json"), JSON.stringify({ website_id: website.id, team_id: website.team_id }));
             const requests: string[] = [];
             const result = await sandbox.run(["website", "deploy", "--project", dir, "--team", "team-a", "--json"], {
                 fetcher: async (input, init) => {
@@ -638,7 +673,7 @@ describe("managed website commands", () => {
         try {
             await writeAuthFile(sandbox);
             const dir = join(sandbox.env.HOME!, "other-site");
-            await Bun.write(join(dir, "leina-website.json"), JSON.stringify({ website_id: website.id, team_id: "team-b" }));
+            await Bun.write(join(dir, "sitelive-website.json"), JSON.stringify({ website_id: website.id, team_id: "team-b" }));
             const requests: string[] = [];
             const result = await sandbox.run(["website", "deploy", "--project", dir, "--team", "team-a", "--json"], {
                 fetcher: async (input, init) => {
@@ -666,7 +701,7 @@ describe("managed website commands", () => {
                 },
             });
             expect(result.exitCode).toBe(2);
-            expect(result.stderr).toContain("leina-website.json");
+            expect(result.stderr).toContain("sitelive-website.json");
             expect(requests).toEqual([]);
         }
         finally { await sandbox.cleanup(); }
