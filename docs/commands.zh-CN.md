@@ -2386,21 +2386,27 @@ oo website inquiries --team my-team --json
 oo website deployments --team my-team --json
 oo website deployment <deployment-id> --team my-team --json
 oo website rollback <deployment-id> --team my-team --json
+oo website resume --team my-team --json
+oo website delete --yes --team my-team --json
 oo website domain set www.example.com --team my-team --json
 oo website domain --team my-team --json
 oo website domain remove --team my-team --json
 oo website list --team my-team --json
 ```
 
-网站 ID 由服务端生成。在项目目录里不需要传 ID: `get`、`inquiries`、`deployments`、`deployment`、`rollback`、`domain` 默认操作当前目录 `leina-website.json` 关联的网站。要操作其他网站或在别的目录运行时传 `--site <网站 ID>`, 要发布别处的项目时给 `deploy` 传 `--project <目录>`。
+网站 ID 由服务端生成。在项目目录里不需要传 ID: `get`、`inquiries`、`deployments`、`deployment`、`rollback`、`resume`、`delete`、`domain` 默认操作当前目录 `leina-website.json` 关联的网站。要操作其他网站或在别的目录运行时传 `--site <网站 ID>`, 要发布别处的项目时给 `deploy` 传 `--project <目录>`。
 
 这些命令复用 OO 现有的账号和团队选择, 请求 `https://websites-api.<账号 endpoint>` 上的网站服务 (例如 `websites-api.oomol.com`)。网站所有者无需 Cloudflare 账号。所有写请求都带 `Idempotency-Key`, 网关临时故障时用同一个键重试。
 
-`create` 创建团队下的网站草稿, 并在 `--dir` 指定的空目录生成 Astro Cloudflare SSR 项目。不传 `--dir` 时, 当前目录为空就用当前目录, 否则用以网站名命名的子目录 (转小写, 空白与路径字符换成短横线)。文本输出依次是网站 ID、URL 和项目目录, `--json` 在网站对象上附带 `project_dir`。编辑页面后再发布, 项目关联以 `{website_id, team_id}` 保存在 `leina-website.json`。重试未完成的创建会复用同一个幂等键, 不覆盖已修改的本地文件。模板的联系表单把询盘提交到网站的 `/_leina/inquiry`。
+`create` 创建团队下的网站草稿, 并在 `--dir` 指定的空目录生成 Astro Cloudflare SSR 项目。网站按月从团队余额扣费, 自创建时开始, 与是否已发布无关; 团队付不起时 `create` 以余额不足错误失败, 不创建任何东西。每个团队可拥有的网站数量有上限 (超出时返回 `website_limit_reached`)。不传 `--dir` 时, 当前目录为空就用当前目录, 否则用以网站名命名的子目录 (转小写, 空白与路径字符换成短横线)。文本输出依次是网站 ID、URL 和项目目录, `--json` 在网站对象上附带 `project_dir`。编辑页面后再发布, 项目关联以 `{website_id, team_id}` 保存在 `leina-website.json`。重试未完成的创建会复用同一个幂等键, 不覆盖已修改的本地文件。模板的联系表单把询盘提交到网站的 `/_leina/inquiry`。
 
-`deploy` 不需要网站 ID: 它从 `--project` 目录 (默认当前目录) 的 `leina-website.json` 读出网站, 确认属于所选团队后安装依赖、构建 Astro, 并作为一次新的发布上线。构建出的静态资源先计算哈希, 只把平台还没有的文件直接上传到 Cloudflare; Worker 代码随发布请求提交。构建失败或发布被拒绝时继续使用当前线上版本, 被拒绝时会显示原因。再次运行 `deploy` 总是创建新的发布。文本输出为网站地址 (stdout), 网站有访问统计报表时另在 stderr 输出报表地址, `--json` 返回 `{website, deployment}`。
+`deploy` 不需要网站 ID: 它从 `--project` 目录 (默认当前目录) 的 `leina-website.json` 读出网站, 确认属于所选团队后安装依赖、构建 Astro, 并作为一次新的发布上线。主机上有 `npm` 时用它安装依赖并构建, 没有时改用 `oo` 内置的 Bun 运行时; 两种情况都需要 `node`。被暂停的网站在构建开始前就会被拒绝。构建出的静态资源先计算哈希, 只把平台还没有的文件直接上传到 Cloudflare; Worker 代码随发布请求提交。构建失败或发布被拒绝时继续使用当前线上版本, 被拒绝时会显示原因。再次运行 `deploy` 总是创建新的发布。文本输出为网站地址 (stdout), 网站有访问统计报表时另在 stderr 输出报表地址, `--json` 返回 `{website, deployment}`。
 
-网站包含 `id`、`team_id`、`name`、`status` (`draft`、`live`)、`hostname`、`url`、`active_deployment_id`、`custom_domain` (自定义域名或 `null`)、`analytics` (`{website_id, report_url}`, 首次发布上线并开通访问统计之前为 `null`)、`created_at`、`updated_at`, 时间均为 Unix 毫秒。`create` (附带 `project_dir`)、`get`、`rollback` 返回单个网站, `get` 的文本输出是名称, 随后是 ID、状态、地址、当前发布、自定义域名、访问统计报表地址、创建与更新时间, `list` 返回 `{items: Website[]}`。
+网站包含 `id`、`team_id`、`name`、`status` (`draft`、`live`)、`hostname`、`url`、`active_deployment_id`、`custom_domain` (自定义域名或 `null`)、`analytics` (`{website_id, report_url}`, 首次发布上线并开通访问统计之前为 `null`)、`billing` (`{status, next_charge_at, suspended_at, grace_ends_at}`)、`created_at`、`updated_at`, 时间均为 Unix 毫秒。`create` (附带 `project_dir`)、`get`、`rollback`、`resume` 返回单个网站, `get` 的文本输出是名称, 随后是 ID、状态、地址、当前发布、自定义域名、访问统计报表地址、计费状态、创建与更新时间, `list` 返回 `{items: Website[]}`, 其文本输出会标出被暂停的网站。
+
+计费 `status` 为 `active` 或 `suspended`。正常的网站带有 `next_charge_at`, 即下一个月度周期的扣费时间。团队余额不够这次扣费时网站变为 `suspended`: 访客访问网站地址和自定义域名都得到 HTTP 402, `deploy`、`rollback`、`domain set` 被 `website_suspended` 拒绝, 同时给出 `suspended_at` 与 `grace_ends_at`。读取、`domain remove`、`delete` 和询盘接收不受影响。余额恢复后服务端会在大约 1 小时内自动恢复网站; `resume` 立即恢复并扣一个新周期 (没有可恢复的网站时返回 `website_not_suspended`, 团队仍付不起时返回余额不足错误)。到 `grace_ends_at` 仍处于暂停的网站会被永久删除。
+
+`delete` 永久删除网站及其发布记录、自定义域名和询盘; 当前计费周期不退款, 之后不再扣费。必须传 `--yes` (不传时以退出码 `2` 结束), 且需要团队管理员或团队 token, 返回 `{id, deleted: true}`。本地项目及其 `leina-website.json` 保持原样。
 
 `deployments` 返回 `{items: Deployment[]}` (最新在前), `deployment` 返回单次发布。发布包含 `id`、`website_id`、`status` (`uploading`、`succeeded`、`failed`、`expired`)、`active`、`restorable`、`file_count`、`total_bytes`、`error_message`、`upload_expires_at`、`created_at`、`published_at`、`pruned_at`。`rollback` 把网站切换到 `restorable` 为 true 的发布。
 
@@ -2408,7 +2414,7 @@ oo website list --team my-team --json
 
 `inquiries` 返回 `{items, next_cursor}`, 每页最多 50 条询盘 (`id`、`website_id`、`path`、`email`、`message`、`status`、`received_at`、`updated_at`)。用 `--cursor` 传入上页的 `next_cursor` 继续读取。此命令需要团队管理员或团队 token, 询盘内容不进入遥测。
 
-服务端错误会显示服务返回的信息和错误码, 例如 `website_busy`、`deployment_limit_reached`; `--json` 的错误输出在 `error.details.serviceCode` 中给出错误码。
+服务端错误会显示服务返回的信息和错误码, 例如 `deployment_limit_reached`; `--json` 的错误输出在 `error.details.serviceCode` 中给出错误码。`website_suspended`、`website_not_suspended`、`website_busy`、`manager_required`、`website_limit_reached` 不显示服务端信息, 改为说明下一步该怎么做。`insufficient_balance` 按 CLI 统一的余额不足错误报告 (退出码 `3`, `billing.insufficientCredit`), 并在 details 中带上 `serviceCode`。
 
 ### `oo website upload <filePath>`
 
