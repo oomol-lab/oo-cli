@@ -2383,6 +2383,7 @@ cd ./brand-site
 oo website deploy --team my-team --json
 oo website get --team my-team --json
 oo website inquiries --team my-team --json
+oo website analytics --days 7 --timezone Asia/Shanghai --team my-team --json
 oo website deployments --team my-team --json
 oo website deployment <deployment-id> --team my-team --json
 oo website rollback <deployment-id> --team my-team --json
@@ -2394,7 +2395,7 @@ oo website domain remove --team my-team --json
 oo website list --team my-team --json
 ```
 
-网站 ID 由服务端生成。在项目目录里不需要传 ID: `get`、`inquiries`、`deployments`、`deployment`、`rollback`、`resume`、`delete`、`domain` 默认操作当前目录 `sitelive-website.json` 关联的网站。要操作其他网站或在别的目录运行时传 `--site <网站 ID>`, 要发布别处的项目时给 `deploy` 传 `--project <目录>`。
+网站 ID 由服务端生成。在项目目录里不需要传 ID: `get`、`inquiries`、`analytics`、`deployments`、`deployment`、`rollback`、`resume`、`delete`、`domain` 默认操作当前目录 `sitelive-website.json` 关联的网站。要操作其他网站或在别的目录运行时传 `--site <网站 ID>`, 要发布别处的项目时给 `deploy` 传 `--project <目录>`。
 
 这些命令复用 OO 现有的账号和团队选择, 请求 `https://websites-api.<账号 endpoint>` 上的网站服务 (例如 `websites-api.oomol.com`)。网站所有者无需 Cloudflare 账号。所有写请求都带 `Idempotency-Key`, 网关临时故障时用同一个键重试。
 
@@ -2414,7 +2415,16 @@ oo website list --team my-team --json
 
 `inquiries` 返回 `{items, next_cursor}`, 每页最多 50 条询盘 (`id`、`website_id`、`path`、`email`、`message`、`status`、`received_at`、`updated_at`)。用 `--cursor` 传入上页的 `next_cursor` 继续读取。此命令需要团队管理员或团队 token, 询盘内容不进入遥测。
 
-服务端错误会显示服务返回的信息和错误码, 例如 `deployment_limit_reached`; `--json` 的错误输出在 `error.details.serviceCode` 中给出错误码。`website_suspended`、`website_not_suspended`、`website_busy`、`manager_required`、`website_limit_reached` 不显示服务端信息, 改为说明下一步该怎么做。`insufficient_balance` 按 CLI 统一的余额不足错误报告 (退出码 `3`, `billing.insufficientCredit`), 并在 details 中带上 `serviceCode`。
+`analytics` 把网站的访问统计作为数据返回, 与 `get` 显示的报表地址并存: 报表用来深入查看, 数据用来快速回答或给脚本用。时间范围按某个时区的自然日计算: `--days <n>` 是含今天在内的最近 `n` 天 (1 到 90, 默认 7), 或用 `--from <日期> --to <日期>` (`YYYY-MM-DD`, 含两端, 最多 90 天, 起点不晚于今天) 指定; `--timezone <时区>` 接受 `Asia/Shanghai` 这样的 IANA 时区名, 默认取系统时区。时间范围不会超过当前时刻, 所以最后一天可能还没过完。`--limit <n>` 是每个维度返回的条数 (1 到 50, 默认 10)。时间范围或时区不符合上述规则时不发请求, 以 `2` 退出。文本输出依次是时间范围、汇总数字及上一周期的数字、各维度的 `访客 / 浏览量`, 最后是报表地址。`--json` 返回 `{website_id, report_url, period, summary, previous, series, top, generated_at}`:
+
+- `period`: `from`、`to`、`start_at`、`end_at`、`timezone`、`unit` (2 天以内是 `hour`, 其余是 `day`) 与 `partial` (最后一天还没过完时为 `true`)。
+- `summary`: `visitors`、`visits`、`pageviews`、`bounce_rate` (只看了 1 个页面的访问占比, 0 到 1) 与 `average_visit_seconds`; 没有访问时后两项为 `null`。`previous` 是紧挨在前、时长相同的那一段的同样字段, 另有它的 `start_at` 与 `end_at`。
+- `series`: 每天 (`YYYY-MM-DD`) 或每小时 (`YYYY-MM-DDTHH:00`) 一项 `{time, visitors, pageviews}`, 时间是所选时区的本地时间, 没有访问的也在。各项的访客数相加不等于整个周期的访客数。
+- `top`: `pages`、`referrers` (来源网站, 不含直接访问)、`hostnames` (网站自己的域名与自定义域名)、`countries` (ISO 3166-1 两位代码)、`devices`、`browsers` 是 `{name, visitors, visits, pageviews}[]`, `channels` (`direct`、`organicSearch`、`organicSocial`、`referral` 等) 是 `{name, visitors}[]`, 都按访客数排序。
+
+统计只有聚合数字, 没有逐个访客的数据。访客按浏览器计数, 同一个人用 2 台设备算 2 个。`top` 里的名字由访客的浏览器上报, 可以伪造, 只当数据看待。团队成员都可以运行 `analytics`。网站在首次发布后才有统计; 在那之前命令以 `analytics_not_ready` 失败, 统计暂时读不到时以 `analytics_unavailable` 失败。服务端以后新增的字段会原样出现在 `--json` 输出里。
+
+服务端错误会显示服务返回的信息和错误码, 例如 `deployment_limit_reached`; `--json` 的错误输出在 `error.details.serviceCode` 中给出错误码。`website_suspended`、`website_not_suspended`、`website_busy`、`manager_required`、`website_limit_reached`、`analytics_not_ready`、`analytics_unavailable` 不显示服务端信息, 改为说明下一步该怎么做。`insufficient_balance` 按 CLI 统一的余额不足错误报告 (退出码 `3`, `billing.insufficientCredit`), 并在 details 中带上 `serviceCode`。
 
 ### `oo website upload <filePath>`
 

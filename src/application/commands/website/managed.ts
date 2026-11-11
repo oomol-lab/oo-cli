@@ -10,6 +10,7 @@ import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { resolveAccountTeamIdentity, teamIdentityHeaders, teamIdentityInputShape, teamOption } from "../team/identity.ts";
+import { websiteAnalyticsQuery, websiteAnalyticsSchema, websiteAnalyticsText } from "./analytics.ts";
 import { customDomainSchema, deploymentSchema, requestWebsitesApi, sendWebsitesApi, websitePath, websiteSchema } from "./api.ts";
 import { buildWebsite } from "./build.ts";
 import { deployText, publishWebsiteBuild } from "./publish.ts";
@@ -415,6 +416,46 @@ const inquiries: CliCommandDefinition<z.infer<typeof inquiriesInput>> = {
     },
 };
 
+// The numbers behind the analytics report: totals, the previous period, a
+// series and the top pages and sources. The report URL travels with them for
+// what the numbers cannot answer.
+const analyticsInput = siteInput.extend({
+    days: z.string().optional(),
+    from: z.string().optional(),
+    limit: z.string().optional(),
+    timezone: z.string().optional(),
+    to: z.string().optional(),
+});
+const analytics: CliCommandDefinition<z.infer<typeof analyticsInput>> = {
+    name: "analytics",
+    summaryKey: "commands.website.analytics.summary",
+    descriptionKey: "commands.website.analytics.description",
+    output: "standard",
+    inputSchema: analyticsInput,
+    options: [
+        ...siteOptions,
+        { name: "days", longFlag: "--days", valueName: "days", descriptionKey: "options.websiteManaged.analyticsDays" },
+        { name: "from", longFlag: "--from", valueName: "date", descriptionKey: "options.websiteManaged.analyticsFrom" },
+        { name: "to", longFlag: "--to", valueName: "date", descriptionKey: "options.websiteManaged.analyticsTo" },
+        { name: "timezone", longFlag: "--timezone", valueName: "timezone", descriptionKey: "options.websiteManaged.analyticsTimezone" },
+        { name: "limit", longFlag: "--limit", valueName: "limit", descriptionKey: "options.websiteManaged.analyticsLimit" },
+    ],
+    handler: async (input, context) => {
+        const query = websiteAnalyticsQuery(input);
+        const site = await resolveSite(input, context);
+        const result = await requestWebsitesApi(await resolveTarget(input, context), context, {
+            path: websitePath(site, "/analytics"),
+            query,
+            // One read runs a dozen aggregate queries. When analytics is
+            // unavailable the service says so (502): the CLI-wide retries are
+            // enough, and this client's own on top would only add load.
+            retry: false,
+            schema: z.object({ analytics: websiteAnalyticsSchema }),
+        });
+        context.output.emit(result.analytics, () => context.stdout.write(websiteAnalyticsText(result.analytics, context.translator)));
+    },
+};
+
 type CustomDomain = z.infer<typeof customDomainSchema>;
 const domainResponseSchema = z.object({ custom_domain: customDomainSchema.nullable() });
 
@@ -516,4 +557,4 @@ const domain: CliCommandDefinition<z.infer<typeof siteInput>> = {
     },
 };
 
-export const managedWebsiteCommands = [create, list, get, deploy, deployments, deploymentStatus, rollback, resume, remove, domain, inquiries];
+export const managedWebsiteCommands = [create, list, get, deploy, deployments, deploymentStatus, rollback, resume, remove, domain, inquiries, analytics];

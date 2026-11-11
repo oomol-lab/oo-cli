@@ -700,6 +700,11 @@ const commandTelemetryDecisions = {
         properties: ["identity_source"],
         reason: "Records only the selected identity category; the website and its domain name are private.",
     },
+    "website.analytics": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Only records identity category; the website, its period and its visit statistics are private.",
+    },
     "website.inquiries": {
         kind: "properties",
         properties: ["identity_source"],
