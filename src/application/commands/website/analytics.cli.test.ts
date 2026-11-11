@@ -177,9 +177,12 @@ describe("website analytics command", () => {
             const systemTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
             expect((await sandbox.run(["website", "analytics", "--site", websiteId, "--from", "2026-11-01", "--to", "2026-11-07", "--json"], { fetcher })).exitCode).toBe(0);
             expect((await sandbox.run(["website", "analytics", "--site", websiteId, "--json"], { fetcher })).exitCode).toBe(0);
+            // 90 days with both ends included is the longest period.
+            expect((await sandbox.run(["website", "analytics", "--site", websiteId, "--from", "2026-01-01", "--to", "2026-03-31", "--json"], { fetcher })).exitCode).toBe(0);
             expect(queries).toEqual([
                 { from: "2026-11-01", timezone: systemTimezone, to: "2026-11-07" },
                 { timezone: systemTimezone },
+                { from: "2026-01-01", timezone: systemTimezone, to: "2026-03-31" },
             ]);
         }
         finally { await sandbox.cleanup(); }
@@ -197,6 +200,7 @@ describe("website analytics command", () => {
                 ["--from", "2026-11-01"],
                 ["--to", "2026-11-07"],
                 ["--from", "2026-11-07", "--to", "2026-11-01"],
+                ["--from", "2026-01-01", "--to", "2026-04-01"],
                 ["--from", "2026-02-30", "--to", "2026-03-01"],
                 ["--from", "11/01/2026", "--to", "2026-11-07"],
                 ["--days", "7", "--from", "2026-11-01", "--to", "2026-11-07"],

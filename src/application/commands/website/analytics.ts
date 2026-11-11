@@ -63,6 +63,7 @@ export interface WebsiteAnalyticsInput {
 const maxDays = 90;
 const maxLimit = 50;
 const dateLength = "YYYY-MM-DD".length;
+const dayMilliseconds = 86_400_000;
 
 function isCalendarDate(value: string): boolean {
     if (value.length !== dateLength || value[4] !== "-" || value[7] !== "-") {
@@ -119,7 +120,10 @@ export function websiteAnalyticsQuery(input: WebsiteAnalyticsInput): Record<stri
         query.from = requireDate(input.from, "--from");
         query.to = requireDate(input.to, "--to");
 
-        if (query.from > query.to) {
+        // Both days count, so 90 days is a difference of 89.
+        const periodDays = (Date.parse(`${query.to}T00:00:00Z`) - Date.parse(`${query.from}T00:00:00Z`)) / dayMilliseconds + 1;
+
+        if (query.from > query.to || periodDays > maxDays) {
             throw new CliUserError("errors.websiteManaged.invalidPeriod", 2);
         }
     }
