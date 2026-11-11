@@ -2415,7 +2415,7 @@ oo website list --team my-team --json
 
 `inquiries` 返回 `{items, next_cursor}`, 每页最多 50 条询盘 (`id`、`website_id`、`path`、`email`、`message`、`status`、`received_at`、`updated_at`)。用 `--cursor` 传入上页的 `next_cursor` 继续读取。此命令需要团队管理员或团队 token, 询盘内容不进入遥测。
 
-`analytics` 把网站的访问统计作为数据返回, 与 `get` 显示的报表地址并存: 报表用来深入查看, 数据用来快速回答或给脚本用。时间范围按某个时区的自然日计算: `--days <n>` 是含今天在内的最近 `n` 天 (1 到 90, 默认 7), 或用 `--from <日期> --to <日期>` (`YYYY-MM-DD`, 含两端, 最多 90 天) 指定; `--timezone <时区>` 接受 `Asia/Shanghai` 这样的 IANA 时区名, 默认取系统时区。时间范围不会超过当前时刻, 所以最后一天可能还没过完。`--limit <n>` 是每个维度返回的条数 (1 到 50, 默认 10)。时间范围不合法时不发请求, 以 `2` 退出。文本输出依次是时间范围、汇总数字及上一周期的数字、各维度的 `访客 / 浏览量`, 最后是报表地址。`--json` 返回 `{website_id, report_url, period, summary, previous, series, top, generated_at}`:
+`analytics` 把网站的访问统计作为数据返回, 与 `get` 显示的报表地址并存: 报表用来深入查看, 数据用来快速回答或给脚本用。时间范围按某个时区的自然日计算: `--days <n>` 是含今天在内的最近 `n` 天 (1 到 90, 默认 7), 或用 `--from <日期> --to <日期>` (`YYYY-MM-DD`, 含两端, 最多 90 天) 指定; `--timezone <时区>` 接受 `Asia/Shanghai` 这样的 IANA 时区名, 默认取系统时区。时间范围不会超过当前时刻, 所以最后一天可能还没过完。`--limit <n>` 是每个维度返回的条数 (1 到 50, 默认 10)。时间范围或时区不合法时不发请求, 以 `2` 退出。文本输出依次是时间范围、汇总数字及上一周期的数字、各维度的 `访客 / 浏览量`, 最后是报表地址。`--json` 返回 `{website_id, report_url, period, summary, previous, series, top, generated_at}`:
 
 - `period`: `from`、`to`、`start_at`、`end_at`、`timezone`、`unit` (2 天以内是 `hour`, 其余是 `day`) 与 `partial` (最后一天还没过完时为 `true`)。
 - `summary`: `visitors`、`visits`、`pageviews`、`bounce_rate` (只看了 1 个页面的访问占比, 0 到 1) 与 `average_visit_seconds`; 没有访问时后两项为 `null`。`previous` 是紧挨在前、时长相同的那一段的同样字段, 另有它的 `start_at` 与 `end_at`。

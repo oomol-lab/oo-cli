@@ -200,6 +200,9 @@ describe("website analytics command", () => {
                 ["--from", "2026-02-30", "--to", "2026-03-01"],
                 ["--from", "11/01/2026", "--to", "2026-11-07"],
                 ["--days", "7", "--from", "2026-11-01", "--to", "2026-11-07"],
+                ["--timezone", "Asia/Shangai"],
+                ["--timezone", "+08:00"],
+                ["--timezone", ""],
             ];
             for (const args of cases) {
                 let requested = false;

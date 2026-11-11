@@ -82,6 +82,23 @@ function requireDate(value: string, option: string): string {
     return value;
 }
 
+// An IANA time zone name the runtime knows, such as Asia/Shanghai or UTC.
+// Offsets such as +08:00 are left out: the service does not take them.
+const timezonePattern = /^[A-Z][\w+\-/]{0,63}$/i;
+
+function requireTimezone(value: string): string {
+    try {
+        if (timezonePattern.test(value)) {
+            Intl.DateTimeFormat(undefined, { timeZone: value });
+
+            return value;
+        }
+    }
+    catch {}
+
+    throw new CliUserError("errors.websiteManaged.invalidTimezone", 2, { option: "--timezone", value });
+}
+
 // The query of the analytics request. The period is counted in calendar days
 // of the time zone: `--days`, or `--from` with `--to`, or the service default.
 export function websiteAnalyticsQuery(input: WebsiteAnalyticsInput): Record<string, string> {
@@ -89,7 +106,9 @@ export function websiteAnalyticsQuery(input: WebsiteAnalyticsInput): Record<stri
     const limit = parsePositiveIntegerOption(input.limit, "errors.websiteManaged.invalidAnalyticsLimit", { max: maxLimit, optionName: "--limit" });
     const query: Record<string, string> = {
         // Days are the user's days unless told otherwise.
-        timezone: input.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timezone: input.timezone === undefined
+            ? Intl.DateTimeFormat().resolvedOptions().timeZone
+            : requireTimezone(input.timezone),
     };
 
     if (input.from !== undefined || input.to !== undefined) {
