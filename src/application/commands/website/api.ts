@@ -94,6 +94,12 @@ interface WebsitesApiCall {
     method?: "DELETE" | "POST";
     path: string;
     query?: Record<string, string>;
+    /**
+     * `false` leaves retrying to the CLI-wide fetcher instead of adding this
+     * client's own retries on top. For a read that is expensive for the
+     * service and that the caller can simply run again.
+     */
+    retry?: boolean;
 }
 
 interface WebsitesApiRequest<Value> extends WebsitesApiCall {
@@ -123,11 +129,13 @@ function websitesApiOptions(target: WebsitesApiTarget, context: WebsiteRequestCo
     return {
         authorization: target.account.apiKey,
         context: {
-            fetcher: createRetryingFetcher({
-                fetcher: context.fetcher,
-                logger: context.logger,
-                retryableStatusCodes,
-            }),
+            fetcher: request.retry === false
+                ? context.fetcher
+                : createRetryingFetcher({
+                        fetcher: context.fetcher,
+                        logger: context.logger,
+                        retryableStatusCodes,
+                    }),
             logger: context.logger,
             translator: context.translator,
         },
@@ -147,6 +155,8 @@ function websitesApiOptions(target: WebsitesApiTarget, context: WebsiteRequestCo
 
 // Service codes whose remedy is not obvious from the service message alone.
 const serviceErrorKeys: Record<string, string> = {
+    analytics_not_ready: "errors.websiteManaged.analyticsNotReady",
+    analytics_unavailable: "errors.websiteManaged.analyticsUnavailable",
     manager_required: "errors.websiteManaged.managerRequired",
     website_busy: "errors.websiteManaged.busy",
     website_limit_reached: "errors.websiteManaged.limitReached",
