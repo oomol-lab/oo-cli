@@ -492,7 +492,7 @@ describe("skills auto-trigger CLI", () => {
             await sandbox.run(["skills", "auto-trigger", "off", "oo-create-skill"]);
 
             const properties = readCommandTelemetryProperties(
-                storePaths.telemetryDirectory,
+                storePaths.databaseFilePath,
             );
 
             expect(properties).toMatchObject({
@@ -532,7 +532,7 @@ describe("skills auto-trigger CLI", () => {
             await sandbox.run(["skills", "auto-trigger", "status"]);
 
             const properties = readCommandTelemetryProperties(
-                storePaths.telemetryDirectory,
+                storePaths.databaseFilePath,
             );
 
             expect(properties).toMatchObject({
@@ -617,9 +617,9 @@ describe("skills auto-trigger CLI", () => {
 
 // The command event is the last row written by the invocation under test.
 function readCommandTelemetryProperties(
-    telemetryDirectory: string,
+    databaseFilePath: string,
 ): Record<string, unknown> {
-    const row = readTelemetryRowsForTest(telemetryDirectory).at(-1);
+    const row = readTelemetryRowsForTest(databaseFilePath).at(-1);
 
     if (row === undefined) {
         throw new Error("No telemetry row was recorded.");

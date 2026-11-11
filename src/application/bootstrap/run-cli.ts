@@ -30,6 +30,7 @@ import { FileConnectorStore } from "../../adapters/store/file-connector-store.ts
 import { FileSettingsStore } from "../../adapters/store/file-settings-store.ts";
 import { SidecarFileDownloadSessionStore } from "../../adapters/store/sidecar-file-download-session-store.ts";
 import { SqliteFileUploadStore } from "../../adapters/store/sqlite-file-upload-store.ts";
+import { SharedSqliteDatabase } from "../../adapters/store/sqlite-utils.ts";
 import { resolveStorePaths } from "../../adapters/store/store-path.ts";
 import {
     detectCliLanguageFlag,
@@ -115,6 +116,7 @@ interface CreateCliExecutionContextOptions {
         properties: Record<string, CliTelemetryPropertyValue>,
     ) => void;
     settingsStore: SettingsStore;
+    sqliteDatabase: SharedSqliteDatabase;
     suppressTelemetry: () => void;
     telemetryDirectoryPath: string;
     translator: ReturnType<typeof createTranslator>;
@@ -185,13 +187,20 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
 
     if (isTelemetryFlushInvocation(invocation)) {
         const { flushTelemetryOutbox } = await import("../telemetry/flusher.ts");
+        const flusherDatabase = new SharedSqliteDatabase(storePaths.databaseFilePath);
 
-        await flushTelemetryOutbox({
-            directoryPath: storePaths.telemetryDirectory,
-            env: invocation.env,
-            fetcher: invocation.fetcher,
-            settingsFilePath: storePaths.settingsFilePath,
-        });
+        try {
+            await flushTelemetryOutbox({
+                database: flusherDatabase,
+                env: invocation.env,
+                fetcher: invocation.fetcher,
+                settingsFilePath: storePaths.settingsFilePath,
+            });
+        }
+        finally {
+            flusherDatabase.close();
+        }
+
         return 0;
     }
 
@@ -207,9 +216,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
     let translator = bootstrapTranslator;
     let exitCode = 0;
     let authStore: AuthStore | undefined;
-    let cacheStore: CacheStore | undefined;
     let fileDownloadSessionStore: FileDownloadSessionStore | undefined;
-    let fileUploadStore: FileUploadRecordStore | undefined;
     let settingsForTelemetry: AppSettings | undefined;
     let currentVersionActiveMarkerPromise:
         | ReturnType<typeof initializeCurrentVersionActiveMarker>
@@ -234,6 +241,12 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
     }
 
     const { logger, logFilePath } = loggerHandle;
+    // The process's only SQLite connection: the sqlite-backed stores and the
+    // telemetry outbox all borrow it, and it is closed once at the very end.
+    const sqliteDatabase = new SharedSqliteDatabase(
+        storePaths.databaseFilePath,
+        logger,
+    );
     const errorOutputState: CliErrorOutputState = {
         ...(debugPathEnabled ? { debugLogPath: logFilePath } : {}),
         jsonReported: false,
@@ -291,18 +304,18 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             currentVersionActiveMarkerPromise.catch(() => {});
         }
 
-        const initializedStores = initializeCliStores(invocation, logger, storePaths);
+        const initializedStores = initializeCliStores(
+            invocation,
+            logger,
+            storePaths,
+            sqliteDatabase,
+        );
 
         authStore = initializedStores.authStore;
-        cacheStore = initializedStores.cacheStore;
-        fileUploadStore = initializedStores.fileUploadStore;
         fileDownloadSessionStore = initializedStores.fileDownloadSessionStore;
         const [settings] = await Promise.all([
             initializedStores.settingsStore.read(),
-            deleteLegacyDownloadSessionFiles(
-                storePaths.legacyDownloadSessionsFilePath,
-                logger,
-            ),
+            deleteLegacySqliteFiles(storePaths.legacySqliteFilePaths, logger),
         ]);
         settingsForTelemetry = settings;
 
@@ -317,6 +330,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
                     logger,
                     settingsStore: initializedStores.settingsStore,
                     telemetry: {
+                        database: sqliteDatabase,
                         directoryPath: storePaths.telemetryDirectory,
                         recordProperties: telemetryRecorder.recordProperties,
                         suppressCurrentInvocation: telemetryRecorder.suppress,
@@ -359,19 +373,20 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
         const context = createCliExecutionContext({
             authStore: initializedStores.authStore,
             buildInfo,
-            cacheStore,
+            cacheStore: initializedStores.cacheStore,
             catalog,
             completionRenderer,
             connectorStore: initializedStores.connectorStore,
             fetcher,
             fileDownloadSessionStore,
-            fileUploadStore,
+            fileUploadStore: initializedStores.fileUploadStore,
             invocation,
             logger,
             logFilePath,
             packageName,
             recordTelemetryProperties: telemetryRecorder.recordProperties,
             settingsStore: initializedStores.settingsStore,
+            sqliteDatabase,
             suppressTelemetry: telemetryRecorder.suppress,
             telemetryDirectoryPath: storePaths.telemetryDirectory,
             translator,
@@ -459,8 +474,6 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
     finally {
         exitCode = await closeCleanupResources(
             [
-                cacheStore,
-                fileUploadStore,
                 fileDownloadSessionStore,
                 // A rejected marker creation was already reported by the
                 // try block and left nothing to close.
@@ -485,6 +498,7 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             await emitCliCommandTelemetry({
                 authStore,
                 buildCommit: buildInfo.commitHash ?? "unknown",
+                database: sqliteDatabase,
                 env: invocation.env,
                 execPath: currentExecPath,
                 exitCode,
@@ -510,6 +524,17 @@ export async function executeCli(invocation: CliInvocation): Promise<number> {
             );
         }
 
+        // Closed last: recording the telemetry event above was its final use.
+        exitCode = await closeCleanupResources(
+            [sqliteDatabase],
+            exitCode,
+            logger,
+            invocation.stderr,
+            translator,
+            invocation.argv,
+            errorOutputState,
+        );
+
         loggerHandle.close();
 
         // A JSON error report already carries the path as `debugLogPath`, so
@@ -526,6 +551,7 @@ function initializeCliStores(
     invocation: CliInvocation,
     logger: Logger,
     storePaths: ReturnType<typeof resolveStorePaths>,
+    sqliteDatabase: SharedSqliteDatabase,
 ): InitializedCliStores {
     return {
         authStore: invocation.authStore
@@ -534,7 +560,7 @@ function initializeCliStores(
                 logger,
             }),
         cacheStore: invocation.cacheStore
-            ?? new SqliteCacheStore(storePaths.cacheFilePath, logger),
+            ?? new SqliteCacheStore(sqliteDatabase, logger),
         connectorStore: invocation.connectorStore
             ?? new FileConnectorStore({
                 filePath: storePaths.connectorFilePath,
@@ -546,10 +572,7 @@ function initializeCliStores(
                 { logger },
             ),
         fileUploadStore: invocation.fileUploadStore
-            ?? new SqliteFileUploadStore(
-                storePaths.uploadsFilePath,
-                logger,
-            ),
+            ?? new SqliteFileUploadStore(sqliteDatabase, logger),
         settingsStore: invocation.settingsStore
             ?? new FileSettingsStore({
                 filePath: storePaths.settingsFilePath,
@@ -558,26 +581,30 @@ function initializeCliStores(
     };
 }
 
-async function deleteLegacyDownloadSessionFiles(
-    filePath: string,
+// Earlier releases kept one SQLite file per store. Their data is disposable
+// and is never migrated into the shared database, so the files are deleted.
+async function deleteLegacySqliteFiles(
+    filePaths: readonly string[],
     logger: Logger,
 ): Promise<void> {
-    try {
-        await Promise.all([
-            rm(filePath, { force: true }),
-            rm(`${filePath}-shm`, { force: true }),
-            rm(`${filePath}-wal`, { force: true }),
-        ]);
-    }
-    catch (error) {
-        logger.debug(
-            {
-                err: error,
-                ...withStorePath(filePath),
-            },
-            "Legacy sqlite file download resume sessions cleanup failed.",
-        );
-    }
+    await Promise.all(filePaths.map(async (filePath) => {
+        try {
+            await Promise.all([
+                rm(filePath, { force: true }),
+                rm(`${filePath}-shm`, { force: true }),
+                rm(`${filePath}-wal`, { force: true }),
+            ]);
+        }
+        catch (error) {
+            logger.debug(
+                {
+                    err: error,
+                    ...withStorePath(filePath),
+                },
+                "Legacy sqlite file cleanup failed.",
+            );
+        }
+    }));
 }
 
 function createCliExecutionContext(
@@ -606,6 +633,7 @@ function createCliExecutionContext(
         catalog: options.catalog,
         telemetry: {
             recordProperties: options.recordTelemetryProperties,
+            database: options.sqliteDatabase,
             directoryPath: options.telemetryDirectoryPath,
             suppressCurrentInvocation: options.suppressTelemetry,
         },

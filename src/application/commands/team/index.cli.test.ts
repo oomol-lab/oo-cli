@@ -9,6 +9,7 @@ import {
     createCliSandbox,
     defaultLoginDefaultTeamResponse,
     expectTelemetryFreeOfTeamIdentity,
+    readSandboxTelemetryRows,
     toRequest,
     writeAuthFile,
     writeAuthFileWithDefaultTeam,
@@ -16,7 +17,6 @@ import {
 import { APP_NAME } from "../../config/app-config.ts";
 import {
     parseTelemetryRowPayload,
-    readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
 
 const teamsResponse = {
@@ -74,9 +74,7 @@ describe("teamCommand CLI", () => {
                     return new Response(JSON.stringify(teamsResponse));
                 },
             });
-            const telemetryPayload = readTelemetryRowsForTest(
-                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-            )
+            const telemetryPayload = readSandboxTelemetryRows(sandbox)
                 .map(row => parseTelemetryRowPayload(row))
                 .find(payload => payload?.properties?.command_full === "team.list");
 
@@ -396,9 +394,7 @@ describe("teamCommand CLI", () => {
             const textResult = await sandbox.run(["team", "current"], {
                 fetcher: respondWithTeam,
             });
-            const telemetryPayload = readTelemetryRowsForTest(
-                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-            )
+            const telemetryPayload = readSandboxTelemetryRows(sandbox)
                 .map(row => parseTelemetryRowPayload(row))
                 .find(payload => payload?.properties?.command_full === "team.current");
 
@@ -538,9 +534,7 @@ describe("teamCommand CLI", () => {
                 fetcher,
             });
             const textResult = await sandbox.run(["team", "current"], { fetcher });
-            const telemetryPayload = readTelemetryRowsForTest(
-                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-            )
+            const telemetryPayload = readSandboxTelemetryRows(sandbox)
                 .map(row => parseTelemetryRowPayload(row))
                 .find(payload => payload?.properties?.command_full === "team.current");
 

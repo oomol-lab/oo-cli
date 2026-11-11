@@ -1,4 +1,32 @@
+import type { FlushTelemetryOutboxOptions } from "../flusher.ts";
+import type { TelemetryBatchItem } from "../payload.ts";
+import { withSharedSqliteDatabase } from "../../../../__tests__/helpers.ts";
+import { flushTelemetryOutbox } from "../flusher.ts";
+import { enqueueTelemetryBatchItem } from "../outbox.ts";
 import { createCliCommandTelemetryPayload } from "../payload.ts";
+
+// Each helper below opens the shared database, uses it and closes it again,
+// the way a separate CLI process would.
+export async function enqueueTelemetryItemForTest(
+    databaseFilePath: string,
+    item: TelemetryBatchItem,
+    nowMs: number,
+): Promise<boolean> {
+    return withSharedSqliteDatabase(
+        databaseFilePath,
+        database => enqueueTelemetryBatchItem({ database, item, nowMs }),
+    );
+}
+
+export async function flushTelemetryOutboxForTest(
+    databaseFilePath: string,
+    options: Omit<FlushTelemetryOutboxOptions, "database">,
+): Promise<void> {
+    await withSharedSqliteDatabase(
+        databaseFilePath,
+        database => flushTelemetryOutbox({ ...options, database }),
+    );
+}
 
 export function createTelemetryItemForTest(index: number) {
     const uuidSuffix = index.toString(16).padStart(12, "0").slice(-12);

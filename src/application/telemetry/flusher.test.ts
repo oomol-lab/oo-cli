@@ -7,17 +7,20 @@ import {
     createTemporaryDirectory,
     useTemporaryDirectoryCleanup,
 } from "../../../__tests__/helpers.ts";
+import { SharedSqliteDatabase } from "../../adapters/store/sqlite-utils.ts";
 import { renderSettingsFile } from "../schemas/settings.ts";
-import { createTelemetryItemForTest } from "./__tests__/helpers.ts";
+import {
+    createTelemetryItemForTest,
+    enqueueTelemetryItemForTest,
+    flushTelemetryOutboxForTest,
+} from "./__tests__/helpers.ts";
 import {
     telemetryChunkMaxBytes,
     telemetryLeaseMaxEvents,
     telemetryLeaseTtlMs,
     telemetryMaxEventAgeMs,
 } from "./constants.ts";
-import { flushTelemetryOutbox } from "./flusher.ts";
 import {
-    enqueueTelemetryBatchItem,
     leaseReadyTelemetryRows,
     openTelemetryDatabase,
     readTelemetryRowsForTest,
@@ -30,20 +33,15 @@ describe("telemetry flusher", () => {
     test("deletes successful chunks and keeps failed plus later chunks", async () => {
         const root = await createTemporaryDirectory("telemetry-flush-partial");
         temporaryDirectories.track(root);
-        const directoryPath = join(root, "telemetry");
+        const databaseFilePath = join(root, "oo.sqlite");
         const settingsFilePath = join(root, "settings.toml");
         let requestCount = 0;
 
         for (let index = 0; index < 201; index += 1) {
-            enqueueTelemetryBatchItem({
-                directoryPath,
-                item: createTelemetryItemForTest(index),
-                nowMs: 1000 + index,
-            });
+            await enqueueTelemetryItemForTest(databaseFilePath, createTelemetryItemForTest(index), 1000 + index);
         }
 
-        await flushTelemetryOutbox({
-            directoryPath,
+        await flushTelemetryOutboxForTest(databaseFilePath, {
             env: {},
             fetcher: async () => {
                 requestCount += 1;
@@ -56,7 +54,7 @@ describe("telemetry flusher", () => {
             settingsFilePath,
         });
 
-        const rows = readTelemetryRowsForTest(directoryPath);
+        const rows = readTelemetryRowsForTest(databaseFilePath);
         const attemptedRows = rows.filter(row => row.attempts === 1);
         const unsentRows = rows.filter(row => row.attempts === 0);
 
@@ -69,7 +67,7 @@ describe("telemetry flusher", () => {
     test("flushes large outboxes as bounded request chunks", async () => {
         const root = await createTemporaryDirectory("telemetry-flush-large-outbox");
         temporaryDirectories.track(root);
-        const directoryPath = join(root, "telemetry");
+        const databaseFilePath = join(root, "oo.sqlite");
         const settingsFilePath = join(root, "settings.toml");
         const eventCount = 1500;
         const items: TelemetryBatchItem[] = [];
@@ -82,9 +80,9 @@ describe("telemetry flusher", () => {
             items.push(item);
         }
 
-        writeTelemetryBatchItemsForTest(directoryPath, items, 1000);
+        writeTelemetryBatchItemsForTest(databaseFilePath, items, 1000);
 
-        const rowsBefore = readTelemetryRowsForTest(directoryPath);
+        const rowsBefore = readTelemetryRowsForTest(databaseFilePath);
         const totalPayloadBytes = rowsBefore.reduce(
             (total, row) => total + row.payloadBytes,
             0,
@@ -93,8 +91,7 @@ describe("telemetry flusher", () => {
         expect(rowsBefore).toHaveLength(eventCount);
         expect(totalPayloadBytes).toBeGreaterThan(5 * 1024 * 1024);
 
-        await flushTelemetryOutbox({
-            directoryPath,
+        await flushTelemetryOutboxForTest(databaseFilePath, {
             env: {},
             fetcher: async (_, init) => {
                 requestSizes.push(Buffer.byteLength(String(init?.body ?? ""), "utf8"));
@@ -105,7 +102,7 @@ describe("telemetry flusher", () => {
         });
 
         expect(Math.max(...requestSizes)).toBeLessThanOrEqual(telemetryChunkMaxBytes);
-        expect(readTelemetryRowsForTest(directoryPath)).toHaveLength(
+        expect(readTelemetryRowsForTest(databaseFilePath)).toHaveLength(
             eventCount - telemetryLeaseMaxEvents,
         );
     });
@@ -113,29 +110,23 @@ describe("telemetry flusher", () => {
     test("drops rows after the second failed post attempt", async () => {
         const root = await createTemporaryDirectory("telemetry-flush-attempts");
         temporaryDirectories.track(root);
-        const directoryPath = join(root, "telemetry");
+        const databaseFilePath = join(root, "oo.sqlite");
         const settingsFilePath = join(root, "settings.toml");
 
-        enqueueTelemetryBatchItem({
-            directoryPath,
-            item: createTelemetryItemForTest(1),
-            nowMs: 1000,
-        });
+        await enqueueTelemetryItemForTest(databaseFilePath, createTelemetryItemForTest(1), 1000);
 
-        await flushTelemetryOutbox({
-            directoryPath,
+        await flushTelemetryOutboxForTest(databaseFilePath, {
             env: {},
             fetcher: async () => new Response("", { status: 503 }),
             now: () => 10_000,
             random: () => 0,
             settingsFilePath,
         });
-        expect(readTelemetryRowsForTest(directoryPath)).toMatchObject([
+        expect(readTelemetryRowsForTest(databaseFilePath)).toMatchObject([
             { attempts: 1 },
         ]);
 
-        await flushTelemetryOutbox({
-            directoryPath,
+        await flushTelemetryOutboxForTest(databaseFilePath, {
             env: {},
             fetcher: async () => new Response("", { status: 503 }),
             now: () => 80_000,
@@ -143,24 +134,19 @@ describe("telemetry flusher", () => {
             settingsFilePath,
         });
 
-        expect(readTelemetryRowsForTest(directoryPath)).toEqual([]);
+        expect(readTelemetryRowsForTest(databaseFilePath)).toEqual([]);
     });
 
     test("treats timed out post requests as retryable failures", async () => {
         const root = await createTemporaryDirectory("telemetry-flush-timeout");
         temporaryDirectories.track(root);
-        const directoryPath = join(root, "telemetry");
+        const databaseFilePath = join(root, "oo.sqlite");
         const settingsFilePath = join(root, "settings.toml");
         let signalSeen = false;
 
-        enqueueTelemetryBatchItem({
-            directoryPath,
-            item: createTelemetryItemForTest(1),
-            nowMs: 1000,
-        });
+        await enqueueTelemetryItemForTest(databaseFilePath, createTelemetryItemForTest(1), 1000);
 
-        await flushTelemetryOutbox({
-            directoryPath,
+        await flushTelemetryOutboxForTest(databaseFilePath, {
             env: {},
             fetcher: async (_, init) => {
                 const signal = init?.signal;
@@ -183,7 +169,7 @@ describe("telemetry flusher", () => {
         });
 
         expect(signalSeen).toBe(true);
-        expect(readTelemetryRowsForTest(directoryPath)).toMatchObject([
+        expect(readTelemetryRowsForTest(databaseFilePath)).toMatchObject([
             {
                 attempts: 1,
                 leaseUntilMs: null,
@@ -194,18 +180,13 @@ describe("telemetry flusher", () => {
     test("drops expired rows before posting", async () => {
         const root = await createTemporaryDirectory("telemetry-flush-expired");
         temporaryDirectories.track(root);
-        const directoryPath = join(root, "telemetry");
+        const databaseFilePath = join(root, "oo.sqlite");
         const settingsFilePath = join(root, "settings.toml");
         let requestCount = 0;
 
-        enqueueTelemetryBatchItem({
-            directoryPath,
-            item: createTelemetryItemForTest(1),
-            nowMs: 1000,
-        });
+        await enqueueTelemetryItemForTest(databaseFilePath, createTelemetryItemForTest(1), 1000);
 
-        await flushTelemetryOutbox({
-            directoryPath,
+        await flushTelemetryOutboxForTest(databaseFilePath, {
             env: {},
             fetcher: async () => {
                 requestCount += 1;
@@ -216,13 +197,13 @@ describe("telemetry flusher", () => {
         });
 
         expect(requestCount).toBe(0);
-        expect(readTelemetryRowsForTest(directoryPath)).toEqual([]);
+        expect(readTelemetryRowsForTest(databaseFilePath)).toEqual([]);
     });
 
     test("rechecks opt-out before posting", async () => {
         const root = await createTemporaryDirectory("telemetry-flush-opt-out");
         temporaryDirectories.track(root);
-        const directoryPath = join(root, "telemetry");
+        const databaseFilePath = join(root, "oo.sqlite");
         const settingsFilePath = join(root, "settings.toml");
         let requestCount = 0;
 
@@ -234,14 +215,9 @@ describe("telemetry flusher", () => {
                 },
             }),
         );
-        enqueueTelemetryBatchItem({
-            directoryPath,
-            item: createTelemetryItemForTest(1),
-            nowMs: 1000,
-        });
+        await enqueueTelemetryItemForTest(databaseFilePath, createTelemetryItemForTest(1), 1000);
 
-        await flushTelemetryOutbox({
-            directoryPath,
+        await flushTelemetryOutboxForTest(databaseFilePath, {
             env: {},
             fetcher: async () => {
                 requestCount += 1;
@@ -252,7 +228,7 @@ describe("telemetry flusher", () => {
         });
 
         expect(requestCount).toBe(0);
-        expect(readTelemetryRowsForTest(directoryPath)).toMatchObject([
+        expect(readTelemetryRowsForTest(databaseFilePath)).toMatchObject([
             {
                 attempts: 0,
                 leaseUntilMs: null,
@@ -263,24 +239,17 @@ describe("telemetry flusher", () => {
     test("drops poison rows without blocking later valid rows", async () => {
         const root = await createTemporaryDirectory("telemetry-flush-poison");
         temporaryDirectories.track(root);
-        const directoryPath = join(root, "telemetry");
+        const databaseFilePath = join(root, "oo.sqlite");
         const settingsFilePath = join(root, "settings.toml");
         let requestBody: string | undefined;
         const poisonItem = createTelemetryItemForTest(1);
         const validItem = createTelemetryItemForTest(2);
 
-        enqueueTelemetryBatchItem({
-            directoryPath,
-            item: poisonItem,
-            nowMs: 1000,
-        });
-        enqueueTelemetryBatchItem({
-            directoryPath,
-            item: validItem,
-            nowMs: 1001,
-        });
+        await enqueueTelemetryItemForTest(databaseFilePath, poisonItem, 1000);
+        await enqueueTelemetryItemForTest(databaseFilePath, validItem, 1001);
 
-        const database = openTelemetryDatabase(directoryPath);
+        const sharedDatabase = new SharedSqliteDatabase(databaseFilePath);
+        const database = openTelemetryDatabase(sharedDatabase);
 
         try {
             database.query(
@@ -291,11 +260,10 @@ describe("telemetry flusher", () => {
             });
         }
         finally {
-            database.close();
+            sharedDatabase.close();
         }
 
-        await flushTelemetryOutbox({
-            directoryPath,
+        await flushTelemetryOutboxForTest(databaseFilePath, {
             env: {},
             fetcher: async (_, init) => {
                 requestBody = String(init?.body ?? "");
@@ -305,7 +273,7 @@ describe("telemetry flusher", () => {
             settingsFilePath,
         });
 
-        expect(readTelemetryRowsForTest(directoryPath)).toEqual([]);
+        expect(readTelemetryRowsForTest(databaseFilePath)).toEqual([]);
         expect(JSON.parse(requestBody ?? "{}")).toMatchObject({
             batch: [
                 {
@@ -318,21 +286,16 @@ describe("telemetry flusher", () => {
     test("splits multi-row payload-too-large chunks before deleting rows", async () => {
         const root = await createTemporaryDirectory("telemetry-flush-split-413");
         temporaryDirectories.track(root);
-        const directoryPath = join(root, "telemetry");
+        const databaseFilePath = join(root, "oo.sqlite");
         const settingsFilePath = join(root, "settings.toml");
         const requestBatches: string[][] = [];
         const items = [1, 2, 3].map(index => createTelemetryItemForTest(index));
 
         for (const [index, item] of items.entries()) {
-            enqueueTelemetryBatchItem({
-                directoryPath,
-                item,
-                nowMs: 1000 + index,
-            });
+            await enqueueTelemetryItemForTest(databaseFilePath, item, 1000 + index);
         }
 
-        await flushTelemetryOutbox({
-            directoryPath,
+        await flushTelemetryOutboxForTest(databaseFilePath, {
             env: {},
             fetcher: async (_, init) => {
                 const request = JSON.parse(String(init?.body ?? "{}")) as {
@@ -354,24 +317,19 @@ describe("telemetry flusher", () => {
             [items[0]!.uuid],
             [items[1]!.uuid, items[2]!.uuid],
         ]);
-        expect(readTelemetryRowsForTest(directoryPath)).toEqual([]);
+        expect(readTelemetryRowsForTest(databaseFilePath)).toEqual([]);
     });
 
     test("drops single-row payload-too-large chunks", async () => {
         const root = await createTemporaryDirectory("telemetry-flush-single-413");
         temporaryDirectories.track(root);
-        const directoryPath = join(root, "telemetry");
+        const databaseFilePath = join(root, "oo.sqlite");
         const settingsFilePath = join(root, "settings.toml");
         let requestCount = 0;
 
-        enqueueTelemetryBatchItem({
-            directoryPath,
-            item: createTelemetryItemForTest(1),
-            nowMs: 1000,
-        });
+        await enqueueTelemetryItemForTest(databaseFilePath, createTelemetryItemForTest(1), 1000);
 
-        await flushTelemetryOutbox({
-            directoryPath,
+        await flushTelemetryOutboxForTest(databaseFilePath, {
             env: {},
             fetcher: async () => {
                 requestCount += 1;
@@ -382,34 +340,30 @@ describe("telemetry flusher", () => {
         });
 
         expect(requestCount).toBe(1);
-        expect(readTelemetryRowsForTest(directoryPath)).toEqual([]);
+        expect(readTelemetryRowsForTest(databaseFilePath)).toEqual([]);
     });
 
     test("does not count a leased row as attempted before posting starts", async () => {
         const root = await createTemporaryDirectory("telemetry-flush-crash-before-post");
         temporaryDirectories.track(root);
-        const directoryPath = join(root, "telemetry");
+        const databaseFilePath = join(root, "oo.sqlite");
         const settingsFilePath = join(root, "settings.toml");
         const leasedAtMs = 10_000;
         let requestCount = 0;
 
-        enqueueTelemetryBatchItem({
-            directoryPath,
-            item: createTelemetryItemForTest(1),
-            nowMs: 1000,
-        });
+        await enqueueTelemetryItemForTest(databaseFilePath, createTelemetryItemForTest(1), 1000);
 
-        const database = openTelemetryDatabase(directoryPath);
+        const sharedDatabase = new SharedSqliteDatabase(databaseFilePath);
+        const database = openTelemetryDatabase(sharedDatabase);
 
         try {
             expect(leaseReadyTelemetryRows(database, leasedAtMs)).toHaveLength(1);
         }
         finally {
-            database.close();
+            sharedDatabase.close();
         }
 
-        await flushTelemetryOutbox({
-            directoryPath,
+        await flushTelemetryOutboxForTest(databaseFilePath, {
             env: {},
             fetcher: async () => {
                 requestCount += 1;
@@ -420,15 +374,14 @@ describe("telemetry flusher", () => {
         });
 
         expect(requestCount).toBe(0);
-        expect(readTelemetryRowsForTest(directoryPath)).toMatchObject([
+        expect(readTelemetryRowsForTest(databaseFilePath)).toMatchObject([
             {
                 attempts: 0,
                 leaseUntilMs: leasedAtMs + telemetryLeaseTtlMs,
             },
         ]);
 
-        await flushTelemetryOutbox({
-            directoryPath,
+        await flushTelemetryOutboxForTest(databaseFilePath, {
             env: {},
             fetcher: async () => {
                 requestCount += 1;
@@ -439,16 +392,17 @@ describe("telemetry flusher", () => {
         });
 
         expect(requestCount).toBe(1);
-        expect(readTelemetryRowsForTest(directoryPath)).toEqual([]);
+        expect(readTelemetryRowsForTest(databaseFilePath)).toEqual([]);
     });
 });
 
 function writeTelemetryBatchItemsForTest(
-    directoryPath: string,
+    databaseFilePath: string,
     items: readonly TelemetryBatchItem[],
     firstNowMs: number,
 ): void {
-    const database = openTelemetryDatabase(directoryPath);
+    const sharedDatabase = new SharedSqliteDatabase(databaseFilePath);
+    const database = openTelemetryDatabase(sharedDatabase);
 
     try {
         database.run("BEGIN IMMEDIATE");
@@ -499,6 +453,6 @@ function writeTelemetryBatchItemsForTest(
         }
     }
     finally {
-        database.close();
+        sharedDatabase.close();
     }
 }

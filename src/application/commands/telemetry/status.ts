@@ -22,10 +22,7 @@ export const telemetryStatusCommand: CliCommandDefinition = {
         });
         const summary = context.telemetry === undefined
             ? { pendingCount: 0 }
-            : readTelemetryOutboxSummary(
-                    context.telemetry.directoryPath,
-                    context.logger,
-                );
+            : readTelemetryOutboxSummary(context.telemetry.database);
         const deviceId = context.telemetry === undefined
             ? undefined
             : await readTelemetryDeviceIdIfExists(context.telemetry.directoryPath);

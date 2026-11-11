@@ -7,13 +7,13 @@ import { describe, expect, test } from "bun:test";
 
 import {
     createCliSandbox,
+    readSandboxTelemetryRows,
     toRequest,
     writeAuthFile,
 } from "../../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import {
     parseTelemetryRowPayload,
-    readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
 
 describe("connector login CLI", () => {
@@ -42,9 +42,7 @@ describe("connector login CLI", () => {
             );
             const fileContent = await readFile(connectorFilePath(sandbox), "utf8");
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(result.exitCode).toBe(0);
@@ -127,9 +125,7 @@ describe("connector login CLI", () => {
             );
             const fileContent = await readFile(connectorFilePath(sandbox), "utf8");
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(result.exitCode).toBe(0);

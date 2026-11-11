@@ -1,20 +1,10 @@
 import type { Logger } from "pino";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, rmSync, statSync } from "node:fs";
 import { dirname } from "node:path";
 import { constants, Database } from "bun:sqlite";
 
-import { withStorePath } from "../../application/logging/log-fields.ts";
-
-export interface OpenSqliteDatabaseOptions {
-    busyTimeoutMs?: number;
-}
-
-export interface CloseSqliteDatabaseOptions {
-    checkpointMode: "PASSIVE" | "TRUNCATE";
-    closedLogMessage: string;
-    filePath: string;
-    logger?: Logger;
-}
+import { logCategory } from "../../application/logging/log-categories.ts";
+import { withCategory, withStorePath } from "../../application/logging/log-fields.ts";
 
 // The single registry of SQLite failures a caller may degrade past rather than
 // escalate. Matching is by family, so an extended code such as
@@ -32,10 +22,162 @@ const recoverableSqliteErrorCodes = new Set([
     "SQLITE_NOTADB",
     "SQLITE_READONLY",
 ]);
+// Failures that mean the file itself is not a usable database. Everything the
+// database holds is disposable, so such a file is deleted and recreated.
+const unusableSqliteFileErrorCodes = ["SQLITE_CORRUPT", "SQLITE_NOTADB"];
+const sqliteDatabaseFileSuffixes = ["", "-shm", "-wal"];
 
-export function openSqliteDatabase(
+/**
+ * The one SQLite database file every sqlite-backed store shares, opened at most
+ * once per process.
+ *
+ * SQLite lets any number of processes hold the file open but only one of them
+ * write at a time; the others wait for the write lock. Concurrent `oo`
+ * processes therefore stay correct as long as every writer follows three
+ * rules, which this class and its callers uphold together:
+ *
+ * - The connection runs in WAL mode, so readers never block the writer and the
+ *   writer never blocks readers.
+ * - `busy_timeout` is set before anything else touches the file, so waiting
+ *   for another process's write lock is a bounded retry instead of an
+ *   immediate SQLITE_BUSY.
+ * - A write that spans several statements runs inside a `BEGIN IMMEDIATE`
+ *   transaction (`connection.transaction(...).immediate()`). It takes the
+ *   write lock up front; a deferred transaction that upgrades from reading to
+ *   writing fails with SQLITE_BUSY without ever consulting `busy_timeout`.
+ */
+export class SharedSqliteDatabase {
+    private busyTimeoutMs: number | undefined;
+    private connection: Database | undefined;
+
+    // The database opens on first use: many invocations never touch it, and
+    // opening costs file I/O plus a checkpoint when it is closed.
+    constructor(
+        private readonly filePath: string,
+        private readonly logger?: Logger,
+    ) {}
+
+    getFilePath(): string {
+        return this.filePath;
+    }
+
+    // Lets a read-only caller skip a database that was never created instead of
+    // creating it just to find it empty.
+    exists(): boolean {
+        return this.connection !== undefined || isExistingFile(this.filePath);
+    }
+
+    /**
+     * Returns the process-wide connection, opening it when needed.
+     *
+     * `busyTimeoutMs` is how long the caller's next statements may wait for
+     * another process's write lock. The stores have different budgets (a
+     * best-effort cache write gives up far sooner than a record the user is
+     * waiting on), so every caller states its own right before it runs
+     * statements instead of inheriting whatever the previous caller chose.
+     */
+    connect(busyTimeoutMs: number): Database {
+        if (this.connection === undefined) {
+            this.connection = this.open(busyTimeoutMs);
+        }
+        else if (this.busyTimeoutMs !== busyTimeoutMs) {
+            this.connection.run(`PRAGMA busy_timeout = ${busyTimeoutMs};`);
+        }
+
+        this.busyTimeoutMs = busyTimeoutMs;
+
+        return this.connection;
+    }
+
+    close(): void {
+        const connection = this.connection;
+
+        if (connection === undefined) {
+            return;
+        }
+
+        this.connection = undefined;
+        this.busyTimeoutMs = undefined;
+
+        try {
+            try {
+                connection.fileControl(constants.SQLITE_FCNTL_PERSIST_WAL, 0);
+                // PASSIVE never waits on another process's readers or writer,
+                // so closing cannot stall them or be stalled by them.
+                connection.run("PRAGMA wal_checkpoint(PASSIVE);");
+            }
+            catch (error) {
+                if (!isRecoverableSqliteError(error)) {
+                    throw error;
+                }
+
+                this.logger?.debug(
+                    {
+                        err: error,
+                        sqliteErrorCode: error.code,
+                        ...withStorePath(this.filePath),
+                    },
+                    "Sqlite checkpoint skipped after a recoverable failure.",
+                );
+            }
+        }
+        finally {
+            connection.close();
+            this.logger?.debug(
+                {
+                    ...withStorePath(this.filePath),
+                },
+                "Sqlite database closed.",
+            );
+        }
+    }
+
+    private open(busyTimeoutMs: number): Database {
+        let connection: Database;
+
+        try {
+            connection = openConfiguredSqliteDatabase(this.filePath, busyTimeoutMs);
+        }
+        catch (error) {
+            if (!isUnusableSqliteFileError(error)) {
+                throw error;
+            }
+
+            try {
+                removeSqliteDatabaseFiles(this.filePath);
+            }
+            catch {
+                // Another process still holds the file (Windows refuses to
+                // delete it), so report the original failure instead.
+                throw error;
+            }
+
+            this.logger?.warn(
+                {
+                    ...withCategory(logCategory.systemError),
+                    err: error,
+                    sqliteErrorCode: error.code,
+                    ...withStorePath(this.filePath),
+                },
+                "Sqlite database file was unusable and has been recreated.",
+            );
+            connection = openConfiguredSqliteDatabase(this.filePath, busyTimeoutMs);
+        }
+
+        this.logger?.debug(
+            {
+                ...withStorePath(this.filePath),
+            },
+            "Sqlite database opened.",
+        );
+
+        return connection;
+    }
+}
+
+function openConfiguredSqliteDatabase(
     filePath: string,
-    options?: OpenSqliteDatabaseOptions,
+    busyTimeoutMs: number,
 ): Database {
     mkdirSync(dirname(filePath), { recursive: true });
 
@@ -46,11 +188,13 @@ export function openSqliteDatabase(
     let configured = false;
 
     try {
-        if (options?.busyTimeoutMs !== undefined) {
-            database.run(`PRAGMA busy_timeout = ${options.busyTimeoutMs};`);
-        }
-
+        // First, so the journal mode switch below waits for a process that is
+        // creating the same file at this moment instead of failing.
+        database.run(`PRAGMA busy_timeout = ${busyTimeoutMs};`);
         database.run("PRAGMA journal_mode = WAL;");
+        // WAL stays consistent without syncing every commit; skipping that
+        // sync keeps each write lock short for the processes waiting on it.
+        database.run("PRAGMA synchronous = NORMAL;");
         configured = true;
 
         return database;
@@ -62,41 +206,28 @@ export function openSqliteDatabase(
     }
 }
 
-export function closeSqliteDatabase(
-    database: Database,
-    options: CloseSqliteDatabaseOptions,
-): void {
-    const { checkpointMode, closedLogMessage, filePath, logger } = options;
+function removeSqliteDatabaseFiles(filePath: string): void {
+    for (const suffix of sqliteDatabaseFileSuffixes) {
+        rmSync(`${filePath}${suffix}`, { force: true });
+    }
+}
 
+function isExistingFile(filePath: string): boolean {
     try {
-        try {
-            database.fileControl(constants.SQLITE_FCNTL_PERSIST_WAL, 0);
-            database.run(`PRAGMA wal_checkpoint(${checkpointMode});`);
-        }
-        catch (error) {
-            if (!isRecoverableSqliteError(error)) {
-                throw error;
-            }
+        return statSync(filePath).isFile();
+    }
+    catch {
+        return false;
+    }
+}
 
-            logger?.debug(
-                {
-                    err: error,
-                    sqliteErrorCode: error.code,
-                    ...withStorePath(filePath),
-                },
-                "Sqlite checkpoint skipped after a recoverable failure.",
-            );
-        }
-    }
-    finally {
-        database.close();
-        logger?.debug(
-            {
-                ...withStorePath(filePath),
-            },
-            closedLogMessage,
+function isUnusableSqliteFileError(error: unknown): error is Error & {
+    code: string;
+} {
+    return isRecoverableSqliteError(error)
+        && unusableSqliteFileErrorCodes.some(
+            code => matchesSqliteErrorCodeFamily(error.code, code),
         );
-    }
 }
 
 export function isRecoverableSqliteError(error: unknown): error is Error & {

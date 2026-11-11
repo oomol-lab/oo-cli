@@ -1,16 +1,13 @@
-import { join } from "node:path";
-
 import { describe, expect, test } from "bun:test";
 
 import {
     createCliSandbox,
     createCliSnapshot,
     readLatestLogContent,
+    readSandboxTelemetryRows,
 } from "../../../__tests__/helpers.ts";
-import { APP_NAME } from "../config/app-config.ts";
 import {
     parseTelemetryRowPayload,
-    readTelemetryRowsForTest,
 } from "../telemetry/outbox.ts";
 
 describe("checkUpdateCommand CLI", () => {
@@ -32,9 +29,7 @@ describe("checkUpdateCommand CLI", () => {
             );
             const content = await readLatestLogContent(sandbox);
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(createCliSnapshot(result)).toMatchSnapshot();

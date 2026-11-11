@@ -1,14 +1,11 @@
-import { join } from "node:path";
-
 import { describe, expect, test } from "bun:test";
 
 import {
     createCliSandbox,
+    readSandboxTelemetryRows,
     toRequest,
     writeAuthFile,
 } from "../../../__tests__/helpers.ts";
-import { APP_NAME } from "../config/app-config.ts";
-import { readTelemetryRowsForTest } from "../telemetry/outbox.ts";
 
 const teamsResponse = {
     teams: [
@@ -96,9 +93,7 @@ describe("internal completion command", () => {
             expect(requests[0]?.url).toBe(
                 "https://relation-control.oomol.com/v1/me/teams",
             );
-            expect(readTelemetryRowsForTest(
-                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-            )).toEqual([]);
+            expect(readSandboxTelemetryRows(sandbox)).toEqual([]);
         }
         finally {
             await sandbox.cleanup();

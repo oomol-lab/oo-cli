@@ -19,10 +19,7 @@ export function disableTelemetryForCurrentInvocation(
     }
 
     try {
-        purgeTelemetryOutboxIfExists(
-            context.telemetry.directoryPath,
-            context.logger,
-        );
+        purgeTelemetryOutboxIfExists(context.telemetry.database);
     }
     catch (error) {
         context.logger.debug(

@@ -9,6 +9,7 @@ import {
     createTemporaryDirectory,
 } from "../../../__tests__/helpers.ts";
 import { APP_NAME } from "../../application/config/app-config.ts";
+import { SharedSqliteDatabase } from "../store/sqlite-utils.ts";
 import { resolveStorePaths } from "../store/store-path.ts";
 import {
     resolveSqliteCacheTableName,
@@ -16,7 +17,7 @@ import {
 } from "./sqlite-cache.ts";
 
 describe("SqliteCacheStore", () => {
-    test("creates the sqlite file in the data directory and shares tables by id", async () => {
+    test("stores namespaces in the shared sqlite file and shares tables by id", async () => {
         const root = await createTemporaryDirectory("sqlite-cache");
         const storePaths = resolveStorePaths({
             appName: APP_NAME,
@@ -26,7 +27,8 @@ describe("SqliteCacheStore", () => {
             },
             platform: "linux",
         });
-        const cacheStore = new SqliteCacheStore(storePaths.cacheFilePath);
+        const sharedDatabase = new SharedSqliteDatabase(storePaths.databaseFilePath);
+        const cacheStore = new SqliteCacheStore(sharedDatabase);
         const primaryCache = cacheStore.getCache<string>({
             id: "search",
         });
@@ -38,7 +40,7 @@ describe("SqliteCacheStore", () => {
         });
 
         try {
-            await expect(stat(cacheStore.getFilePath())).resolves.toMatchObject({
+            await expect(stat(storePaths.databaseFilePath)).resolves.toMatchObject({
                 isFile: expect.any(Function),
             });
 
@@ -47,10 +49,9 @@ describe("SqliteCacheStore", () => {
             expect(primaryCache.get("query:image")).toBe("first");
             expect(sharedCache.get("query:image")).toBe("first");
             expect(isolatedCache.get("query:image")).toBeNull();
-            expect(cacheStore.getFilePath()).toBe(storePaths.cacheFilePath);
         }
         finally {
-            cacheStore.close();
+            sharedDatabase.close();
         }
     });
 
@@ -64,15 +65,12 @@ describe("SqliteCacheStore", () => {
             },
             platform: "linux",
         });
-        const unusedCacheStore = new SqliteCacheStore(storePaths.cacheFilePath);
+        const sharedDatabase = new SharedSqliteDatabase(storePaths.databaseFilePath);
+        const cacheStore = new SqliteCacheStore(sharedDatabase);
 
-        unusedCacheStore.close();
-
-        await expect(stat(storePaths.cacheFilePath)).rejects.toMatchObject({
+        await expect(stat(storePaths.databaseFilePath)).rejects.toMatchObject({
             code: "ENOENT",
         });
-
-        const cacheStore = new SqliteCacheStore(storePaths.cacheFilePath);
 
         try {
             cacheStore.getCache<string>({ id: "search" }).set("key", "value");
@@ -80,7 +78,7 @@ describe("SqliteCacheStore", () => {
             expect(cacheStore.getCache<string>({ id: "search" }).get("key")).toBe("value");
         }
         finally {
-            cacheStore.close();
+            sharedDatabase.close();
         }
     });
 
@@ -95,15 +93,16 @@ describe("SqliteCacheStore", () => {
             },
             platform: "linux",
         });
-        const cacheStore = new SqliteCacheStore(
-            storePaths.cacheFilePath,
+        const sharedDatabase = new SharedSqliteDatabase(
+            storePaths.databaseFilePath,
             logCapture.logger,
         );
+        const cacheStore = new SqliteCacheStore(sharedDatabase, logCapture.logger);
         const cache = cacheStore.getCache<string>({
             id: "search",
         });
         const tableName = resolveSqliteCacheTableName("search");
-        const database = new Database(cacheStore.getFilePath(), {
+        const database = new Database(storePaths.databaseFilePath, {
             strict: true,
         });
 
@@ -139,7 +138,7 @@ describe("SqliteCacheStore", () => {
         }
         finally {
             database.close();
-            cacheStore.close();
+            sharedDatabase.close();
             logCapture.close();
         }
     });
@@ -154,7 +153,8 @@ describe("SqliteCacheStore", () => {
             },
             platform: "linux",
         });
-        const cacheStore = new SqliteCacheStore(storePaths.cacheFilePath);
+        const sharedDatabase = new SharedSqliteDatabase(storePaths.databaseFilePath);
+        const cacheStore = new SqliteCacheStore(sharedDatabase);
         let now = 1_000;
         const cache = cacheStore.getCache<string>({
             id: "search",
@@ -171,11 +171,11 @@ describe("SqliteCacheStore", () => {
             cache.set("fresh", "new");
         }
         finally {
-            cacheStore.close();
+            sharedDatabase.close();
         }
 
         const tableName = resolveSqliteCacheTableName("search");
-        const database = new Database(cacheStore.getFilePath(), {
+        const database = new Database(storePaths.databaseFilePath, {
             strict: true,
         });
 
@@ -205,7 +205,8 @@ describe("SqliteCacheStore", () => {
             },
             platform: "linux",
         });
-        const cacheStore = new SqliteCacheStore(storePaths.cacheFilePath);
+        const sharedDatabase = new SharedSqliteDatabase(storePaths.databaseFilePath);
+        const cacheStore = new SqliteCacheStore(sharedDatabase);
         let now = 1_000;
         const cache = cacheStore.getCache<string>({
             id: "search",
@@ -229,53 +230,7 @@ describe("SqliteCacheStore", () => {
             expect(cache.get("c")).toBe("gamma");
         }
         finally {
-            cacheStore.close();
-        }
-    });
-
-    test("truncates wal sidecar files on close", async () => {
-        const root = await createTemporaryDirectory("sqlite-cache-close");
-        const logCapture = createLogCapture();
-        const storePaths = resolveStorePaths({
-            appName: APP_NAME,
-            env: {
-                HOME: root,
-                XDG_CONFIG_HOME: root,
-            },
-            platform: "linux",
-        });
-        const cacheStore = new SqliteCacheStore(
-            storePaths.cacheFilePath,
-            logCapture.logger,
-        );
-        const cache = cacheStore.getCache<string>({
-            id: "search",
-        });
-        const walFilePath = `${cacheStore.getFilePath()}-wal`;
-        const shmFilePath = `${cacheStore.getFilePath()}-shm`;
-
-        try {
-            cache.set("query:image", "cached");
-
-            await expect(stat(walFilePath)).resolves.toMatchObject({
-                isFile: expect.any(Function),
-            });
-            await expect(stat(shmFilePath)).resolves.toMatchObject({
-                isFile: expect.any(Function),
-            });
-
-            cacheStore.close();
-
-            await expect(stat(walFilePath)).rejects.toBeDefined();
-            await expect(stat(shmFilePath)).rejects.toBeDefined();
-
-            const logs = logCapture.read();
-
-            expect(logs).toContain(`"msg":"Sqlite cache store closed."`);
-            expect(logs).not.toContain(`"storePathExists"`);
-        }
-        finally {
-            logCapture.close();
+            sharedDatabase.close();
         }
     });
 
@@ -291,9 +246,9 @@ describe("SqliteCacheStore", () => {
             platform: "linux",
         });
 
-        await mkdir(dirname(storePaths.cacheFilePath), { recursive: true });
+        await mkdir(dirname(storePaths.databaseFilePath), { recursive: true });
 
-        const lockDatabase = new Database(storePaths.cacheFilePath, {
+        const lockDatabase = new Database(storePaths.databaseFilePath, {
             create: true,
             strict: true,
         });
@@ -301,10 +256,11 @@ describe("SqliteCacheStore", () => {
         lockDatabase.run("PRAGMA journal_mode = WAL;");
         lockDatabase.run("BEGIN IMMEDIATE;");
 
-        const cacheStore = new SqliteCacheStore(
-            storePaths.cacheFilePath,
+        const sharedDatabase = new SharedSqliteDatabase(
+            storePaths.databaseFilePath,
             logCapture.logger,
         );
+        const cacheStore = new SqliteCacheStore(sharedDatabase, logCapture.logger);
         const cache = cacheStore.getCache<string>({
             id: "search",
         });
@@ -329,7 +285,7 @@ describe("SqliteCacheStore", () => {
         finally {
             lockDatabase.run("ROLLBACK;");
             lockDatabase.close();
-            cacheStore.close();
+            sharedDatabase.close();
             logCapture.close();
         }
     });
@@ -346,12 +302,13 @@ describe("SqliteCacheStore", () => {
             platform: "linux",
         });
 
-        await mkdir(storePaths.cacheFilePath, { recursive: true });
+        await mkdir(storePaths.databaseFilePath, { recursive: true });
 
-        const cacheStore = new SqliteCacheStore(
-            storePaths.cacheFilePath,
+        const sharedDatabase = new SharedSqliteDatabase(
+            storePaths.databaseFilePath,
             logCapture.logger,
         );
+        const cacheStore = new SqliteCacheStore(sharedDatabase, logCapture.logger);
         const cache = cacheStore.getCache<string>({
             id: "search",
         });
@@ -379,7 +336,7 @@ describe("SqliteCacheStore", () => {
             );
         }
         finally {
-            cacheStore.close();
+            sharedDatabase.close();
             logCapture.close();
         }
     });
@@ -395,18 +352,19 @@ describe("SqliteCacheStore", () => {
             },
             platform: "linux",
         });
-        const cacheStore = new SqliteCacheStore(
-            storePaths.cacheFilePath,
+        const sharedDatabase = new SharedSqliteDatabase(
+            storePaths.databaseFilePath,
             logCapture.logger,
         );
+        const cacheStore = new SqliteCacheStore(sharedDatabase, logCapture.logger);
         const cache = cacheStore.getCache<string>({
             id: "search",
             maxEntries: 2,
         });
 
-        await mkdir(dirname(storePaths.cacheFilePath), { recursive: true });
+        await mkdir(dirname(storePaths.databaseFilePath), { recursive: true });
 
-        const lockDatabase = new Database(storePaths.cacheFilePath, {
+        const lockDatabase = new Database(storePaths.databaseFilePath, {
             strict: true,
         });
         let holdsWriteLock = false;
@@ -454,8 +412,55 @@ describe("SqliteCacheStore", () => {
             }
 
             lockDatabase.close();
-            cacheStore.close();
+            sharedDatabase.close();
             logCapture.close();
+        }
+    });
+
+    test("keeps its own lock budget after another store used a longer one", async () => {
+        const root = await createTemporaryDirectory("sqlite-cache-lock-budget");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: {
+                HOME: root,
+                XDG_CONFIG_HOME: root,
+            },
+            platform: "linux",
+        });
+        const sharedDatabase = new SharedSqliteDatabase(storePaths.databaseFilePath);
+        const cache = new SqliteCacheStore(sharedDatabase).getCache<string>({
+            id: "search",
+        });
+        const lockDatabase = new Database(storePaths.databaseFilePath, {
+            strict: true,
+        });
+        const otherStoreBusyTimeoutMs = 30_000;
+        let holdsWriteLock = false;
+
+        try {
+            // Another store sharing the connection waits far longer for locks.
+            sharedDatabase.connect(otherStoreBusyTimeoutMs);
+            lockDatabase.run("BEGIN IMMEDIATE;");
+            holdsWriteLock = true;
+
+            const startedAtMs = Date.now();
+
+            cache.set("blocked", "value");
+
+            expect(Date.now() - startedAtMs).toBeLessThan(otherStoreBusyTimeoutMs / 2);
+
+            lockDatabase.run("ROLLBACK;");
+            holdsWriteLock = false;
+
+            expect(cache.get("blocked")).toBeNull();
+        }
+        finally {
+            if (holdsWriteLock) {
+                lockDatabase.run("ROLLBACK;");
+            }
+
+            lockDatabase.close();
+            sharedDatabase.close();
         }
     });
 });

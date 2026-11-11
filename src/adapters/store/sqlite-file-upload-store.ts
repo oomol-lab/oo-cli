@@ -6,8 +6,8 @@ import type {
     FileUploadRecord,
     FileUploadRecordStore,
 } from "../../application/contracts/file-upload-store.ts";
+import type { SharedSqliteDatabase } from "./sqlite-utils.ts";
 import { withStorePath } from "../../application/logging/log-fields.ts";
-import { closeSqliteDatabase, openSqliteDatabase } from "./sqlite-utils.ts";
 
 interface FileUploadRow {
     downloadUrl: string;
@@ -19,18 +19,15 @@ interface FileUploadRow {
 }
 
 export const uploadedFilesTableName = "uploaded_files";
+// An upload record is written once the upload itself has succeeded, so losing
+// it to a busy database would be worse than waiting for the lock.
+const sqliteFileUploadBusyTimeoutMs = 5000;
 
 export class SqliteFileUploadStore implements FileUploadRecordStore {
-    private database: Database | undefined;
-
     constructor(
-        private readonly filePath: string,
+        private readonly database: SharedSqliteDatabase,
         private readonly logger?: Logger,
     ) {}
-
-    getFilePath(): string {
-        return this.filePath;
-    }
 
     save(record: FileUploadRecord): void {
         this.getDatabase().query(
@@ -67,7 +64,7 @@ export class SqliteFileUploadStore implements FileUploadRecordStore {
                 fileSize: record.fileSize,
                 id: record.id,
                 uploadedAtMs: record.uploadedAtMs,
-                ...withStorePath(this.filePath),
+                ...withStorePath(this.database.getFilePath()),
             },
             "File upload record stored.",
         );
@@ -124,7 +121,7 @@ export class SqliteFileUploadStore implements FileUploadRecordStore {
                 now: options.now,
                 recordCount: rows.length,
                 status: options.status ?? "all",
-                ...withStorePath(this.filePath),
+                ...withStorePath(this.database.getFilePath()),
             },
             "File upload records listed.",
         );
@@ -147,7 +144,7 @@ export class SqliteFileUploadStore implements FileUploadRecordStore {
             {
                 deletedCount,
                 now,
-                ...withStorePath(this.filePath),
+                ...withStorePath(this.database.getFilePath()),
             },
             "Expired file upload records deleted.",
         );
@@ -155,38 +152,12 @@ export class SqliteFileUploadStore implements FileUploadRecordStore {
         return deletedCount;
     }
 
-    close(): void {
-        const database = this.database;
-
-        if (!database) {
-            return;
-        }
-
-        this.database = undefined;
-        closeSqliteDatabase(database, {
-            checkpointMode: "PASSIVE",
-            closedLogMessage: "Sqlite file upload store closed.",
-            filePath: this.filePath,
-            logger: this.logger,
-        });
-    }
-
     private getDatabase(): Database {
-        if (this.database) {
-            return this.database;
-        }
+        const connection = this.database.connect(sqliteFileUploadBusyTimeoutMs);
 
-        const database = openSqliteDatabase(this.filePath);
-        ensureUploadTable(database);
-        this.database = database;
-        this.logger?.debug(
-            {
-                ...withStorePath(this.filePath),
-            },
-            "Sqlite file upload store opened.",
-        );
+        ensureUploadTable(connection);
 
-        return this.database;
+        return connection;
     }
 }
 

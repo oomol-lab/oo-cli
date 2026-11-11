@@ -92,7 +92,7 @@ describe("skills update command", () => {
             expect(result.exitCode).toBe(0);
             expect(result.stdout).toBe("No updatable oo-managed skills were found.\n");
             expect(parseTelemetryRowPayload(
-                readTelemetryRowsForTest(storePaths.telemetryDirectory)[0]!,
+                readTelemetryRowsForTest(storePaths.databaseFilePath)[0]!,
             )).toMatchObject({
                 properties: {
                     command_full: "skills.update",
@@ -299,7 +299,7 @@ describe("skills update command", () => {
                 ].join("\n"),
             );
             expect(parseTelemetryRowPayload(
-                readTelemetryRowsForTest(storePaths.telemetryDirectory)[0]!,
+                readTelemetryRowsForTest(storePaths.databaseFilePath)[0]!,
             )).toMatchObject({
                 properties: {
                     command_full: "skills.update",

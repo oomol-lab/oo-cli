@@ -320,11 +320,11 @@ function addUserDataItems(args: {
         },
     );
 
-    // The running process keeps the SQLite databases under the data directory
-    // (cache, uploads, download sessions) open. Windows refuses to delete files
-    // held open by a live process, so on Windows the data directory is handed to
-    // the post-exit helper instead of being removed in-process. On Unix an open
-    // file can still be unlinked, so it is removed immediately.
+    // The running process may hold the shared SQLite database under the data
+    // directory (cache, uploads, telemetry outbox) open. Windows refuses to
+    // delete files held open by a live process, so on Windows the data directory
+    // is handed to the post-exit helper instead of being removed in-process. On
+    // Unix an open file can still be unlinked, so it is removed immediately.
     (args.isWindows ? args.deferred : args.immediate).push({
         category: "user-data",
         label: "Cache and data",

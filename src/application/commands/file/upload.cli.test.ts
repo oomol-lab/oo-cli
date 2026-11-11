@@ -8,26 +8,28 @@ import {
     createCliSandbox,
     createCliSnapshot,
     expectTelemetryFreeOfTeamIdentity,
+    readSandboxTelemetryRows,
     toRequest,
+    withSharedSqliteDatabase,
     writeAuthFile,
     writeAuthFileWithDefaultTeam,
 } from "../../../../__tests__/helpers.ts";
+import { SqliteFileUploadStore } from "../../../adapters/store/sqlite-file-upload-store.ts";
 import { resolveStorePaths } from "../../../adapters/store/store-path.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import {
     parseTelemetryRowPayload,
-    readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
 import { maxFileUploadSizeBytes } from "./shared.ts";
 
 describe("file upload CLI", () => {
     test("supports file upload and persists the uploaded record", async () => {
         const sandbox = await createCliSandbox();
-        const uploadsFilePath = resolveStorePaths({
+        const databaseFilePath = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
-        }).uploadsFilePath;
+        }).databaseFilePath;
         const localFilePath = join(sandbox.env.HOME!, "sample.txt");
 
         try {
@@ -103,13 +105,11 @@ describe("file upload CLI", () => {
                     },
                 },
             );
-            const database = new Database(uploadsFilePath, {
+            const database = new Database(databaseFilePath, {
                 strict: true,
             });
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             try {
@@ -396,11 +396,11 @@ describe("file upload CLI", () => {
 
     test("stores normalized download URLs before persisting uploaded records", async () => {
         const sandbox = await createCliSandbox();
-        const uploadsFilePath = resolveStorePaths({
+        const databaseFilePath = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
-        }).uploadsFilePath;
+        }).databaseFilePath;
         const uploadedFileName = "\u53051.jpg";
         const localFilePath = join(sandbox.env.HOME!, uploadedFileName);
 
@@ -417,7 +417,7 @@ describe("file upload CLI", () => {
                     }),
                 },
             );
-            const database = new Database(uploadsFilePath, {
+            const database = new Database(databaseFilePath, {
                 strict: true,
             });
 
@@ -453,11 +453,11 @@ describe("file upload CLI", () => {
 
     test("rejects invalid complete upload download URLs without persisting records", async () => {
         const sandbox = await createCliSandbox();
-        const uploadsFilePath = resolveStorePaths({
+        const databaseFilePath = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
-        }).uploadsFilePath;
+        }).databaseFilePath;
         const localFilePath = join(sandbox.env.HOME!, "invalid-download-url.txt");
 
         try {
@@ -479,7 +479,10 @@ describe("file upload CLI", () => {
             expect(result.stderr).toContain(
                 "The file upload service returned an unsupported response body.",
             );
-            await expect(Bun.file(uploadsFilePath).exists()).resolves.toBeFalse();
+            await expect(withSharedSqliteDatabase(
+                databaseFilePath,
+                database => new SqliteFileUploadStore(database).list({ now: 0 }),
+            )).resolves.toEqual([]);
         }
         finally {
             await Bun.file(localFilePath).delete();
@@ -498,9 +501,7 @@ describe("file upload CLI", () => {
 
             const result = await sandbox.run(["file", "upload", localFilePath]);
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(result.exitCode).toBe(2);
@@ -662,9 +663,7 @@ function readUploadTelemetryPayload(
     sandbox: Awaited<ReturnType<typeof createCliSandbox>>,
 ) {
     return parseTelemetryRowPayload(
-        readTelemetryRowsForTest(
-            join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-        )[0]!,
+        readSandboxTelemetryRows(sandbox)[0]!,
     );
 }
 

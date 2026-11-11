@@ -21,10 +21,12 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
 （大小写不敏感）。
 
 - `OO_CONFIG_DIR`：覆盖配置根目录，其中包含 `auth.toml`、`connector.toml`、
-  `settings.toml` 和 telemetry 数据（在未设置 `OO_DATA_DIR` 时也包含 `data`
-  子目录）。优先级高于 `XDG_CONFIG_HOME`。
-- `OO_DATA_DIR`：覆盖数据目录，其中包含本地缓存、上传和下载会话状态。默认值为
-  `<配置根目录>/data`。
+  `settings.toml` 和 telemetry 的 device id（在未设置 `OO_DATA_DIR` 时也包含
+  `data` 子目录）。优先级高于 `XDG_CONFIG_HOME`。
+- `OO_DATA_DIR`：覆盖数据目录。其中包含 CLI 唯一的 SQLite 数据库 `oo.sqlite`
+  （本地缓存、上传记录和待发送的 telemetry 事件）以及下载会话状态。默认值为
+  `<配置根目录>/data`。多个 `oo` 进程可以同时安全地使用该数据库；其中的内容都可
+  丢弃，删除该文件只会重置这些本地状态。
 - `OO_OPEN_FLOW_COMMAND_DIR`：本地联调 Open Flow 时，让 `oo flow`
   使用指定的已展开命令产物目录。该目录必须包含 `entry.js`；Open Flow
   仓库的标准构建会将它写到

@@ -1,6 +1,4 @@
-import type { CacheStore } from "../contracts/cache.ts";
 import type { FileDownloadSessionStore } from "../contracts/file-download-session-store.ts";
-import type { FileUploadRecordStore } from "../contracts/file-upload-store.ts";
 import type { SettingsStore } from "../contracts/settings-store.ts";
 
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
@@ -14,7 +12,10 @@ import {
     createTextBuffer,
     expectCliUserError,
     readLatestLogContent,
+    readSandboxTelemetryRows,
+    resolveSandboxStorePaths,
     toRequest,
+    withSharedSqliteDatabase,
     writeAuthFile,
 } from "../../../__tests__/helpers.ts";
 import packageManifest from "../../../package.json" with { type: "json" };
@@ -26,13 +27,13 @@ import { APP_NAME } from "../config/app-config.ts";
 import { CliUserError } from "../contracts/cli.ts";
 import { createTelemetryItemForTest } from "../telemetry/__tests__/helpers.ts";
 import {
+    telemetryDisabledEnvKey,
     telemetryInternalCommand,
     telemetryInternalEnvKey,
 } from "../telemetry/constants.ts";
 import {
     enqueueTelemetryBatchItem,
     parseTelemetryRowPayload,
-    readTelemetryRowsForTest,
 } from "../telemetry/outbox.ts";
 import { createTerminalColors } from "../terminal-colors.ts";
 import { createDetachedStdin, createLazyInput, executeCli } from "./run-cli.ts";
@@ -208,20 +209,19 @@ describe("runCli bootstrap", () => {
         }
     });
 
-    test("does not create the sqlite cache file when the command never uses the cache", async () => {
+    test("does not create the sqlite database when nothing in the invocation uses it", async () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const cacheFilePath = join(
-                sandbox.env.XDG_CONFIG_HOME!,
-                APP_NAME,
-                "data",
-                "cache.sqlite",
-            );
+            // Recording a telemetry event would be the only use.
+            sandbox.env[telemetryDisabledEnvKey] = "1";
+
             const result = await sandbox.run(["--help"]);
 
             expect(result.exitCode).toBe(0);
-            await expect(stat(cacheFilePath)).rejects.toMatchObject({
+            await expect(
+                stat(resolveSandboxStorePaths(sandbox).databaseFilePath),
+            ).rejects.toMatchObject({
                 code: "ENOENT",
             });
         }
@@ -230,30 +230,35 @@ describe("runCli bootstrap", () => {
         }
     });
 
-    test("deletes legacy sqlite download session files during cli startup", async () => {
+    test("deletes the per-store sqlite files of earlier releases during cli startup", async () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const legacyDownloadSessionsFilePath = resolveStorePaths({
-                appName: APP_NAME,
-                env: sandbox.env,
-                platform: process.platform,
-            }).legacyDownloadSessionsFilePath;
-            const legacyFilePaths = [
-                legacyDownloadSessionsFilePath,
-                `${legacyDownloadSessionsFilePath}-shm`,
-                `${legacyDownloadSessionsFilePath}-wal`,
-            ];
+            const storePaths = resolveSandboxStorePaths(sandbox);
+            const legacyFilePaths = storePaths.legacySqliteFilePaths.flatMap(
+                filePath => [filePath, `${filePath}-shm`, `${filePath}-wal`],
+            );
 
-            await mkdir(dirname(legacyDownloadSessionsFilePath), { recursive: true });
-            await Promise.all(legacyFilePaths.map(path => writeFile(path, "legacy")));
+            expect(storePaths.legacySqliteFilePaths).toEqual([
+                join(storePaths.dataDirectory, "cache.sqlite"),
+                join(storePaths.dataDirectory, "download-sessions.sqlite"),
+                join(storePaths.dataDirectory, "uploads.sqlite"),
+                join(storePaths.telemetryDirectory, "telemetry.sqlite"),
+            ]);
 
-            const result = await sandbox.run(["--help"]);
+            await Promise.all(legacyFilePaths.map(async (path) => {
+                await mkdir(dirname(path), { recursive: true });
+                await writeFile(path, "legacy");
+            }));
+
+            const result = await sandbox.run(["config", "list"]);
 
             expect(result.exitCode).toBe(0);
             await Promise.all(legacyFilePaths.map(async (path) => {
                 await expect(Bun.file(path).exists()).resolves.toBeFalse();
             }));
+            // The invocation's own telemetry event lands in the shared file.
+            expect(readSandboxTelemetryRows(sandbox)).toHaveLength(1);
         }
         finally {
             await sandbox.cleanup();
@@ -511,9 +516,7 @@ describe("runCli bootstrap", () => {
 
         try {
             const invalidLang = await sandbox.run(["--lang", "fr", "--help"]);
-            const rows = readTelemetryRowsForTest(
-                resolveSandboxTelemetryDirectory(sandbox),
-            );
+            const rows = readSandboxTelemetryRows(sandbox);
             const payload = parseTelemetryRowPayload(rows[0]!);
 
             expect(invalidLang.exitCode).toBe(2);
@@ -546,9 +549,7 @@ describe("runCli bootstrap", () => {
             process.env.AI_AGENT = "v0";
 
             const result = await sandbox.run(["config", "list"]);
-            const rows = readTelemetryRowsForTest(
-                resolveSandboxTelemetryDirectory(sandbox),
-            );
+            const rows = readSandboxTelemetryRows(sandbox);
             const payload = parseTelemetryRowPayload(rows[0]!);
 
             expect(result.exitCode).toBe(0);
@@ -576,15 +577,17 @@ describe("runCli bootstrap", () => {
         const sandbox = await createCliSandbox();
         const stdout = createTextBuffer();
         const stderr = createTextBuffer();
-        const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
         let requestCount = 0;
 
         try {
-            enqueueTelemetryBatchItem({
-                directoryPath: telemetryDirectoryPath,
-                item: createTelemetryItemForTest(1),
-                nowMs: Date.now(),
-            });
+            await withSharedSqliteDatabase(
+                resolveSandboxStorePaths(sandbox).databaseFilePath,
+                database => enqueueTelemetryBatchItem({
+                    database,
+                    item: createTelemetryItemForTest(1),
+                    nowMs: Date.now(),
+                }),
+            );
 
             const exitCode = await executeCli({
                 argv: [telemetryInternalCommand],
@@ -606,7 +609,7 @@ describe("runCli bootstrap", () => {
             expect(requestCount).toBe(1);
             expect(stdout.read()).toBe("");
             expect(stderr.read()).toBe("");
-            expect(readTelemetryRowsForTest(telemetryDirectoryPath)).toEqual([]);
+            expect(readSandboxTelemetryRows(sandbox)).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
@@ -620,9 +623,7 @@ describe("runCli bootstrap", () => {
             sandbox.env[telemetryInternalEnvKey] = "1";
 
             const result = await sandbox.run(["config", "list"]);
-            const rows = readTelemetryRowsForTest(
-                resolveSandboxTelemetryDirectory(sandbox),
-            );
+            const rows = readSandboxTelemetryRows(sandbox);
             const payload = parseTelemetryRowPayload(rows[0]!);
 
             expect(result.exitCode).toBe(0);
@@ -687,21 +688,16 @@ describe("runCli bootstrap", () => {
         const sandbox = await createCliSandbox();
         const stdout = createTextBuffer();
         const stderr = createTextBuffer();
-        const closeOrder: CleanupResourceName[] = [];
+        const closeLog: string[] = [];
 
         try {
             const exitCode = await executeCli({
                 argv: ["config", "get", "lang"],
-                cacheStore: createCleanupCacheStore(closeOrder, new Set()),
                 cwd: sandbox.cwd,
                 env: sandbox.env,
                 fileDownloadSessionStore: createCleanupFileDownloadSessionStore(
-                    closeOrder,
-                    new Set(),
-                ),
-                fileUploadStore: createCleanupFileUploadStore(
-                    closeOrder,
-                    new Set(),
+                    closeLog,
+                    false,
                 ),
                 settingsStore: createFailingSettingsStore(
                     new Error("settings read failed"),
@@ -710,17 +706,11 @@ describe("runCli bootstrap", () => {
                 stdout: stdout.writer,
                 systemLocale: "en-US",
             });
-            const rows = readTelemetryRowsForTest(
-                resolveSandboxTelemetryDirectory(sandbox),
-            );
+            const rows = readSandboxTelemetryRows(sandbox);
             const payload = parseTelemetryRowPayload(rows[0]!);
 
             expect(exitCode).toBe(1);
-            expect(closeOrder).toEqual([
-                "cache",
-                "fileUpload",
-                "fileDownloadSession",
-            ]);
+            expect(closeLog).toEqual(["fileDownloadSession"]);
             expect(stderr.read()).toBe(
                 "Unexpected error: settings read failed\n",
             );
@@ -765,85 +755,31 @@ describe("runCli bootstrap", () => {
             const result = await sandbox.run(["config", "list"]);
 
             expect(result.exitCode).toBe(1);
-            expect(readTelemetryRowsForTest(
-                resolveSandboxTelemetryDirectory(sandbox),
-            )).toEqual([]);
+            expect(readSandboxTelemetryRows(sandbox)).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
         }
     });
 
-    test("reports cache store cleanup failures and keeps closing the remaining stores", async () => {
+    test("reports a store cleanup failure and still closes the shared sqlite database", async () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const result = await runCleanupFailureScenario(sandbox, ["cache"]);
+            const result = await runCleanupFailureScenario(sandbox);
 
             expect(result.exitCode).toBe(1);
-            expect(result.closeOrder).toEqual([
-                "cache",
-                "fileUpload",
-                "fileDownloadSession",
-            ]);
-            expect(result.stderr).toBe(
-                "Unexpected error: cache store close failed\n",
-            );
-            expect(result.logContent).toContain(
-                "Failed to close a resource cleanly.",
-            );
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("reports file upload store cleanup failures and keeps closing the remaining stores", async () => {
-        const sandbox = await createCliSandbox();
-
-        try {
-            const result = await runCleanupFailureScenario(sandbox, [
-                "fileUpload",
-            ]);
-
-            expect(result.exitCode).toBe(1);
-            expect(result.closeOrder).toEqual([
-                "cache",
-                "fileUpload",
-                "fileDownloadSession",
-            ]);
-            expect(result.stderr).toBe(
-                "Unexpected error: file upload store close failed\n",
-            );
-            expect(result.logContent).toContain(
-                "Failed to close a resource cleanly.",
-            );
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("reports file download session store cleanup failures and keeps closing the remaining stores", async () => {
-        const sandbox = await createCliSandbox();
-
-        try {
-            const result = await runCleanupFailureScenario(sandbox, [
-                "fileDownloadSession",
-            ]);
-
-            expect(result.exitCode).toBe(1);
-            expect(result.closeOrder).toEqual([
-                "cache",
-                "fileUpload",
-                "fileDownloadSession",
-            ]);
+            expect(result.closeLog).toEqual(["fileDownloadSession"]);
             expect(result.stderr).toBe(
                 "Unexpected error: file download session store close failed\n",
             );
             expect(result.logContent).toContain(
                 "Failed to close a resource cleanly.",
             );
+            // The invocation's telemetry event opened the shared database
+            // after the failed cleanup; it is still closed at the very end.
+            expect(readSandboxTelemetryRows(sandbox)).toHaveLength(1);
+            expect(result.logContent).toContain("Sqlite database closed.");
         }
         finally {
             await sandbox.cleanup();
@@ -856,22 +792,18 @@ describe("runCli bootstrap", () => {
         try {
             const result = await runCleanupFailureScenario(
                 sandbox,
-                ["cache", "fileUpload"],
                 ["no-such-command", "--json"],
             );
 
             expect(result.exitCode).toBe(2);
-            expect(result.closeOrder).toEqual([
-                "cache",
-                "fileUpload",
-                "fileDownloadSession",
-            ]);
+            expect(result.closeLog).toEqual(["fileDownloadSession"]);
             expect(result.stderr.trim().split("\n")).toHaveLength(1);
             expect(JSON.parse(result.stderr)).toMatchObject({
                 error: { code: "commander.unknownCommand", exitCode: 2 },
             });
-            expect(result.logContent).toContain("cache store close failed");
-            expect(result.logContent).toContain("file upload store close failed");
+            expect(result.logContent).toContain(
+                "file download session store close failed",
+            );
         }
         finally {
             await sandbox.cleanup();
@@ -884,7 +816,6 @@ describe("runCli bootstrap", () => {
         try {
             const result = await runCleanupFailureScenario(
                 sandbox,
-                ["cache", "fileUpload"],
                 ["--help", "--json"],
             );
 
@@ -894,41 +825,9 @@ describe("runCli bootstrap", () => {
                 error: {
                     code: "unexpected",
                     exitCode: 1,
-                    message: "Unexpected error: cache store close failed",
+                    message: "Unexpected error: file download session store close failed",
                 },
             });
-            expect(result.logContent).toContain("file upload store close failed");
-        }
-        finally {
-            await sandbox.cleanup();
-        }
-    });
-
-    test("continues cleanup when multiple stores fail to close", async () => {
-        const sandbox = await createCliSandbox();
-
-        try {
-            const result = await runCleanupFailureScenario(sandbox, [
-                "cache",
-                "fileUpload",
-                "fileDownloadSession",
-            ]);
-
-            expect(result.exitCode).toBe(1);
-            expect(result.closeOrder).toEqual([
-                "cache",
-                "fileUpload",
-                "fileDownloadSession",
-            ]);
-            // Only the first failure is reported; the rest go to the log.
-            expect(result.stderr).toBe(
-                "Unexpected error: cache store close failed\n",
-            );
-            expect(result.logContent).toContain("cache store close failed");
-            expect(result.logContent).toContain("file upload store close failed");
-            expect(result.logContent).toContain(
-                "file download session store close failed",
-            );
         }
         finally {
             await sandbox.cleanup();
@@ -936,35 +835,26 @@ describe("runCli bootstrap", () => {
     });
 });
 
-type CleanupResourceName
-    = | "cache"
-        | "fileUpload"
-        | "fileDownloadSession";
-
 async function runCleanupFailureScenario(
     sandbox: Awaited<ReturnType<typeof createCliSandbox>>,
-    failingResources: readonly CleanupResourceName[],
     argv: readonly string[] = ["--help"],
 ): Promise<{
-    closeOrder: CleanupResourceName[];
+    closeLog: string[];
     exitCode: number;
     logContent: string;
     stderr: string;
 }> {
     const stdout = createTextBuffer();
     const stderr = createTextBuffer();
-    const closeOrder: CleanupResourceName[] = [];
-    const resourceSet = new Set(failingResources);
+    const closeLog: string[] = [];
     const exitCode = await executeCli({
         argv,
-        cacheStore: createCleanupCacheStore(closeOrder, resourceSet),
         cwd: sandbox.cwd,
         env: sandbox.env,
         fileDownloadSessionStore: createCleanupFileDownloadSessionStore(
-            closeOrder,
-            resourceSet,
+            closeLog,
+            true,
         ),
-        fileUploadStore: createCleanupFileUploadStore(closeOrder, resourceSet),
         stdout: stdout.writer,
         stderr: stderr.writer,
         systemLocale: "en-US",
@@ -972,74 +862,22 @@ async function runCleanupFailureScenario(
     });
 
     return {
-        closeOrder,
+        closeLog,
         exitCode,
         logContent: await readLatestLogContent(sandbox),
         stderr: stderr.read(),
     };
 }
 
-function createCleanupCacheStore(
-    closeOrder: CleanupResourceName[],
-    resourceSet: Set<CleanupResourceName>,
-): CacheStore {
-    return {
-        close() {
-            closeOrder.push("cache");
-
-            if (resourceSet.has("cache")) {
-                throw new Error("cache store close failed");
-            }
-        },
-        getCache() {
-            return {
-                clear() {},
-                delete() {
-                    return false;
-                },
-                get() {
-                    return null;
-                },
-                has() {
-                    return false;
-                },
-                set() {},
-            };
-        },
-    };
-}
-
-function createCleanupFileUploadStore(
-    closeOrder: CleanupResourceName[],
-    resourceSet: Set<CleanupResourceName>,
-): FileUploadRecordStore {
-    return {
-        close() {
-            closeOrder.push("fileUpload");
-
-            if (resourceSet.has("fileUpload")) {
-                throw new Error("file upload store close failed");
-            }
-        },
-        deleteExpired() {
-            return 0;
-        },
-        list() {
-            return [];
-        },
-        save() {},
-    };
-}
-
 function createCleanupFileDownloadSessionStore(
-    closeOrder: CleanupResourceName[],
-    resourceSet: Set<CleanupResourceName>,
+    closeLog: string[],
+    failsToClose: boolean,
 ): FileDownloadSessionStore {
     return {
         close() {
-            closeOrder.push("fileDownloadSession");
+            closeLog.push("fileDownloadSession");
 
-            if (resourceSet.has("fileDownloadSession")) {
+            if (failsToClose) {
                 throw new Error("file download session store close failed");
             }
         },
@@ -1073,12 +911,6 @@ function createFailingSettingsStore(error: Error): SettingsStore {
             throw new Error("write should not be called");
         },
     };
-}
-
-function resolveSandboxTelemetryDirectory(sandbox: {
-    env: Record<string, string | undefined>;
-}): string {
-    return join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry");
 }
 
 describe("createLazyInput", () => {

@@ -7,6 +7,7 @@ import type {
     CacheSetOptions,
     CacheStore,
 } from "../../application/contracts/cache.ts";
+import type { SharedSqliteDatabase } from "../store/sqlite-utils.ts";
 import { createHash } from "node:crypto";
 import { accessSync, constants as fsConstants, statSync } from "node:fs";
 import { dirname } from "node:path";
@@ -18,10 +19,8 @@ import {
     withStorePath,
 } from "../../application/logging/log-fields.ts";
 import {
-    closeSqliteDatabase,
     isRecoverableSqliteError,
     isRecoverableSqliteLockCode,
-    openSqliteDatabase,
     resolveRecoverableSqliteErrorCodeFamily,
 } from "../store/sqlite-utils.ts";
 
@@ -34,10 +33,16 @@ type CacheLookupParams = Record<string, string | number | null> & {
     now: number;
 };
 
+type CacheStoreParams = Record<string, string | number | null> & {
+    expiresAtMs: number | null;
+    key: string;
+    now: number;
+    value: string;
+};
+
 interface SqliteCacheOptionsInternal {
-    database: Database;
+    database: SharedSqliteDatabase;
     defaultTtlMs?: number;
-    filePath: string;
     id: string;
     logger?: Logger;
     maxEntries?: number;
@@ -70,40 +75,33 @@ interface RecoverableSqliteErrorContext {
     includeStorePathDiagnostics: boolean;
 }
 
-const sqliteBusyTimeoutMs = 250;
+// The cache is best effort: a write that cannot get the lock this quickly is
+// skipped rather than allowed to delay the command.
+const sqliteCacheBusyTimeoutMs = 250;
 
 export class SqliteCacheStore implements CacheStore {
-    private database: Database | undefined;
-    private readonly filePath: string;
-    private readonly logger?: Logger;
-
-    // The database opens on first use: most invocations never read the cache,
-    // and opening it costs file I/O plus a checkpoint when it is closed.
-    constructor(filePath: string, logger?: Logger) {
-        this.filePath = filePath;
-        this.logger = logger;
-    }
-
-    getFilePath(): string {
-        return this.filePath;
-    }
+    constructor(
+        private readonly database: SharedSqliteDatabase,
+        private readonly logger?: Logger,
+    ) {}
 
     getCache<Value>(options: CacheOptions): Cache<Value> {
+        const filePath = this.database.getFilePath();
+
         this.logger?.debug(
             {
                 ...withCacheId(options.id),
                 defaultTtlMs: options.defaultTtlMs,
                 maxEntries: options.maxEntries,
-                ...withStorePath(this.filePath),
+                ...withStorePath(filePath),
             },
             "Sqlite cache namespace opened.",
         );
 
         try {
             return new SqliteCache<Value>({
-                database: this.getDatabase(),
+                database: this.database,
                 defaultTtlMs: options.defaultTtlMs,
-                filePath: this.filePath,
                 id: options.id,
                 logger: this.logger,
                 maxEntries: options.maxEntries,
@@ -125,48 +123,15 @@ export class SqliteCacheStore implements CacheStore {
                     ...withCacheId(options.id),
                     ...withCategory(logCategory.recoverableCache),
                     err: error,
-                    ...readStorePathDiagnostics(this.filePath),
+                    ...readStorePathDiagnostics(filePath),
                     sqliteErrorCode: recoverableError.error.code,
-                    ...withStorePath(this.filePath),
+                    ...withStorePath(filePath),
                 },
                 `Sqlite cache namespace is temporarily unavailable because ${recoverableError.description}.`,
             );
 
             return new UnavailableSqliteCache<Value>();
         }
-    }
-
-    close(): void {
-        const database = this.database;
-
-        if (!database) {
-            return;
-        }
-
-        this.database = undefined;
-        closeSqliteDatabase(database, {
-            checkpointMode: "TRUNCATE",
-            closedLogMessage: "Sqlite cache store closed.",
-            filePath: this.filePath,
-            logger: this.logger,
-        });
-    }
-
-    private getDatabase(): Database {
-        if (this.database) {
-            return this.database;
-        }
-
-        this.database = openSqliteDatabase(this.filePath, { busyTimeoutMs: sqliteBusyTimeoutMs });
-
-        this.logger?.debug(
-            {
-                ...withStorePath(this.filePath),
-            },
-            "Sqlite cache store opened.",
-        );
-
-        return this.database;
     }
 }
 
@@ -179,15 +144,18 @@ export class SqliteCache<Value> implements Cache<Value> {
     private readonly clearStatement;
     private readonly deleteExpiredStatement;
     private readonly evictLeastRecentlyUsedStatement;
+    private readonly storeTransaction;
 
     constructor(private readonly options: SqliteCacheOptionsInternal) {
         validateMaxEntries(options.maxEntries);
         validateTtl(options.defaultTtlMs, "defaultTtlMs");
 
-        this.tableName = resolveSqliteCacheTableName(options.id);
-        ensureCacheTable(options.database, this.tableName);
+        const connection = options.database.connect(sqliteCacheBusyTimeoutMs);
 
-        this.selectFreshStatement = options.database.query<
+        this.tableName = resolveSqliteCacheTableName(options.id);
+        ensureCacheTable(connection, this.tableName);
+
+        this.selectFreshStatement = connection.query<
             CacheRow,
             CacheLookupParams
         >(
@@ -198,7 +166,7 @@ export class SqliteCache<Value> implements Cache<Value> {
                 `AND (expires_at_ms IS NULL OR expires_at_ms > $now)`,
             ].join(" "),
         );
-        this.touchStatement = options.database.query(
+        this.touchStatement = connection.query(
             [
                 `UPDATE ${this.tableName}`,
                 `SET accessed_at_ms = $now`,
@@ -206,7 +174,7 @@ export class SqliteCache<Value> implements Cache<Value> {
                 `AND (expires_at_ms IS NULL OR expires_at_ms > $now)`,
             ].join(" "),
         );
-        this.upsertStatement = options.database.query(
+        this.upsertStatement = connection.query(
             [
                 `INSERT INTO ${this.tableName} (`,
                 "cache_key,",
@@ -230,20 +198,20 @@ export class SqliteCache<Value> implements Cache<Value> {
                 "accessed_at_ms = excluded.accessed_at_ms",
             ].join(" "),
         );
-        this.deleteStatement = options.database.query(
+        this.deleteStatement = connection.query(
             `DELETE FROM ${this.tableName} WHERE cache_key = $key`,
         );
-        this.clearStatement = options.database.query(
+        this.clearStatement = connection.query(
             `DELETE FROM ${this.tableName}`,
         );
-        this.deleteExpiredStatement = options.database.query(
+        this.deleteExpiredStatement = connection.query(
             [
                 `DELETE FROM ${this.tableName}`,
                 "WHERE expires_at_ms IS NOT NULL",
                 "AND expires_at_ms <= $now",
             ].join(" "),
         );
-        this.evictLeastRecentlyUsedStatement = options.database.query(
+        this.evictLeastRecentlyUsedStatement = connection.query(
             [
                 `DELETE FROM ${this.tableName}`,
                 "WHERE rowid IN (",
@@ -254,6 +222,18 @@ export class SqliteCache<Value> implements Cache<Value> {
                 ")",
             ].join(" "),
         );
+        // One IMMEDIATE transaction: the upsert and its housekeeping take the
+        // write lock once and other processes never see them half applied.
+        this.storeTransaction = connection.transaction((params: CacheStoreParams) => {
+            this.upsertStatement.run(params);
+            this.deleteExpiredStatement.run({ now: params.now });
+
+            if (options.maxEntries !== undefined) {
+                this.evictLeastRecentlyUsedStatement.run({
+                    maxEntries: options.maxEntries,
+                });
+            }
+        });
     }
 
     get(key: string): Value | null {
@@ -340,19 +320,12 @@ export class SqliteCache<Value> implements Cache<Value> {
             messagePrefix: "Sqlite cache store was skipped",
             operation: "set",
         }, () => {
-            this.upsertStatement.run({
-                key,
-                value: JSON.stringify(value),
+            this.storeTransaction.immediate({
                 expiresAtMs,
+                key,
                 now,
+                value: JSON.stringify(value),
             });
-            this.deleteExpiredStatement.run({ now });
-
-            if (this.options.maxEntries !== undefined) {
-                this.evictLeastRecentlyUsedStatement.run({
-                    maxEntries: this.options.maxEntries,
-                });
-            }
         });
 
         if (!storeResult.succeeded) {
@@ -427,7 +400,13 @@ export class SqliteCache<Value> implements Cache<Value> {
         messagePrefix: string;
         operation: string;
     }, run: () => Result): RecoverableSqliteOperationResult<Result> {
+        const filePath = this.options.database.getFilePath();
+
         try {
+            // Restores this cache's lock budget in case another store sharing
+            // the connection ran with its own since the last operation.
+            this.options.database.connect(sqliteCacheBusyTimeoutMs);
+
             return {
                 succeeded: true,
                 value: run(),
@@ -450,10 +429,10 @@ export class SqliteCache<Value> implements Cache<Value> {
                     err: error,
                     operation: options.operation,
                     ...(recoverableError.includeStorePathDiagnostics
-                        ? readStorePathDiagnostics(this.options.filePath)
+                        ? readStorePathDiagnostics(filePath)
                         : {}),
                     sqliteErrorCode: recoverableError.error.code,
-                    ...withStorePath(this.options.filePath),
+                    ...withStorePath(filePath),
                     ...(options.key === undefined
                         ? {}
                         : withKeyFingerprint(createCacheKeyFingerprint(options.key))),

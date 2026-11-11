@@ -1,17 +1,15 @@
-import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import {
     createCliSandbox,
     createInteractiveInput,
     expectTelemetryFreeOfTeamIdentity,
+    readSandboxTelemetryRows,
     toRequest,
     writeAuthFile,
     writeAuthFileWithDefaultTeam,
 } from "../../../../__tests__/helpers.ts";
-import { APP_NAME } from "../../config/app-config.ts";
 import {
     parseTelemetryRowPayload,
-    readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
 
 const VARIABLE = {
@@ -685,9 +683,7 @@ describe("variables team identity", () => {
                 fetcher: async () => new Response(JSON.stringify({ variables: [] })),
             });
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(result.exitCode).toBe(0);
