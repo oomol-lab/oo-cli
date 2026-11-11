@@ -213,11 +213,12 @@ function openConfiguredSqliteDatabase(
 // `busy_timeout` provides everywhere else is done by hand here.
 function switchToWalJournalMode(database: Database, busyTimeoutMs: number): void {
     const deadlineMs = Date.now() + busyTimeoutMs;
+    let retried = false;
 
     while (true) {
         try {
             database.run("PRAGMA journal_mode = WAL;");
-            return;
+            break;
         }
         catch (error) {
             if (
@@ -231,6 +232,16 @@ function switchToWalJournalMode(database: Database, busyTimeoutMs: number): void
 
         // Randomized, so two processes that collided do not retry in step.
         Bun.sleepSync(1 + Math.random() * walSwitchRetryMaxDelayMs);
+        // An attempt can still wait inside SQLite for its initial read lock,
+        // so a retry only gets what is left of the budget.
+        retried = true;
+        database.run(
+            `PRAGMA busy_timeout = ${Math.max(0, deadlineMs - Date.now())};`,
+        );
+    }
+
+    if (retried) {
+        database.run(`PRAGMA busy_timeout = ${busyTimeoutMs};`);
     }
 }
 

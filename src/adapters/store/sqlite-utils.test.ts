@@ -239,6 +239,7 @@ describe("SharedSqliteDatabase", () => {
                 String(holdMs),
             ],
             stderr: "pipe",
+            stdin: "pipe",
             stdout: "pipe",
         });
         const database = new SharedSqliteDatabase(filePath);
@@ -250,12 +251,21 @@ describe("SharedSqliteDatabase", () => {
             expect(new TextDecoder().decode(value)).toBe("locked\n");
 
             const startedAtMs = Date.now();
+
+            // The holder keeps the lock for `holdMs` after it sees this.
+            await holder.stdin.end();
+
             const connection = database.connect(30_000);
 
             // The switch to WAL only succeeded after the holder committed.
-            expect(Date.now() - startedAtMs).toBeGreaterThanOrEqual(holdMs / 2);
+            expect(Date.now() - startedAtMs).toBeGreaterThanOrEqual(holdMs);
             expect(connection.query("PRAGMA journal_mode;").get()).toEqual({
                 journal_mode: "wal",
+            });
+            // The retries ran on what was left of the budget; the caller's
+            // own budget is back in force afterwards.
+            expect(connection.query("PRAGMA busy_timeout;").get()).toEqual({
+                timeout: 30_000,
             });
             expect(
                 connection.query("SELECT COUNT(*) AS count FROM held;").get(),
