@@ -100,17 +100,24 @@ function requireTimezone(value: string): string {
     throw new CliUserError("errors.websiteManaged.invalidTimezone", 2, { option: "--timezone", value });
 }
 
+// The calendar date of a moment in a time zone, as YYYY-MM-DD.
+function localDate(moment: Date, timeZone: string): string {
+    const parts = new Intl.DateTimeFormat("en-US", { day: "2-digit", month: "2-digit", timeZone, year: "numeric" }).formatToParts(moment);
+    const part = (type: string): string => parts.find(item => item.type === type)?.value ?? "";
+
+    return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
 // The query of the analytics request. The period is counted in calendar days
 // of the time zone: `--days`, or `--from` with `--to`, or the service default.
 export function websiteAnalyticsQuery(input: WebsiteAnalyticsInput): Record<string, string> {
     const days = parsePositiveIntegerOption(input.days, "errors.websiteManaged.invalidDays", { max: maxDays, optionName: "--days" });
     const limit = parsePositiveIntegerOption(input.limit, "errors.websiteManaged.invalidAnalyticsLimit", { max: maxLimit, optionName: "--limit" });
-    const query: Record<string, string> = {
-        // Days are the user's days unless told otherwise.
-        timezone: input.timezone === undefined
-            ? Intl.DateTimeFormat().resolvedOptions().timeZone
-            : requireTimezone(input.timezone),
-    };
+    // Days are the user's days unless told otherwise.
+    const timezone = input.timezone === undefined
+        ? Intl.DateTimeFormat().resolvedOptions().timeZone
+        : requireTimezone(input.timezone);
+    const query: Record<string, string> = { timezone };
 
     if (input.from !== undefined || input.to !== undefined) {
         if (days !== undefined || input.from === undefined || input.to === undefined) {
@@ -125,6 +132,14 @@ export function websiteAnalyticsQuery(input: WebsiteAnalyticsInput): Record<stri
 
         if (query.from > query.to || periodDays > maxDays) {
             throw new CliUserError("errors.websiteManaged.invalidPeriod", 2);
+        }
+
+        // A period cannot start after today; the service counts days in the
+        // same time zone and clamps a later end to now on its own.
+        const today = localDate(new Date(), timezone);
+
+        if (query.from > today) {
+            throw new CliUserError("errors.websiteManaged.futurePeriod", 2, { option: "--from", timezone, today, value: query.from });
         }
     }
     else if (days !== undefined) {
@@ -166,7 +181,7 @@ export function websiteAnalyticsText(analytics: WebsiteAnalytics, translator: Tr
         compared(t("websiteManaged.analytics.bounceRate"), rate(summary.bounce_rate), rate(previous.bounce_rate)),
         compared(t("websiteManaged.analytics.averageVisit"), duration(summary.average_visit_seconds), duration(previous.average_visit_seconds)),
         section(`${t("websiteManaged.analytics.pages")} (${counts})`, top.pages),
-        section(`${t("websiteManaged.analytics.channels")} (${t("websiteManaged.analytics.visitors")})`, top.channels),
+        section(`${t("websiteManaged.analytics.channels")} (${t("websiteManaged.analytics.visitorsOnly")})`, top.channels),
         section(`${t("websiteManaged.analytics.referrers")} (${counts})`, top.referrers),
         section(`${t("websiteManaged.analytics.hostnames")} (${counts})`, top.hostnames),
         section(`${t("websiteManaged.analytics.countries")} (${counts})`, top.countries),
