@@ -1,3 +1,4 @@
+import { existsSync, writeFileSync } from "node:fs";
 import { mkdir, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import process from "node:process";
@@ -227,6 +228,8 @@ describe("SharedSqliteDatabase", () => {
 
     test("waits for a process that is still initializing a new database file", async () => {
         const filePath = await createDatabaseFilePath("sqlite-shared-new-file");
+        const lockedMarkerPath = `${filePath}.locked`;
+        const releaseMarkerPath = `${filePath}.release`;
         const holdMs = 300;
 
         await mkdir(dirname(filePath), { recursive: true });
@@ -236,24 +239,28 @@ describe("SharedSqliteDatabase", () => {
                 process.execPath,
                 join(import.meta.dir, "__tests__", "new-database-lock-holder.ts"),
                 filePath,
+                lockedMarkerPath,
+                releaseMarkerPath,
                 String(holdMs),
             ],
             stderr: "pipe",
-            stdin: "pipe",
-            stdout: "pipe",
+            stdout: "ignore",
         });
         const database = new SharedSqliteDatabase(filePath);
 
         try {
-            // Resolves once the holder has taken the write lock.
-            const { value } = await holder.stdout.getReader().read();
-
-            expect(new TextDecoder().decode(value)).toBe("locked\n");
+            // The holder creates this file once it has taken the write lock.
+            while (!existsSync(lockedMarkerPath)) {
+                expect(holder.exitCode).toBeNull();
+                await Bun.sleep(5);
+            }
 
             const startedAtMs = Date.now();
 
-            // The holder keeps the lock for `holdMs` after it sees this.
-            await holder.stdin.end();
+            // The holder keeps the lock for `holdMs` after it sees this file.
+            // Nothing asynchronous sits between writing it and connecting, so
+            // the holder cannot commit before the first attempt below.
+            writeFileSync(releaseMarkerPath, "");
 
             const connection = database.connect(30_000);
 
@@ -270,15 +277,18 @@ describe("SharedSqliteDatabase", () => {
             expect(
                 connection.query("SELECT COUNT(*) AS count FROM held;").get(),
             ).toEqual({ count: 0 });
+            expect({
+                exitCode: await holder.exited,
+                stderr: await new Response(holder.stderr).text(),
+            }).toEqual({ exitCode: 0, stderr: "" });
         }
         finally {
             database.close();
+            // Only matters when the test failed before the holder finished:
+            // it would otherwise keep waiting, and keep the file locked.
+            holder.kill();
+            await holder.exited;
         }
-
-        expect({
-            exitCode: await holder.exited,
-            stderr: await new Response(holder.stderr).text(),
-        }).toEqual({ exitCode: 0, stderr: "" });
     }, 60_000);
 
     test("gives up on a new database file that stays locked past the lock budget", async () => {
