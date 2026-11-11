@@ -26,6 +26,7 @@ const recoverableSqliteErrorCodes = new Set([
 // database holds is disposable, so such a file is deleted and recreated.
 const unusableSqliteFileErrorCodes = ["SQLITE_CORRUPT", "SQLITE_NOTADB"];
 const sqliteDatabaseFileSuffixes = ["", "-shm", "-wal"];
+const walSwitchRetryMaxDelayMs = 10;
 
 /**
  * The one SQLite database file every sqlite-backed store shares, opened at most
@@ -40,7 +41,8 @@ const sqliteDatabaseFileSuffixes = ["", "-shm", "-wal"];
  *   writer never blocks readers.
  * - `busy_timeout` is set before anything else touches the file, so waiting
  *   for another process's write lock is a bounded retry instead of an
- *   immediate SQLITE_BUSY.
+ *   immediate SQLITE_BUSY. The one-time switch of a new file to WAL is not
+ *   covered by `busy_timeout`, so it is retried here for the same budget.
  * - A write that spans several statements runs inside a `BEGIN IMMEDIATE`
  *   transaction (`connection.transaction(...).immediate()`). It takes the
  *   write lock up front; a deferred transaction that upgrades from reading to
@@ -188,10 +190,8 @@ function openConfiguredSqliteDatabase(
     let configured = false;
 
     try {
-        // First, so the journal mode switch below waits for a process that is
-        // creating the same file at this moment instead of failing.
         database.run(`PRAGMA busy_timeout = ${busyTimeoutMs};`);
-        database.run("PRAGMA journal_mode = WAL;");
+        switchToWalJournalMode(database, busyTimeoutMs);
         // WAL stays consistent without syncing every commit; skipping that
         // sync keeps each write lock short for the processes waiting on it.
         database.run("PRAGMA synchronous = NORMAL;");
@@ -203,6 +203,34 @@ function openConfiguredSqliteDatabase(
         if (!configured) {
             database.close();
         }
+    }
+}
+
+// A no-op once the file is in WAL mode, which it stays in. On a new file the
+// switch reads the header and then upgrades to a write lock, and SQLite never
+// consults `busy_timeout` for such an upgrade: while another process is also
+// initializing the file it fails with SQLITE_BUSY at once. So the wait that
+// `busy_timeout` provides everywhere else is done by hand here.
+function switchToWalJournalMode(database: Database, busyTimeoutMs: number): void {
+    const deadlineMs = Date.now() + busyTimeoutMs;
+
+    while (true) {
+        try {
+            database.run("PRAGMA journal_mode = WAL;");
+            return;
+        }
+        catch (error) {
+            if (
+                !isRecoverableSqliteError(error)
+                || !isRecoverableSqliteLockCode(error.code)
+                || Date.now() >= deadlineMs
+            ) {
+                throw error;
+            }
+        }
+
+        // Randomized, so two processes that collided do not retry in step.
+        Bun.sleepSync(1 + Math.random() * walSwitchRetryMaxDelayMs);
     }
 }
 

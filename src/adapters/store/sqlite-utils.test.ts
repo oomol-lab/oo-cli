@@ -1,5 +1,5 @@
 import { mkdir, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import process from "node:process";
 import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
@@ -222,6 +222,78 @@ describe("SharedSqliteDatabase", () => {
         }
         finally {
             logCapture.close();
+        }
+    });
+
+    test("waits for a process that is still initializing a new database file", async () => {
+        const filePath = await createDatabaseFilePath("sqlite-shared-new-file");
+        const holdMs = 300;
+
+        await mkdir(dirname(filePath), { recursive: true });
+
+        const holder = Bun.spawn({
+            cmd: [
+                process.execPath,
+                join(import.meta.dir, "__tests__", "new-database-lock-holder.ts"),
+                filePath,
+                String(holdMs),
+            ],
+            stderr: "pipe",
+            stdout: "pipe",
+        });
+        const database = new SharedSqliteDatabase(filePath);
+
+        try {
+            // Resolves once the holder has taken the write lock.
+            const { value } = await holder.stdout.getReader().read();
+
+            expect(new TextDecoder().decode(value)).toBe("locked\n");
+
+            const startedAtMs = Date.now();
+            const connection = database.connect(30_000);
+
+            // The switch to WAL only succeeded after the holder committed.
+            expect(Date.now() - startedAtMs).toBeGreaterThanOrEqual(holdMs / 2);
+            expect(connection.query("PRAGMA journal_mode;").get()).toEqual({
+                journal_mode: "wal",
+            });
+            expect(
+                connection.query("SELECT COUNT(*) AS count FROM held;").get(),
+            ).toEqual({ count: 0 });
+        }
+        finally {
+            database.close();
+        }
+
+        expect({
+            exitCode: await holder.exited,
+            stderr: await new Response(holder.stderr).text(),
+        }).toEqual({ exitCode: 0, stderr: "" });
+    }, 60_000);
+
+    test("gives up on a new database file that stays locked past the lock budget", async () => {
+        const filePath = await createDatabaseFilePath("sqlite-shared-new-file-busy");
+
+        await mkdir(dirname(filePath), { recursive: true });
+
+        const otherWriter = new Database(filePath, { create: true, strict: true });
+        const database = new SharedSqliteDatabase(filePath);
+
+        try {
+            otherWriter.run("BEGIN IMMEDIATE;");
+
+            const startedAtMs = Date.now();
+
+            expect(() => database.connect(100)).toThrow(
+                expect.objectContaining({ code: "SQLITE_BUSY" }),
+            );
+            expect(Date.now() - startedAtMs).toBeGreaterThanOrEqual(100);
+            expect(database.exists()).toBeTrue();
+        }
+        finally {
+            otherWriter.run("ROLLBACK;");
+            otherWriter.close();
+            database.close();
         }
     });
 
