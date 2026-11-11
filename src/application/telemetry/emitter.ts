@@ -120,9 +120,9 @@ export async function emitCliCommandTelemetry(
         let shouldSpawnFlusher = false;
 
         enqueueTelemetryBatchItem({
-            // Decided in the insert's transaction, so concurrent invocations
+            // Decided in the enqueue's transaction, so concurrent invocations
             // cannot both claim the same spawn slot.
-            afterInsert: (connection) => {
+            afterAttempt: (connection) => {
                 shouldSpawnFlusher = reserveTelemetryFlusherSpawn(connection, nowMs);
             },
             database: options.database,

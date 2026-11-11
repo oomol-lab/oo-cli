@@ -122,8 +122,9 @@ export async function readOrCreateTelemetryDeviceId(
 }
 
 export function enqueueTelemetryBatchItem(options: {
-    // Runs in the insert's transaction right after a successful insert.
-    afterInsert?: (connection: Database) => void;
+    // Runs in the enqueue's transaction once the event was either inserted or
+    // rejected because the outbox is full.
+    afterAttempt?: (connection: Database) => void;
     database: SharedSqliteDatabase;
     item: TelemetryBatchItem;
     nowMs: number;
@@ -138,6 +139,10 @@ export function enqueueTelemetryBatchItem(options: {
 
     return connection.transaction(() => {
         if (countTelemetryEvents(connection) >= telemetryOutboxMaxEvents) {
+            // A full outbox is the one that most needs a flusher, so the
+            // rejected event still gets to request one.
+            options.afterAttempt?.(connection);
+
             return false;
         }
 
@@ -164,7 +169,7 @@ export function enqueueTelemetryBatchItem(options: {
             payloadBytes: Buffer.byteLength(payloadJson, "utf8"),
             payloadJson,
         });
-        options.afterInsert?.(connection);
+        options.afterAttempt?.(connection);
 
         return true;
     }).immediate();
