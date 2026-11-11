@@ -7,7 +7,7 @@ const apiBase = "https://websites-api.oomol.com";
 // backend (7 pageviews on 2 domains) and not edited by hand.
 const analytics = {
     website_id: "0192f3a4-0000-7000-8000-0000000000ff",
-    report_url: "https://analytics.oomol.dev/teams/0192f3a4-0000-7000-8000-00000000000a/websites/0192f3a4-0000-7000-8000-0000000000ff",
+    report_url: "https://analytics.oomol.com/teams/0192f3a4-0000-7000-8000-00000000000a/websites/0192f3a4-0000-7000-8000-0000000000ff",
     period: { from: "2026-11-05", to: "2026-11-11", start_at: 1793808000000, end_at: 1794375374661, timezone: "Asia/Shanghai", unit: "day", partial: true },
     summary: { visitors: 5, visits: 5, pageviews: 7, bounce_rate: 0.8, average_visit_seconds: 0 },
     previous: { start_at: 1793240625338, end_at: 1793807999999, visitors: 0, visits: 0, pageviews: 0, bounce_rate: null, average_visit_seconds: null },
@@ -33,7 +33,7 @@ const analytics = {
             { name: "twitter.com", visitors: 1, visits: 1, pageviews: 1 },
         ],
         hostnames: [
-            { name: "0192f3a4-0000-7000-8000-0000000000ff.leina.site", visitors: 2, visits: 2, pageviews: 4 },
+            { name: "0192f3a4-0000-7000-8000-0000000000ff.sitelive.net", visitors: 2, visits: 2, pageviews: 4 },
             { name: "www.customer-example.com", visitors: 2, visits: 2, pageviews: 2 },
             { name: "a.com", visitors: 1, visits: 1, pageviews: 1 },
         ],
@@ -115,7 +115,7 @@ describe("website analytics command", () => {
                 "  - news.ycombinator.com: 1 / 1",
                 "  - twitter.com: 1 / 1",
                 "Domains (visitors / pageviews)",
-                "  - 0192f3a4-0000-7000-8000-0000000000ff.leina.site: 2 / 4",
+                "  - 0192f3a4-0000-7000-8000-0000000000ff.sitelive.net: 2 / 4",
                 "  - www.customer-example.com: 2 / 2",
                 "  - a.com: 1 / 1",
                 "Countries (visitors / pageviews)",
