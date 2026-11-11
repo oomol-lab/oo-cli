@@ -1,4 +1,5 @@
 import type { Logger } from "pino";
+import type { SharedSqliteDatabase } from "../../adapters/store/sqlite-utils.ts";
 import type { Fetcher } from "../contracts/cli.ts";
 import type { TelemetryEventRow } from "./outbox.ts";
 import type {
@@ -10,6 +11,7 @@ import {
     telemetryChunkMaxBytes,
     telemetryChunkMaxEvents,
     telemetryEndpoint,
+    telemetryFlusherSqliteBusyTimeoutMs,
     telemetryMaxAttempts,
     telemetryMaxBackoffMs,
     telemetryRequestTimeoutMs,
@@ -28,7 +30,8 @@ import {
 import { createTelemetryBatchRequestBody } from "./payload.ts";
 
 export interface FlushTelemetryOutboxOptions {
-    directoryPath: string;
+    // Owned by the caller, which closes it once the flush has settled.
+    database: SharedSqliteDatabase;
     env: Record<string, string | undefined>;
     fetcher?: Fetcher;
     logger?: Logger;
@@ -50,88 +53,85 @@ export async function flushTelemetryOutbox(
     const random = options.random ?? Math.random;
     const fetcher = options.fetcher ?? fetch;
     const requestTimeoutMs = options.requestTimeoutMs ?? telemetryRequestTimeoutMs;
-    const database = openTelemetryDatabase(options.directoryPath, options.logger);
+    const database = openTelemetryDatabase(
+        options.database,
+        telemetryFlusherSqliteBusyTimeoutMs,
+    );
+    const nowMs = now();
 
-    try {
-        const nowMs = now();
+    deleteExpiredTelemetryEvents(database, nowMs);
 
-        deleteExpiredTelemetryEvents(database, nowMs);
+    const leasedRows = leaseReadyTelemetryRows(database, nowMs);
 
-        const leasedRows = leaseReadyTelemetryRows(database, nowMs);
-
-        if (leasedRows.length === 0) {
-            return;
-        }
-
-        const status = await resolveTelemetryStatusFromSettingsFile({
-            env: options.env,
-            logger: options.logger,
-            settingsFilePath: options.settingsFilePath,
-        });
-
-        if (!status.enabled) {
-            releaseTelemetryRowsWithoutAttempt(database, leasedRows, nowMs);
-            return;
-        }
-
-        const { chunks, poisonRows } = createTelemetryChunks(leasedRows);
-
-        deleteTelemetryRows(database, poisonRows);
-
-        for (let chunkIndex = 0; chunkIndex < chunks.length;) {
-            const chunk = chunks[chunkIndex]!;
-            const response = await postTelemetryChunk(
-                fetcher,
-                chunk.body,
-                requestTimeoutMs,
-            );
-
-            if (response.kind === "success") {
-                deleteTelemetryRows(database, chunk.rows);
-                writeTelemetryStateNumber(database, "last_flush_at_ms", now());
-                chunkIndex += 1;
-                continue;
-            }
-
-            if (
-                response.kind === "payload_too_large"
-                && chunk.rows.length > 1
-            ) {
-                chunks.splice(chunkIndex, 1, ...splitTelemetryChunk(chunk));
-                continue;
-            }
-
-            if (
-                response.kind === "permanent"
-                || response.kind === "payload_too_large"
-            ) {
-                deleteTelemetryRows(database, chunk.rows);
-                chunkIndex += 1;
-                continue;
-            }
-
-            const failedAtMs = now();
-            const availableAtMs = failedAtMs
-                + calculateTelemetryBackoffMs(chunk.rows, random);
-            const laterRows = chunks
-                .slice(chunkIndex + 1)
-                .flatMap(laterChunk => laterChunk.rows);
-
-            recordTelemetryRowsAttempted(database, chunk.rows, {
-                availableAtMs,
-                maxAttempts: telemetryMaxAttempts,
-            });
-            releaseTelemetryRowsWithoutAttempt(database, laterRows, availableAtMs);
-            writeTelemetryStateNumber(
-                database,
-                "next_spawn_after_ms",
-                availableAtMs,
-            );
-            return;
-        }
+    if (leasedRows.length === 0) {
+        return;
     }
-    finally {
-        database.close();
+
+    const status = await resolveTelemetryStatusFromSettingsFile({
+        env: options.env,
+        logger: options.logger,
+        settingsFilePath: options.settingsFilePath,
+    });
+
+    if (!status.enabled) {
+        releaseTelemetryRowsWithoutAttempt(database, leasedRows, nowMs);
+        return;
+    }
+
+    const { chunks, poisonRows } = createTelemetryChunks(leasedRows);
+
+    deleteTelemetryRows(database, poisonRows);
+
+    for (let chunkIndex = 0; chunkIndex < chunks.length;) {
+        const chunk = chunks[chunkIndex]!;
+        const response = await postTelemetryChunk(
+            fetcher,
+            chunk.body,
+            requestTimeoutMs,
+        );
+
+        if (response.kind === "success") {
+            deleteTelemetryRows(database, chunk.rows);
+            writeTelemetryStateNumber(database, "last_flush_at_ms", now());
+            chunkIndex += 1;
+            continue;
+        }
+
+        if (
+            response.kind === "payload_too_large"
+            && chunk.rows.length > 1
+        ) {
+            chunks.splice(chunkIndex, 1, ...splitTelemetryChunk(chunk));
+            continue;
+        }
+
+        if (
+            response.kind === "permanent"
+            || response.kind === "payload_too_large"
+        ) {
+            deleteTelemetryRows(database, chunk.rows);
+            chunkIndex += 1;
+            continue;
+        }
+
+        const failedAtMs = now();
+        const availableAtMs = failedAtMs
+            + calculateTelemetryBackoffMs(chunk.rows, random);
+        const laterRows = chunks
+            .slice(chunkIndex + 1)
+            .flatMap(laterChunk => laterChunk.rows);
+
+        recordTelemetryRowsAttempted(database, chunk.rows, {
+            availableAtMs,
+            maxAttempts: telemetryMaxAttempts,
+        });
+        releaseTelemetryRowsWithoutAttempt(database, laterRows, availableAtMs);
+        writeTelemetryStateNumber(
+            database,
+            "next_spawn_after_ms",
+            availableAtMs,
+        );
+        return;
     }
 }
 

@@ -9,6 +9,7 @@ import {
     SqliteFileUploadStore,
     uploadedFilesTableName,
 } from "./sqlite-file-upload-store.ts";
+import { SharedSqliteDatabase } from "./sqlite-utils.ts";
 import { resolveStorePaths } from "./store-path.ts";
 
 describe("SqliteFileUploadStore", () => {
@@ -22,7 +23,8 @@ describe("SqliteFileUploadStore", () => {
             },
             platform: "linux",
         });
-        const store = new SqliteFileUploadStore(storePaths.uploadsFilePath);
+        const sharedDatabase = new SharedSqliteDatabase(storePaths.databaseFilePath);
+        const store = new SqliteFileUploadStore(sharedDatabase);
 
         try {
             store.save({
@@ -42,7 +44,7 @@ describe("SqliteFileUploadStore", () => {
                 uploadedAtMs: 1_500,
             });
 
-            await expect(stat(store.getFilePath())).resolves.toMatchObject({
+            await expect(stat(storePaths.databaseFilePath)).resolves.toMatchObject({
                 isFile: expect.any(Function),
             });
             expect(store.list({ now: 1_200 })).toEqual([
@@ -65,7 +67,7 @@ describe("SqliteFileUploadStore", () => {
             ]);
         }
         finally {
-            store.close();
+            sharedDatabase.close();
         }
     });
 
@@ -79,7 +81,8 @@ describe("SqliteFileUploadStore", () => {
             },
             platform: "linux",
         });
-        const store = new SqliteFileUploadStore(storePaths.uploadsFilePath);
+        const sharedDatabase = new SharedSqliteDatabase(storePaths.databaseFilePath);
+        const store = new SqliteFileUploadStore(sharedDatabase);
 
         try {
             store.save({
@@ -139,7 +142,7 @@ describe("SqliteFileUploadStore", () => {
                 },
             ]);
 
-            const database = new Database(store.getFilePath(), {
+            const database = new Database(storePaths.databaseFilePath, {
                 strict: true,
             });
 
@@ -159,7 +162,7 @@ describe("SqliteFileUploadStore", () => {
             }
         }
         finally {
-            store.close();
+            sharedDatabase.close();
         }
     });
 
@@ -173,7 +176,8 @@ describe("SqliteFileUploadStore", () => {
             },
             platform: "linux",
         });
-        const store = new SqliteFileUploadStore(storePaths.uploadsFilePath);
+        const sharedDatabase = new SharedSqliteDatabase(storePaths.databaseFilePath);
+        const store = new SqliteFileUploadStore(sharedDatabase);
 
         try {
             store.save({
@@ -206,7 +210,7 @@ describe("SqliteFileUploadStore", () => {
             ]);
         }
         finally {
-            store.close();
+            sharedDatabase.close();
         }
     });
 
@@ -220,7 +224,8 @@ describe("SqliteFileUploadStore", () => {
             },
             platform: "linux",
         });
-        const store = new SqliteFileUploadStore(storePaths.uploadsFilePath);
+        const sharedDatabase = new SharedSqliteDatabase(storePaths.databaseFilePath);
+        const store = new SqliteFileUploadStore(sharedDatabase);
 
         try {
             store.save({
@@ -244,7 +249,7 @@ describe("SqliteFileUploadStore", () => {
             ]);
         }
         finally {
-            store.close();
+            sharedDatabase.close();
         }
     });
 
@@ -261,7 +266,8 @@ describe("SqliteFileUploadStore", () => {
             },
             platform: "linux",
         });
-        const store = new SqliteFileUploadStore(storePaths.uploadsFilePath);
+        const sharedDatabase = new SharedSqliteDatabase(storePaths.databaseFilePath);
+        const store = new SqliteFileUploadStore(sharedDatabase);
 
         try {
             expect(() => store.list({ limit: 1e16, now: 0 })).toThrow(
@@ -269,7 +275,7 @@ describe("SqliteFileUploadStore", () => {
             );
         }
         finally {
-            store.close();
+            sharedDatabase.close();
         }
     });
 });

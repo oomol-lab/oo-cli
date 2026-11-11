@@ -6,10 +6,9 @@ import {
     createCliSandbox,
     createCliSnapshot,
     readLatestLogContent,
+    readSandboxTelemetryRows,
     writeAuthFile,
 } from "../../../../__tests__/helpers.ts";
-import { APP_NAME } from "../../config/app-config.ts";
-import { readTelemetryRowsForTest } from "../../telemetry/outbox.ts";
 
 describe("llm CLI", () => {
     test("prints current LLM client config as json", async () => {
@@ -100,9 +99,7 @@ describe("llm CLI", () => {
 
             expect(result.exitCode).toBe(0);
             expect(content).not.toContain("secret-1");
-            expect(readTelemetryRowsForTest(
-                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-            )).toEqual([]);
+            expect(readSandboxTelemetryRows(sandbox)).toEqual([]);
         }
         finally {
             await sandbox.cleanup();

@@ -1,22 +1,17 @@
 import type { Database } from "bun:sqlite";
-import type { Logger } from "pino";
 
 import type { TelemetryBatchItem } from "./payload.ts";
 import { Buffer } from "node:buffer";
-import { mkdirSync, rmSync, statSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { openSqliteDatabase } from "../../adapters/store/sqlite-utils.ts";
-import { logCategory } from "../logging/log-categories.ts";
-import { withCategory, withStorePath } from "../logging/log-fields.ts";
+import { join } from "node:path";
+import { SharedSqliteDatabase } from "../../adapters/store/sqlite-utils.ts";
 import {
-    telemetryDatabaseFileName,
-    telemetryDatabaseMaxBytes,
     telemetryDeviceIdFileName,
     telemetryLeaseMaxEvents,
     telemetryLeaseTtlMs,
     telemetryMaxAttempts,
     telemetryMaxEventAgeMs,
+    telemetryOutboxMaxEvents,
     telemetrySqliteBusyTimeoutMs,
 } from "./constants.ts";
 import {
@@ -47,10 +42,6 @@ export interface TelemetryOutboxSummary {
 
 const telemetryEventsTableName = "telemetry_events";
 const telemetryStateTableName = "telemetry_state";
-
-export function resolveTelemetryDatabaseFilePath(directoryPath: string): string {
-    return join(directoryPath, telemetryDatabaseFileName);
-}
 
 export function resolveTelemetryDeviceIdFilePath(directoryPath: string): string {
     return join(directoryPath, telemetryDeviceIdFileName);
@@ -131,23 +122,26 @@ export async function readOrCreateTelemetryDeviceId(
 }
 
 export function enqueueTelemetryBatchItem(options: {
-    // Runs on the same connection right after a successful insert.
-    afterInsert?: (database: Database) => void;
-    directoryPath: string;
+    // Runs in the insert's transaction right after a successful insert.
+    afterInsert?: (connection: Database) => void;
+    database: SharedSqliteDatabase;
     item: TelemetryBatchItem;
-    logger?: Logger;
     nowMs: number;
 }): boolean {
     const payloadJson = serializeTelemetryBatchItem(options.item);
 
-    if (payloadJson === undefined || isTelemetryDatabaseOverHardLimit(options.directoryPath)) {
+    if (payloadJson === undefined) {
         return false;
     }
 
-    const database = openTelemetryDatabase(options.directoryPath, options.logger);
+    const connection = openTelemetryDatabase(options.database);
 
-    try {
-        database.query(
+    return connection.transaction(() => {
+        if (countTelemetryEvents(connection) >= telemetryOutboxMaxEvents) {
+            return false;
+        }
+
+        connection.query(
             [
                 `INSERT INTO ${telemetryEventsTableName} (`,
                 "id,",
@@ -170,52 +164,35 @@ export function enqueueTelemetryBatchItem(options: {
             payloadBytes: Buffer.byteLength(payloadJson, "utf8"),
             payloadJson,
         });
-        options.afterInsert?.(database);
+        options.afterInsert?.(connection);
 
         return true;
-    }
-    finally {
-        database.close();
-    }
+    }).immediate();
 }
 
 export function readTelemetryOutboxSummary(
-    directoryPath: string,
-    logger?: Logger,
+    database: SharedSqliteDatabase,
 ): TelemetryOutboxSummary {
-    if (!telemetryDatabaseFileExists(directoryPath)) {
+    if (!database.exists()) {
         return { pendingCount: 0 };
     }
 
-    const database = openTelemetryDatabase(directoryPath, logger);
+    const connection = openTelemetryDatabase(database);
 
-    try {
-        return {
-            lastFlushAtMs: readTelemetryStateNumber(database, "last_flush_at_ms"),
-            pendingCount: countTelemetryEvents(database),
-        };
-    }
-    finally {
-        database.close();
-    }
+    return {
+        lastFlushAtMs: readTelemetryStateNumber(connection, "last_flush_at_ms"),
+        pendingCount: countTelemetryEvents(connection),
+    };
 }
 
 export function purgeTelemetryOutboxIfExists(
-    directoryPath: string,
-    logger?: Logger,
+    database: SharedSqliteDatabase,
 ): void {
-    if (!telemetryDatabaseFileExists(directoryPath)) {
+    if (!database.exists()) {
         return;
     }
 
-    const database = openTelemetryDatabase(directoryPath, logger);
-
-    try {
-        database.run(`DELETE FROM ${telemetryEventsTableName}`);
-    }
-    finally {
-        database.close();
-    }
+    openTelemetryDatabase(database).run(`DELETE FROM ${telemetryEventsTableName}`);
 }
 
 export function readTelemetryStateNumber(
@@ -252,32 +229,17 @@ export function writeTelemetryStateNumber(
     });
 }
 
+// Returns the shared connection with the telemetry tables in place. The
+// connection belongs to `database`; callers must not close it.
 export function openTelemetryDatabase(
-    directoryPath: string,
-    logger?: Logger,
+    database: SharedSqliteDatabase,
+    busyTimeoutMs: number = telemetrySqliteBusyTimeoutMs,
 ): Database {
-    const filePath = resolveTelemetryDatabaseFilePath(directoryPath);
+    const connection = database.connect(busyTimeoutMs);
 
-    try {
-        return openInitializedTelemetryDatabase(filePath);
-    }
-    catch (error) {
-        if (!isRecoverableTelemetrySqliteError(error)) {
-            throw error;
-        }
+    initializeTelemetryDatabase(connection);
 
-        logger?.warn(
-            {
-                ...withCategory(logCategory.systemError),
-                err: error,
-                ...withStorePath(filePath),
-            },
-            "Telemetry sqlite database was reset after a recoverable open failure.",
-        );
-        resetTelemetryDatabaseFiles(filePath);
-
-        return openInitializedTelemetryDatabase(filePath);
-    }
+    return connection;
 }
 
 export function deleteExpiredTelemetryEvents(
@@ -301,12 +263,9 @@ export function leaseReadyTelemetryRows(
     nowMs: number,
 ): TelemetryEventRow[] {
     const leaseUntilMs = nowMs + telemetryLeaseTtlMs;
-    const leasedRows: TelemetryEventRow[] = [];
 
-    database.run("BEGIN IMMEDIATE");
-    let committed = false;
-
-    try {
+    // IMMEDIATE, so two flushers can never lease the same rows.
+    return database.transaction(() => {
         const rows = database.query<TelemetryEventRow, {
             limit: number;
             nowMs: number;
@@ -335,48 +294,40 @@ export function leaseReadyTelemetryRows(
                 `UPDATE ${telemetryEventsTableName}`,
                 "SET lease_until_ms = $leaseUntilMs",
                 "WHERE id = $id",
-                "AND (lease_until_ms IS NULL OR lease_until_ms <= $nowMs)",
             ].join(" "),
         );
 
         for (const row of rows) {
-            const result = leaseStatement.run({
+            leaseStatement.run({
                 id: row.id,
                 leaseUntilMs,
-                nowMs,
             });
-
-            if (result.changes > 0) {
-                leasedRows.push({
-                    ...row,
-                    leaseUntilMs,
-                });
-            }
         }
 
-        database.run("COMMIT");
-        committed = true;
-    }
-    finally {
-        if (!committed) {
-            database.run("ROLLBACK");
-        }
-    }
-
-    return leasedRows;
+        return rows.map(row => ({
+            ...row,
+            leaseUntilMs,
+        }));
+    }).immediate();
 }
 
 export function deleteTelemetryRows(
     database: Database,
     rows: readonly Pick<TelemetryEventRow, "id">[],
 ): void {
+    if (rows.length === 0) {
+        return;
+    }
+
     const statement = database.query(
         `DELETE FROM ${telemetryEventsTableName} WHERE id = $id`,
     );
 
-    for (const row of rows) {
-        statement.run({ id: row.id });
-    }
+    database.transaction(() => {
+        for (const row of rows) {
+            statement.run({ id: row.id });
+        }
+    }).immediate();
 }
 
 export function recordTelemetryRowsAttempted(
@@ -397,19 +348,21 @@ export function recordTelemetryRowsAttempted(
         ].join(" "),
     );
 
-    for (const row of rows) {
-        statement.run({
-            availableAtMs: options.availableAtMs,
-            id: row.id,
-        });
-    }
+    database.transaction(() => {
+        for (const row of rows) {
+            statement.run({
+                availableAtMs: options.availableAtMs,
+                id: row.id,
+            });
+        }
 
-    database.query(
-        [
-            `DELETE FROM ${telemetryEventsTableName}`,
-            "WHERE attempts >= $maxAttempts",
-        ].join(" "),
-    ).run({ maxAttempts: options.maxAttempts });
+        database.query(
+            [
+                `DELETE FROM ${telemetryEventsTableName}`,
+                "WHERE attempts >= $maxAttempts",
+            ].join(" "),
+        ).run({ maxAttempts: options.maxAttempts });
+    }).immediate();
 }
 
 export function releaseTelemetryRowsWithoutAttempt(
@@ -417,6 +370,10 @@ export function releaseTelemetryRowsWithoutAttempt(
     rows: readonly Pick<TelemetryEventRow, "id">[],
     availableAtMs: number,
 ): void {
+    if (rows.length === 0) {
+        return;
+    }
+
     const statement = database.query(
         [
             `UPDATE ${telemetryEventsTableName}`,
@@ -426,12 +383,14 @@ export function releaseTelemetryRowsWithoutAttempt(
         ].join(" "),
     );
 
-    for (const row of rows) {
-        statement.run({
-            availableAtMs,
-            id: row.id,
-        });
-    }
+    database.transaction(() => {
+        for (const row of rows) {
+            statement.run({
+                availableAtMs,
+                id: row.id,
+            });
+        }
+    }).immediate();
 }
 
 /**
@@ -441,16 +400,16 @@ export function releaseTelemetryRowsWithoutAttempt(
  * @public
  */
 export function readTelemetryRowsForTest(
-    directoryPath: string,
+    databaseFilePath: string,
 ): TelemetryEventRow[] {
-    if (!telemetryDatabaseFileExists(directoryPath)) {
+    const database = new SharedSqliteDatabase(databaseFilePath);
+
+    if (!database.exists()) {
         return [];
     }
 
-    const database = openTelemetryDatabase(directoryPath);
-
     try {
-        return database.query<TelemetryEventRow, null>(
+        return openTelemetryDatabase(database).query<TelemetryEventRow, null>(
             [
                 "SELECT",
                 "id AS id,",
@@ -512,90 +471,6 @@ function initializeTelemetryDatabase(database: Database): void {
             ")",
         ].join(" "),
     );
-}
-
-function openInitializedTelemetryDatabase(filePath: string): Database {
-    const database = openSqliteDatabase(filePath, {
-        busyTimeoutMs: telemetrySqliteBusyTimeoutMs,
-    });
-    let initialized = false;
-
-    try {
-        initializeTelemetryDatabase(database);
-        initialized = true;
-
-        return database;
-    }
-    finally {
-        if (!initialized) {
-            database.close();
-        }
-    }
-}
-
-function isTelemetryDatabaseOverHardLimit(directoryPath: string): boolean {
-    return readTelemetryDatabaseFileSetBytes(
-        resolveTelemetryDatabaseFilePath(directoryPath),
-    ) >= telemetryDatabaseMaxBytes;
-}
-
-function readTelemetryDatabaseFileSetBytes(filePath: string): number {
-    let totalBytes = 0;
-
-    for (const suffix of ["", "-wal", "-shm"]) {
-        try {
-            const stats = statSync(`${filePath}${suffix}`);
-
-            if (stats.isFile()) {
-                totalBytes += stats.size;
-            }
-        }
-        catch (error) {
-            if (isNodeNotFoundError(error)) {
-                continue;
-            }
-
-            throw error;
-        }
-    }
-
-    return totalBytes;
-}
-
-function telemetryDatabaseFileExists(directoryPath: string): boolean {
-    try {
-        return statSync(resolveTelemetryDatabaseFilePath(directoryPath)).isFile();
-    }
-    catch (error) {
-        if (isNodeNotFoundError(error)) {
-            return false;
-        }
-
-        throw error;
-    }
-}
-
-function resetTelemetryDatabaseFiles(filePath: string): void {
-    mkdirSync(dirname(filePath), { recursive: true });
-
-    for (const suffix of ["", "-shm", "-wal"]) {
-        rmSync(`${filePath}${suffix}`, {
-            force: true,
-        });
-    }
-}
-
-function isRecoverableTelemetrySqliteError(error: unknown): boolean {
-    if (error === null || typeof error !== "object" || !("code" in error)) {
-        return false;
-    }
-
-    return [
-        "SQLITE_CANTOPEN",
-        "SQLITE_CORRUPT",
-        "SQLITE_IOERR",
-        "SQLITE_NOTADB",
-    ].includes(String(error.code));
 }
 
 function isNodeNotFoundError(error: unknown): boolean {

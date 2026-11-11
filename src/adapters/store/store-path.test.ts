@@ -20,25 +20,24 @@ describe("resolveStorePaths", () => {
         expect(storePaths).toEqual({
             authFilePath: join("/tmp/xdg", APP_NAME, "auth.toml"),
             connectorFilePath: join("/tmp/xdg", APP_NAME, "connector.toml"),
-            cacheFilePath: join("/tmp/xdg", APP_NAME, "data", "cache.sqlite"),
             dataDirectory: join("/tmp/xdg", APP_NAME, "data"),
+            databaseFilePath: join("/tmp/xdg", APP_NAME, "data", "oo.sqlite"),
             downloadSessionsDirectoryPath: join(
                 "/tmp/xdg",
                 APP_NAME,
                 "data",
                 "download-sessions",
             ),
-            legacyDownloadSessionsFilePath: join(
-                "/tmp/xdg",
-                APP_NAME,
-                "data",
-                "download-sessions.sqlite",
-            ),
+            legacySqliteFilePaths: [
+                join("/tmp/xdg", APP_NAME, "data", "cache.sqlite"),
+                join("/tmp/xdg", APP_NAME, "data", "download-sessions.sqlite"),
+                join("/tmp/xdg", APP_NAME, "data", "uploads.sqlite"),
+                join("/tmp/xdg", APP_NAME, "telemetry", "telemetry.sqlite"),
+            ],
             logDirectoryPath: join("/tmp/xdg-state", APP_NAME, "logs"),
             rootDirectory: join("/tmp/xdg", APP_NAME),
             settingsFilePath: join("/tmp/xdg", APP_NAME, "settings.toml"),
             telemetryDirectory: join("/tmp/xdg", APP_NAME, "telemetry"),
-            uploadsFilePath: join("/tmp/xdg", APP_NAME, "data", "uploads.sqlite"),
         });
     });
 
@@ -81,15 +80,37 @@ describe("resolveStorePaths", () => {
 
         expect(storePaths.rootDirectory).toBe("/tmp/app/config");
         expect(storePaths.dataDirectory).toBe("/tmp/app/data");
-        expect(storePaths.cacheFilePath).toBe(
-            join("/tmp/app/data", "cache.sqlite"),
-        );
-        expect(storePaths.uploadsFilePath).toBe(
-            join("/tmp/app/data", "uploads.sqlite"),
-        );
         expect(storePaths.downloadSessionsDirectoryPath).toBe(
             join("/tmp/app/data", "download-sessions"),
         );
+        // Files left behind by earlier releases are looked up where those
+        // releases wrote them: the telemetry one followed the config root.
+        expect(storePaths.legacySqliteFilePaths).toEqual([
+            join("/tmp/app/data", "cache.sqlite"),
+            join("/tmp/app/data", "download-sessions.sqlite"),
+            join("/tmp/app/data", "uploads.sqlite"),
+            join("/tmp/app/config", "telemetry", "telemetry.sqlite"),
+        ]);
+    });
+
+    test("places the single sqlite database in OO_DATA_DIR on every platform", () => {
+        for (const platform of ["linux", "darwin", "win32"] as const) {
+            const storePaths = resolveStorePaths({
+                appName: APP_NAME,
+                env: {
+                    APPDATA: "C:\\Users\\kevin\\AppData\\Roaming",
+                    HOME: "/tmp/home",
+                    OO_DATA_DIR: "/tmp/app/data",
+                    USERPROFILE: "C:\\Users\\kevin",
+                    XDG_CONFIG_HOME: "/tmp/xdg",
+                },
+                platform,
+            });
+
+            expect(storePaths.databaseFilePath).toBe(
+                join("/tmp/app/data", "oo.sqlite"),
+            );
+        }
     });
 
     test("overrides the log directory with OO_LOG_DIR on every platform", () => {

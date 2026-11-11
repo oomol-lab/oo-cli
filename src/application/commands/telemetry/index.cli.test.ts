@@ -1,29 +1,33 @@
-import { chmod, mkdir, truncate } from "node:fs/promises";
-import { join } from "node:path";
+import { chmod, mkdir } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
 import { describe, expect, test } from "bun:test";
 import {
     createCliSandbox,
     createCliSnapshot,
+    readSandboxTelemetryRows,
+    resolveSandboxStorePaths,
+    withSharedSqliteDatabase,
     writeAuthFile,
 } from "../../../../__tests__/helpers.ts";
+import { SharedSqliteDatabase } from "../../../adapters/store/sqlite-utils.ts";
 import { APP_NAME } from "../../config/app-config.ts";
-import { createTelemetryItemForTest } from "../../telemetry/__tests__/helpers.ts";
 import {
-    telemetryDatabaseMaxBytes,
+    createTelemetryItemForTest,
+    enqueueTelemetryItemForTest,
+} from "../../telemetry/__tests__/helpers.ts";
+import {
+    telemetryOutboxMaxEvents,
     telemetrySpawnIntervalMs,
     telemetrySpawnThresholdEvents,
 } from "../../telemetry/constants.ts";
 import {
-    enqueueTelemetryBatchItem,
     leaseReadyTelemetryRows,
     openTelemetryDatabase,
     parseTelemetryRowPayload,
     readOrCreateTelemetryDeviceId,
     readTelemetryDeviceIdIfExists,
-    readTelemetryRowsForTest,
     readTelemetryStateNumber,
-    resolveTelemetryDatabaseFilePath,
     writeTelemetryStateNumber,
 } from "../../telemetry/outbox.ts";
 
@@ -35,13 +39,12 @@ describe("telemetry CLI", () => {
 
         try {
             const result = await sandbox.run(["telemetry", "status"]);
-            const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
 
             expect(createCliSnapshot(result)).toMatchSnapshot();
             expect(result.stdout).toContain("enabled: true");
             expect(result.stdout).toContain("device_id: none");
             expect(result.stdout).toContain("pending: 0");
-            expect(readTelemetryRowsForTest(telemetryDirectoryPath)).toEqual([]);
+            expect(readSandboxTelemetryRows(sandbox)).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
@@ -52,9 +55,11 @@ describe("telemetry CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
             const lastFlushAtMs = Date.UTC(2026, 0, 2, 3, 4, 5, 678);
-            const database = openTelemetryDatabase(telemetryDirectoryPath);
+            const sharedDatabase = new SharedSqliteDatabase(
+                resolveSandboxStorePaths(sandbox).databaseFilePath,
+            );
+            const database = openTelemetryDatabase(sharedDatabase);
 
             try {
                 writeTelemetryStateNumber(
@@ -64,7 +69,7 @@ describe("telemetry CLI", () => {
                 );
             }
             finally {
-                database.close();
+                sharedDatabase.close();
             }
 
             const status = await sandbox.run(["telemetry", "status"]);
@@ -72,7 +77,7 @@ describe("telemetry CLI", () => {
             expect(status.exitCode).toBe(0);
             expect(status.stdout).toContain("pending: 0");
             expect(status.stdout).toContain("last_flush: 2026-01-02T03:04:05.678Z");
-            expect(readTelemetryRowsForTest(telemetryDirectoryPath)).toEqual([]);
+            expect(readSandboxTelemetryRows(sandbox)).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
@@ -84,9 +89,7 @@ describe("telemetry CLI", () => {
 
         try {
             const result = await sandbox.run(["config", "list"]);
-            const rows = readTelemetryRowsForTest(
-                resolveSandboxTelemetryDirectory(sandbox),
-            );
+            const rows = readSandboxTelemetryRows(sandbox);
             const payload = parseTelemetryRowPayload(rows[0]!);
 
             expect(result.exitCode).toBe(0);
@@ -126,7 +129,7 @@ describe("telemetry CLI", () => {
 
             const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
             const command = await sandbox.run(["config", "list"]);
-            const rows = readTelemetryRowsForTest(telemetryDirectoryPath);
+            const rows = readSandboxTelemetryRows(sandbox);
             const payload = parseTelemetryRowPayload(rows[0]!);
             const deviceId = await readTelemetryDeviceIdIfExists(
                 telemetryDirectoryPath,
@@ -162,9 +165,7 @@ describe("telemetry CLI", () => {
             });
 
             const command = await sandbox.run(["config", "list"]);
-            const rows = readTelemetryRowsForTest(
-                resolveSandboxTelemetryDirectory(sandbox),
-            );
+            const rows = readSandboxTelemetryRows(sandbox);
             const payload = parseTelemetryRowPayload(rows[0]!);
             const serializedPayload = JSON.stringify(payload);
 
@@ -191,11 +192,9 @@ describe("telemetry CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
-
             const config = await sandbox.run(["config", "set", "lang", "en"]);
             const completion = await sandbox.run(["completion", "bash"]);
-            const rows = readTelemetryRowsForTest(telemetryDirectoryPath);
+            const rows = readSandboxTelemetryRows(sandbox);
             const payloads = rows.map(row => parseTelemetryRowPayload(row));
 
             expect(config.exitCode).toBe(0);
@@ -226,10 +225,8 @@ describe("telemetry CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
-
             const authStatus = await sandbox.run(["auth", "status"]);
-            const rows = readTelemetryRowsForTest(telemetryDirectoryPath);
+            const rows = readSandboxTelemetryRows(sandbox);
             const payload = parseTelemetryRowPayload(rows[0]!);
 
             expect(authStatus.exitCode).toBe(0);
@@ -251,12 +248,10 @@ describe("telemetry CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
-
             await sandbox.run(["config", "list"]);
-            const beforeRows = readTelemetryRowsForTest(telemetryDirectoryPath);
+            const beforeRows = readSandboxTelemetryRows(sandbox);
             const status = await sandbox.run(["telemetry", "status"]);
-            const afterRows = readTelemetryRowsForTest(telemetryDirectoryPath);
+            const afterRows = readSandboxTelemetryRows(sandbox);
 
             expect(status.stdout).toContain(`pending: ${beforeRows.length}`);
             expect(afterRows).toHaveLength(beforeRows.length);
@@ -276,7 +271,7 @@ describe("telemetry CLI", () => {
             );
 
             await sandbox.run(["config", "list"]);
-            expect(readTelemetryRowsForTest(telemetryDirectoryPath)).toHaveLength(1);
+            expect(readSandboxTelemetryRows(sandbox)).toHaveLength(1);
 
             const disable = await sandbox.run(["telemetry", "disable"]);
             const disabledStatus = await sandbox.run(["telemetry", "status"]);
@@ -285,7 +280,7 @@ describe("telemetry CLI", () => {
 
             expect(createCliSnapshot(disable)).toMatchSnapshot();
             expect(createCliSnapshot(enable)).toMatchSnapshot();
-            expect(readTelemetryRowsForTest(telemetryDirectoryPath)).toEqual([]);
+            expect(readSandboxTelemetryRows(sandbox)).toEqual([]);
             expect(await readTelemetryDeviceIdIfExists(telemetryDirectoryPath)).toBe(
                 deviceId.deviceId,
             );
@@ -301,8 +296,6 @@ describe("telemetry CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
-
             await sandbox.run(["config", "list"]);
             const setFalse = await sandbox.run([
                 "config",
@@ -310,9 +303,7 @@ describe("telemetry CLI", () => {
                 "telemetry.enabled",
                 "false",
             ]);
-            const rowsAfterSetFalse = readTelemetryRowsForTest(
-                telemetryDirectoryPath,
-            );
+            const rowsAfterSetFalse = readSandboxTelemetryRows(sandbox);
             const getFalse = await sandbox.run([
                 "config",
                 "get",
@@ -379,31 +370,29 @@ describe("telemetry CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
-
-            enqueueTelemetryBatchItem({
-                directoryPath: telemetryDirectoryPath,
-                item: createTelemetryItemForTest(1),
-                nowMs: 1,
-            });
-            const initialRowId = readTelemetryRowsForTest(telemetryDirectoryPath)[0]!
+            await enqueueTelemetryItemForTest(
+                resolveSandboxStorePaths(sandbox).databaseFilePath,
+                createTelemetryItemForTest(1),
+                1,
+            );
+            const initialRowId = readSandboxTelemetryRows(sandbox)[0]!
                 .id;
 
             const enable = await sandbox.run(["telemetry", "enable"]);
-            const rowsAfterEnable = readTelemetryRowsForTest(telemetryDirectoryPath);
+            const rowsAfterEnable = readSandboxTelemetryRows(sandbox);
             const setTrue = await sandbox.run([
                 "config",
                 "set",
                 "telemetry.enabled",
                 "true",
             ]);
-            const rowsAfterSetTrue = readTelemetryRowsForTest(telemetryDirectoryPath);
+            const rowsAfterSetTrue = readSandboxTelemetryRows(sandbox);
             const unset = await sandbox.run([
                 "config",
                 "unset",
                 "telemetry.enabled",
             ]);
-            const rowsAfterUnset = readTelemetryRowsForTest(telemetryDirectoryPath);
+            const rowsAfterUnset = readSandboxTelemetryRows(sandbox);
 
             expect(enable.exitCode).toBe(0);
             expect(setTrue.exitCode).toBe(0);
@@ -421,21 +410,22 @@ describe("telemetry CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
+            await enqueueTelemetryItemForTest(
+                resolveSandboxStorePaths(sandbox).databaseFilePath,
+                createTelemetryItemForTest(1),
+                1,
+            );
 
-            enqueueTelemetryBatchItem({
-                directoryPath: telemetryDirectoryPath,
-                item: createTelemetryItemForTest(1),
-                nowMs: 1,
-            });
-
-            const database = openTelemetryDatabase(telemetryDirectoryPath);
+            const sharedDatabase = new SharedSqliteDatabase(
+                resolveSandboxStorePaths(sandbox).databaseFilePath,
+            );
+            const database = openTelemetryDatabase(sharedDatabase);
 
             try {
                 expect(leaseReadyTelemetryRows(database, Date.now())).toHaveLength(1);
             }
             finally {
-                database.close();
+                sharedDatabase.close();
             }
 
             const disable = await sandbox.run([
@@ -446,7 +436,7 @@ describe("telemetry CLI", () => {
             ]);
 
             expect(disable.exitCode).toBe(0);
-            expect(readTelemetryRowsForTest(telemetryDirectoryPath)).toEqual([]);
+            expect(readSandboxTelemetryRows(sandbox)).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
@@ -463,15 +453,16 @@ describe("telemetry CLI", () => {
             const sandbox = await createCliSandbox();
 
             try {
-                const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
+                await enqueueTelemetryItemForTest(
+                    resolveSandboxStorePaths(sandbox).databaseFilePath,
+                    createTelemetryItemForTest(1),
+                    1,
+                );
 
-                enqueueTelemetryBatchItem({
-                    directoryPath: telemetryDirectoryPath,
-                    item: createTelemetryItemForTest(1),
-                    nowMs: 1,
-                });
-
-                const database = openTelemetryDatabase(telemetryDirectoryPath);
+                const sharedDatabase = new SharedSqliteDatabase(
+                    resolveSandboxStorePaths(sandbox).databaseFilePath,
+                );
+                const database = openTelemetryDatabase(sharedDatabase);
 
                 try {
                     database.run("BEGIN IMMEDIATE");
@@ -483,14 +474,14 @@ describe("telemetry CLI", () => {
                 }
                 finally {
                     database.run("ROLLBACK");
-                    database.close();
+                    sharedDatabase.close();
                 }
 
                 const status = await sandbox.run(["telemetry", "status"]);
 
                 expect(status.stdout).toContain("enabled: false (config)");
                 expect(status.stdout).toContain("pending: 1");
-                expect(readTelemetryRowsForTest(telemetryDirectoryPath)).toHaveLength(1);
+                expect(readSandboxTelemetryRows(sandbox)).toHaveLength(1);
             }
             finally {
                 await sandbox.cleanup();
@@ -509,9 +500,7 @@ describe("telemetry CLI", () => {
 
             expect(command.exitCode).toBe(0);
             expect(status.stdout).toContain("enabled: false (env)");
-            expect(readTelemetryRowsForTest(
-                resolveSandboxTelemetryDirectory(sandbox),
-            )).toEqual([]);
+            expect(readSandboxTelemetryRows(sandbox)).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
@@ -529,9 +518,7 @@ describe("telemetry CLI", () => {
 
             expect(command.exitCode).toBe(0);
             expect(status.stdout).toContain("enabled: false (env)");
-            expect(readTelemetryRowsForTest(
-                resolveSandboxTelemetryDirectory(sandbox),
-            )).toEqual([]);
+            expect(readSandboxTelemetryRows(sandbox)).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
@@ -565,9 +552,7 @@ describe("telemetry CLI", () => {
 
                 expect(command.exitCode).toBe(0);
                 expect(status.stdout).toContain("enabled: false (env)");
-                expect(readTelemetryRowsForTest(
-                    resolveSandboxTelemetryDirectory(sandbox),
-                )).toEqual([]);
+                expect(readSandboxTelemetryRows(sandbox)).toEqual([]);
             }
             finally {
                 await sandbox.cleanup();
@@ -579,17 +564,18 @@ describe("telemetry CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
-
             await sandbox.run(["config", "list"]);
 
-            const database = openTelemetryDatabase(telemetryDirectoryPath);
+            const sharedDatabase = new SharedSqliteDatabase(
+                resolveSandboxStorePaths(sandbox).databaseFilePath,
+            );
+            const database = openTelemetryDatabase(sharedDatabase);
 
             try {
                 expect(leaseReadyTelemetryRows(database, Date.now())).toHaveLength(1);
             }
             finally {
-                database.close();
+                sharedDatabase.close();
             }
 
             const status = await sandbox.run(["telemetry", "status"]);
@@ -605,8 +591,10 @@ describe("telemetry CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
-            const database = openTelemetryDatabase(telemetryDirectoryPath);
+            const sharedDatabase = new SharedSqliteDatabase(
+                resolveSandboxStorePaths(sandbox).databaseFilePath,
+            );
+            const database = openTelemetryDatabase(sharedDatabase);
 
             try {
                 database.run("BEGIN IMMEDIATE");
@@ -618,57 +606,67 @@ describe("telemetry CLI", () => {
             }
             finally {
                 database.run("ROLLBACK");
-                database.close();
+                sharedDatabase.close();
             }
 
-            expect(readTelemetryRowsForTest(telemetryDirectoryPath)).toEqual([]);
+            expect(readSandboxTelemetryRows(sandbox)).toEqual([]);
         }
         finally {
             await sandbox.cleanup();
         }
     });
 
-    test("keeps commands successful when the telemetry database is corrupt", async () => {
+    test("keeps commands successful when the shared database file is corrupt", async () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
+            const { databaseFilePath } = resolveSandboxStorePaths(sandbox);
 
-            await mkdir(telemetryDirectoryPath, { recursive: true });
-            await Bun.write(
-                resolveTelemetryDatabaseFilePath(telemetryDirectoryPath),
-                "not sqlite",
-            );
+            await mkdir(dirname(databaseFilePath), { recursive: true });
+            await Bun.write(databaseFilePath, "not sqlite");
 
             const command = await sandbox.run(["config", "list"]);
 
             expect(command.exitCode).toBe(0);
             expect(command.stderr).toBe("");
-            expect(readTelemetryRowsForTest(telemetryDirectoryPath)).toHaveLength(1);
+            expect(readSandboxTelemetryRows(sandbox)).toHaveLength(1);
         }
         finally {
             await sandbox.cleanup();
         }
     });
 
-    test("drops telemetry without affecting commands when the outbox is over the hard limit", async () => {
+    test("drops telemetry without affecting commands when the outbox is full", async () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
-            const databaseFilePath = resolveTelemetryDatabaseFilePath(
-                telemetryDirectoryPath,
-            );
+            await withSharedSqliteDatabase(
+                resolveSandboxStorePaths(sandbox).databaseFilePath,
+                (database) => {
+                    const connection = openTelemetryDatabase(database);
+                    const insert = connection.query(
+                        [
+                            "INSERT INTO telemetry_events",
+                            "(id, created_at_ms, available_at_ms, payload_json, payload_bytes)",
+                            "VALUES ($id, 1000, 1000, '{}', 2)",
+                        ].join(" "),
+                    );
 
-            await mkdir(telemetryDirectoryPath, { recursive: true });
-            await Bun.write(databaseFilePath, "");
-            await truncate(databaseFilePath, telemetryDatabaseMaxBytes);
+                    connection.transaction(() => {
+                        for (let index = 0; index < telemetryOutboxMaxEvents; index += 1) {
+                            insert.run({ id: `pending-${index}` });
+                        }
+                    }).immediate();
+                },
+            );
 
             const command = await sandbox.run(["config", "list"]);
 
             expect(command.exitCode).toBe(0);
             expect(command.stderr).toBe("");
-            expect(readTelemetryRowsForTest(telemetryDirectoryPath)).toEqual([]);
+            expect(readSandboxTelemetryRows(sandbox)).toHaveLength(
+                telemetryOutboxMaxEvents,
+            );
         }
         finally {
             await sandbox.cleanup();
@@ -679,7 +677,6 @@ describe("telemetry CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
             const markerPath = join(sandbox.cwd, "spawn-marker");
             const execPath = join(sandbox.cwd, "spawn-recorder");
 
@@ -687,7 +684,10 @@ describe("telemetry CLI", () => {
             sandbox.env.OO_TEST_TELEMETRY_SPAWN_MARKER = markerPath;
 
             const command = await sandbox.run(["config", "list"], { execPath });
-            const database = openTelemetryDatabase(telemetryDirectoryPath);
+            const sharedDatabase = new SharedSqliteDatabase(
+                resolveSandboxStorePaths(sandbox).databaseFilePath,
+            );
+            const database = openTelemetryDatabase(sharedDatabase);
 
             try {
                 expect(command.exitCode).toBe(0);
@@ -697,7 +697,7 @@ describe("telemetry CLI", () => {
                 )).toBeUndefined();
             }
             finally {
-                database.close();
+                sharedDatabase.close();
             }
 
             await Bun.sleep(50);
@@ -712,7 +712,6 @@ describe("telemetry CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
             const markerPath = join(sandbox.cwd, "spawn-marker");
             const execPath = join(sandbox.cwd, "spawn-recorder");
 
@@ -726,15 +725,18 @@ describe("telemetry CLI", () => {
             expect(await Bun.file(markerPath).exists()).toBeFalse();
 
             for (let index = 0; index < telemetrySpawnThresholdEvents - 1; index += 1) {
-                enqueueTelemetryBatchItem({
-                    directoryPath: telemetryDirectoryPath,
-                    item: createTelemetryItemForTest(index),
-                    nowMs: index + 1,
-                });
+                await enqueueTelemetryItemForTest(
+                    resolveSandboxStorePaths(sandbox).databaseFilePath,
+                    createTelemetryItemForTest(index),
+                    index + 1,
+                );
             }
 
             const thresholdCommand = await sandbox.run(["config", "path"], { execPath });
-            const nextDatabase = openTelemetryDatabase(telemetryDirectoryPath);
+            const nextSharedDatabase = new SharedSqliteDatabase(
+                resolveSandboxStorePaths(sandbox).databaseFilePath,
+            );
+            const nextDatabase = openTelemetryDatabase(nextSharedDatabase);
 
             try {
                 expect(thresholdCommand.exitCode).toBe(0);
@@ -745,7 +747,7 @@ describe("telemetry CLI", () => {
                 expect(await waitForFile(markerPath)).toBeTrue();
             }
             finally {
-                nextDatabase.close();
+                nextSharedDatabase.close();
             }
         }
         finally {
@@ -757,7 +759,6 @@ describe("telemetry CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
             const markerPath = join(sandbox.cwd, "spawn-marker");
             const execPath = join(sandbox.cwd, "spawn-recorder");
 
@@ -765,16 +766,19 @@ describe("telemetry CLI", () => {
             sandbox.env.OO_TEST_TELEMETRY_SPAWN_MARKER = markerPath;
 
             for (let index = 0; index < telemetrySpawnThresholdEvents - 1; index += 1) {
-                enqueueTelemetryBatchItem({
-                    directoryPath: telemetryDirectoryPath,
-                    item: createTelemetryItemForTest(index),
-                    nowMs: index + 1,
-                });
+                await enqueueTelemetryItemForTest(
+                    resolveSandboxStorePaths(sandbox).databaseFilePath,
+                    createTelemetryItemForTest(index),
+                    index + 1,
+                );
             }
 
             const startedAtMs = Date.now();
             const command = await sandbox.run(["config", "list"], { execPath });
-            const nextDatabase = openTelemetryDatabase(telemetryDirectoryPath);
+            const nextSharedDatabase = new SharedSqliteDatabase(
+                resolveSandboxStorePaths(sandbox).databaseFilePath,
+            );
+            const nextDatabase = openTelemetryDatabase(nextSharedDatabase);
 
             try {
                 const nextSpawnAfterMs = readTelemetryStateNumber(
@@ -792,7 +796,7 @@ describe("telemetry CLI", () => {
                 expect(await waitForFile(markerPath)).toBeTrue();
             }
             finally {
-                nextDatabase.close();
+                nextSharedDatabase.close();
             }
         }
         finally {
@@ -804,7 +808,6 @@ describe("telemetry CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
             const markerPath = join(sandbox.cwd, "spawn-marker");
             const execPath = join(sandbox.cwd, "spawn-recorder");
 
@@ -819,7 +822,7 @@ describe("telemetry CLI", () => {
 
             await Bun.sleep(50);
 
-            expect(readTelemetryRowsForTest(telemetryDirectoryPath)).toHaveLength(100);
+            expect(readSandboxTelemetryRows(sandbox)).toHaveLength(100);
             expect(await readSpawnRecordCount(markerPath)).toBeLessThanOrEqual(1);
         }
         finally {
@@ -831,18 +834,20 @@ describe("telemetry CLI", () => {
         const sandbox = await createCliSandbox();
 
         try {
-            const telemetryDirectoryPath = resolveSandboxTelemetryDirectory(sandbox);
             const futureSpawnAfterMs = Date.now() + 24 * 60 * 60 * 1000;
 
             for (let index = 0; index < telemetrySpawnThresholdEvents; index += 1) {
-                enqueueTelemetryBatchItem({
-                    directoryPath: telemetryDirectoryPath,
-                    item: createTelemetryItemForTest(index),
-                    nowMs: index + 1,
-                });
+                await enqueueTelemetryItemForTest(
+                    resolveSandboxStorePaths(sandbox).databaseFilePath,
+                    createTelemetryItemForTest(index),
+                    index + 1,
+                );
             }
 
-            const database = openTelemetryDatabase(telemetryDirectoryPath);
+            const sharedDatabase = new SharedSqliteDatabase(
+                resolveSandboxStorePaths(sandbox).databaseFilePath,
+            );
+            const database = openTelemetryDatabase(sharedDatabase);
 
             try {
                 writeTelemetryStateNumber(
@@ -852,11 +857,14 @@ describe("telemetry CLI", () => {
                 );
             }
             finally {
-                database.close();
+                sharedDatabase.close();
             }
 
             const command = await sandbox.run(["config", "list"]);
-            const nextDatabase = openTelemetryDatabase(telemetryDirectoryPath);
+            const nextSharedDatabase = new SharedSqliteDatabase(
+                resolveSandboxStorePaths(sandbox).databaseFilePath,
+            );
+            const nextDatabase = openTelemetryDatabase(nextSharedDatabase);
 
             try {
                 expect(command.exitCode).toBe(0);
@@ -866,7 +874,7 @@ describe("telemetry CLI", () => {
                 )).toBe(futureSpawnAfterMs);
             }
             finally {
-                nextDatabase.close();
+                nextSharedDatabase.close();
             }
         }
         finally {

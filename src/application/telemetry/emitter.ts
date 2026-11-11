@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import type { Logger } from "pino";
 
+import type { SharedSqliteDatabase } from "../../adapters/store/sqlite-utils.ts";
 import type { CliInvocation } from "../bootstrap/run-cli.ts";
 import type { AuthStore } from "../contracts/auth-store.ts";
 import type { AppSettings } from "../schemas/settings.ts";
@@ -31,6 +32,7 @@ import { createCliCommandTelemetryPayload } from "./payload.ts";
 export interface EmitCliTelemetryOptions {
     authStore?: AuthStore;
     buildCommit: string;
+    database: SharedSqliteDatabase;
     env: Record<string, string | undefined>;
     execPath: string;
     exitCode: number;
@@ -118,13 +120,13 @@ export async function emitCliCommandTelemetry(
         let shouldSpawnFlusher = false;
 
         enqueueTelemetryBatchItem({
-            // Reuse the insert's connection instead of reopening the outbox.
-            afterInsert: (database) => {
-                shouldSpawnFlusher = reserveTelemetryFlusherSpawn(database, nowMs);
+            // Decided in the insert's transaction, so concurrent invocations
+            // cannot both claim the same spawn slot.
+            afterInsert: (connection) => {
+                shouldSpawnFlusher = reserveTelemetryFlusherSpawn(connection, nowMs);
             },
-            directoryPath: options.telemetryDirectoryPath,
+            database: options.database,
             item: payload,
-            logger: options.logger,
             nowMs,
         });
 

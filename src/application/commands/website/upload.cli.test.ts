@@ -6,14 +6,13 @@ import {
     createCliSandbox,
     createCliSnapshot,
     expectTelemetryFreeOfTeamIdentity,
+    readSandboxTelemetryRows,
     toRequest,
     writeAuthFile,
     writeAuthFileWithDefaultTeam,
 } from "../../../../__tests__/helpers.ts";
-import { APP_NAME } from "../../config/app-config.ts";
 import {
     parseTelemetryRowPayload,
-    readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
 import { maxWebsiteUploadSizeBytes } from "./upload.ts";
 
@@ -520,8 +519,6 @@ function readUploadTelemetryPayload(
     sandbox: Awaited<ReturnType<typeof createCliSandbox>>,
 ) {
     return parseTelemetryRowPayload(
-        readTelemetryRowsForTest(
-            join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-        )[0]!,
+        readSandboxTelemetryRows(sandbox)[0]!,
     );
 }

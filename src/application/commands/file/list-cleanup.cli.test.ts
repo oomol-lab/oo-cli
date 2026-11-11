@@ -11,11 +11,11 @@ import { APP_NAME } from "../../config/app-config.ts";
 describe("file list and cleanup CLI", () => {
     test("supports file list filters and cleanup json output", async () => {
         const sandbox = await createCliSandbox();
-        const uploadsFilePath = resolveStorePaths({
+        const databaseFilePath = resolveStorePaths({
             appName: APP_NAME,
             env: sandbox.env,
             platform: process.platform,
-        }).uploadsFilePath;
+        }).databaseFilePath;
         const legacyFileName = "\u53051.jpg";
         const legacyDownloadUrl = `https://download.example.com/${legacyFileName}`;
 
@@ -31,7 +31,7 @@ describe("file list and cleanup CLI", () => {
                 },
             );
 
-            const database = new Database(uploadsFilePath, {
+            const database = new Database(databaseFilePath, {
                 create: true,
                 strict: true,
             });

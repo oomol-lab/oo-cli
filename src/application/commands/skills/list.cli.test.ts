@@ -213,7 +213,7 @@ describe("skills info CLI", () => {
 
             expect(result.exitCode).toBe(0);
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(storePaths.telemetryDirectory)[0]!,
+                readTelemetryRowsForTest(storePaths.databaseFilePath)[0]!,
             );
 
             expect(telemetryPayload).toMatchObject({
@@ -860,7 +860,7 @@ describe("skills info CLI", () => {
 
             expect(result.exitCode).toBe(0);
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(storePaths.telemetryDirectory)[0]!,
+                readTelemetryRowsForTest(storePaths.databaseFilePath)[0]!,
             );
 
             expect(telemetryPayload).toMatchObject({

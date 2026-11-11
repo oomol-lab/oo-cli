@@ -9,11 +9,11 @@ import {
     createTemporaryDirectory,
     defaultLoginDefaultTeamResponse,
     readLatestLogContent,
+    readSandboxTelemetryRows,
     toRequest,
     writeAuthFile,
 } from "../../../__tests__/helpers.ts";
-import { APP_NAME } from "../config/app-config.ts";
-import { parseTelemetryRowPayload, readTelemetryRowsForTest } from "../telemetry/outbox.ts";
+import { parseTelemetryRowPayload } from "../telemetry/outbox.ts";
 import { resolveOpenFlowInvocation } from "./flow-invocation.ts";
 
 describe("flow CLI", () => {
@@ -194,7 +194,7 @@ describe("flow CLI", () => {
             expect(new URL(captured.url).searchParams.get("redirect")).toBe(
                 `https://console.oomol.com/team/${team}/flows/flow-1/design`,
             );
-            const telemetry = readTelemetryRowsForTest(join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"))
+            const telemetry = readSandboxTelemetryRows(sandbox)
                 .map(row => parseTelemetryRowPayload(row))
                 .find(payload => payload?.properties?.command_full === "flow");
             expect(telemetry?.properties).toMatchObject({ identity_source: "flag" });

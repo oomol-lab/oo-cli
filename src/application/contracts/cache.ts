@@ -19,5 +19,4 @@ export interface Cache<Value> {
 
 export interface CacheStore {
     getCache: <Value>(options: CacheOptions) => Cache<Value>;
-    close: () => void;
 }

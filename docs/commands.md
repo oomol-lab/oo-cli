@@ -24,11 +24,14 @@ The CLI reads these environment variables to support embedded and automated
 use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
 
 - `OO_CONFIG_DIR`: Override the configuration root directory that holds
-  `auth.toml`, `connector.toml`, `settings.toml`, and telemetry data (and,
-  unless `OO_DATA_DIR` is set, the `data` subdirectory). Takes precedence over
-  `XDG_CONFIG_HOME`.
-- `OO_DATA_DIR`: Override the data directory that holds the local cache,
-  uploads, and download-session state. Defaults to `<config-root>/data`.
+  `auth.toml`, `connector.toml`, `settings.toml`, and the telemetry device id
+  (and, unless `OO_DATA_DIR` is set, the `data` subdirectory). Takes precedence
+  over `XDG_CONFIG_HOME`.
+- `OO_DATA_DIR`: Override the data directory. It holds the CLI's only SQLite
+  database, `oo.sqlite` (local cache, upload records, and pending telemetry
+  events), and download-session state. Defaults to `<config-root>/data`. The
+  database is safe to share between concurrent `oo` processes, and its
+  contents are disposable: deleting the file only resets that local state.
 - `OO_OPEN_FLOW_COMMAND_DIR`: During local Open Flow integration testing, point
   `oo flow` at an expanded Open Flow command artifact directory. The directory
   must contain `entry.js`; the standard repository build writes it to

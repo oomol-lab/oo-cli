@@ -13,17 +13,19 @@ import {
     createInteractiveInput,
     expectTelemetryFreeOfTeamIdentity,
     readLatestLogContent,
+    readSandboxTelemetryRows,
+    resolveSandboxStorePaths,
     toRequest,
     writeAuthFile,
     writeAuthFileWithDefaultTeam,
     writeConnectorFile,
 } from "../../../../__tests__/helpers.ts";
 import { SqliteCacheStore } from "../../../adapters/cache/sqlite-cache.ts";
+import { SharedSqliteDatabase } from "../../../adapters/store/sqlite-utils.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
 import { APP_NAME } from "../../config/app-config.ts";
 import {
     parseTelemetryRowPayload,
-    readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
 import { connectorExecutionIdColor } from "./result-text.ts";
@@ -706,9 +708,7 @@ describe("connectorCommand CLI", () => {
                 },
             );
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(result.exitCode).toBe(0);
@@ -966,9 +966,7 @@ describe("connectorCommand CLI", () => {
                 },
             );
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(result.exitCode).toBe(1);
@@ -1105,9 +1103,7 @@ describe("connectorCommand CLI", () => {
                 query: { limit: 1 },
             });
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
             expect(telemetryPayload).toMatchObject({
                 properties: {
@@ -1330,9 +1326,7 @@ describe("connectorCommand CLI", () => {
                 },
             );
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(result.exitCode).toBe(1);
@@ -1600,9 +1594,7 @@ describe("connectorCommand CLI", () => {
                 },
             );
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(result.exitCode).toBe(0);
@@ -1639,9 +1631,7 @@ describe("connectorCommand CLI", () => {
                 },
             );
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(result.exitCode).toBe(1);
@@ -1726,9 +1716,7 @@ describe("connectorCommand CLI", () => {
                 },
             );
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(result.exitCode).toBe(0);
@@ -1849,9 +1837,7 @@ describe("connectorCommand CLI", () => {
                 },
             );
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(result.exitCode).toBe(0);
@@ -1892,9 +1878,7 @@ describe("connectorCommand CLI", () => {
                 },
             );
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(result.exitCode).toBe(0);
@@ -1971,9 +1955,7 @@ describe("connectorCommand CLI", () => {
                 },
             );
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(result.exitCode).toBe(0);
@@ -2061,7 +2043,7 @@ describe("connectorCommand CLI", () => {
             }
             expect(requests).toHaveLength(2);
             expect(requests.every(request => request.method === "POST")).toBe(true);
-            const rows = readTelemetryRowsForTest(join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"));
+            const rows = readSandboxTelemetryRows(sandbox);
             expect(rows).toHaveLength(2);
             for (const row of rows) {
                 const payload = parseTelemetryRowPayload(row);
@@ -2224,9 +2206,7 @@ describe("connectorCommand CLI", () => {
                 { input: { prompt: "a cat" }, approval: true },
                 ...Array.from({ length: runningPolls + 1 }).fill({ input: recovery.input }),
             ]);
-            const payload = parseTelemetryRowPayload(readTelemetryRowsForTest(
-                join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-            )[0]!);
+            const payload = parseTelemetryRowPayload(readSandboxTelemetryRows(sandbox)[0]!);
             expect(payload).toMatchObject({ properties: { error_code: "approval_required", http_status: 409 } });
             for (const value of ["private-session-1", "submit-exec", "recovery", "\"approval\"", "a cat", "original-connection"]) {
                 expect(JSON.stringify(payload)).not.toContain(value);
@@ -2333,9 +2313,7 @@ describe("connectorCommand CLI", () => {
                 },
             );
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(createCliSnapshot(result)).toMatchSnapshot();
@@ -2423,9 +2401,7 @@ describe("connectorCommand CLI", () => {
             );
             expect(requests[0]?.headers.get("x-oo-connector-alias")).toBe("work");
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(telemetryPayload).toMatchObject({
@@ -2686,9 +2662,7 @@ describe("connectorCommand CLI", () => {
                 },
             });
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(telemetryPayload).toMatchObject({
@@ -2865,9 +2839,7 @@ describe("connectorCommand CLI", () => {
                 },
             });
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(telemetryPayload).toMatchObject({
@@ -4169,9 +4141,7 @@ describe("connectorCommand CLI", () => {
                 },
             );
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
             const content = await readLatestLogContent(sandbox);
 
@@ -4448,9 +4418,7 @@ describe("connectorCommand CLI", () => {
             expect(result.stdout).not.toContain("signature");
 
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(telemetryPayload?.properties).toMatchObject({
@@ -5179,9 +5147,7 @@ describe("connectorCommand CLI", () => {
                 },
             );
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
             const cachedResult = await sandbox.run(
                 ["connector", "schema", "gmail", "--action", "send_mail", "--json"],
@@ -5450,9 +5416,7 @@ describe("connectorCommand CLI", () => {
                 },
             );
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(result.exitCode).toBe(0);
@@ -5545,9 +5509,7 @@ describe("connectorCommand CLI", () => {
                 },
             );
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(result.exitCode).toBe(0);
@@ -5721,9 +5683,7 @@ describe("connectorCommand CLI", () => {
                 },
             );
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(result.exitCode).toBe(0);
@@ -5788,9 +5748,7 @@ describe("connectorCommand CLI", () => {
                 },
             );
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(JSON.parse(result.stdout)).toMatchObject({
@@ -5981,9 +5939,7 @@ describe("connectorCommand CLI", () => {
                 },
             );
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(result.exitCode).toBe(0);
@@ -6742,12 +6698,10 @@ async function seedConnectorActionSchema(
     action: SeedConnectorAction = createConnectorActionFixture(),
     locale: "en" | "zh" = "en",
 ): Promise<void> {
-    const cacheStore = new SqliteCacheStore(
-        join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "data", "cache.sqlite"),
-        pino({
-            enabled: false,
-        }),
+    const sharedDatabase = new SharedSqliteDatabase(
+        resolveSandboxStorePaths(sandbox).databaseFilePath,
     );
+    const cacheStore = new SqliteCacheStore(sharedDatabase);
 
     try {
         // Seed through the loader's real write path with a stub metadata
@@ -6781,7 +6735,7 @@ async function seedConnectorActionSchema(
         );
     }
     finally {
-        cacheStore.close();
+        sharedDatabase.close();
     }
 }
 
@@ -6862,7 +6816,7 @@ test.each([{ command: ["search"] }, { command: ["connector", "search"] }])("cros
             { appId: "app-second", teamId: "team-second" },
         ]);
         expect(await Bun.file(authPath).text()).toBe(saved);
-        const event = readTelemetryRowsForTest(join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"))
+        const event = readSandboxTelemetryRows(sandbox)
             .map(row => parseTelemetryRowPayload(row))
             .find(payload => payload?.properties?.command_full === command.join("."));
         expect(event?.properties).toMatchObject({ search_scope: "all_teams", identity_source: "none", result_count_bucket: "1-5" });
@@ -6891,7 +6845,7 @@ test.each([{ command: ["search"] }, { command: ["connector", "search"] }])("cros
         expect(runRequests[1]?.headers.get("x-oo-team-id")).toBe("team-other");
         expect(runRequests[1]?.headers.get("x-oo-connector-alias")).toBeNull();
         expect(await Bun.file(authPath).text()).toBe(saved);
-        const runEvent = readTelemetryRowsForTest(join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"))
+        const runEvent = readSandboxTelemetryRows(sandbox)
             .map(row => parseTelemetryRowPayload(row))
             .find(payload => payload?.properties?.command_full === "connector.run");
         expect(runEvent?.properties).toMatchObject({ connection_selector: "appId" });

@@ -18,6 +18,7 @@ import {
     findLoginUrl,
     readAuthLoginUrlPrefix,
     readLatestLogContent,
+    readSandboxTelemetryRows,
     runPrintedAuthLogin,
     toRequest,
     writeAuthFile,
@@ -27,7 +28,6 @@ import {
 import { APP_NAME } from "../../config/app-config.ts";
 import {
     parseTelemetryRowPayload,
-    readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
 import { createTerminalColors } from "../../terminal-colors.ts";
 import { JSON_OUTPUT_SCHEMA_VERSION } from "../command-output.ts";
@@ -2215,9 +2215,7 @@ function readCommandTelemetryProperties(
     sandbox: { env: Record<string, string | undefined> },
     commandFull: string,
 ): Record<string, unknown> | undefined {
-    return readTelemetryRowsForTest(
-        join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-    )
+    return readSandboxTelemetryRows(sandbox)
         .map(row => parseTelemetryRowPayload(row))
         .find(payload => payload?.properties?.command_full === commandFull)
         ?.properties;

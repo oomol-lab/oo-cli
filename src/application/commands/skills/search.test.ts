@@ -20,6 +20,7 @@ import {
     createTextBuffer,
     toRequest,
 } from "../../../../__tests__/helpers.ts";
+import { SharedSqliteDatabase } from "../../../adapters/store/sqlite-utils.ts";
 import { createCommandOutput } from "../command-output.ts";
 import { skillsSearchCommand } from "./search.ts";
 
@@ -199,7 +200,6 @@ function createSearchContext(options: {
         ),
         authStore: createAuthStore(activeAuthFile),
         cacheStore: {
-            close() {},
             getCache() {
                 throw new Error("Unexpected cache access.");
             },
@@ -224,6 +224,8 @@ function createSearchContext(options: {
         telemetry: options.telemetryProperties === undefined
             ? undefined
             : {
+                    // Never opened: the double has no outbox.
+                    database: new SharedSqliteDatabase(""),
                     directoryPath: "",
                     recordProperties(properties) {
                         Object.assign(options.telemetryProperties!, properties);

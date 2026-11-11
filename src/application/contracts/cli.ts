@@ -1,6 +1,7 @@
 import type { Logger } from "pino";
 import type { ZodError, ZodType } from "zod";
 
+import type { SharedSqliteDatabase } from "../../adapters/store/sqlite-utils.ts";
 import type { AuthStore } from "./auth-store.ts";
 import type { CacheStore } from "./cache.ts";
 import type { ConnectorStore } from "./connector-store.ts";
@@ -181,6 +182,9 @@ export interface CliExecutionContext {
         recordProperties: (
             properties: Record<string, CliTelemetryPropertyValue>,
         ) => void;
+        // The shared SQLite database that holds the telemetry outbox.
+        database: SharedSqliteDatabase;
+        // Holds the device id file.
         directoryPath: string;
         suppressCurrentInvocation: () => void;
     };

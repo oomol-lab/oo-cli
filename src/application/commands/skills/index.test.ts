@@ -100,7 +100,7 @@ describe("skills commands", () => {
             );
             expect(result.stderr).toBe("");
             expect(parseTelemetryRowPayload(
-                readTelemetryRowsForTest(storePaths.telemetryDirectory)[0]!,
+                readTelemetryRowsForTest(storePaths.databaseFilePath)[0]!,
             )).toMatchObject({
                 properties: {
                     bundled_skill: "__all__",
@@ -1360,7 +1360,7 @@ describe("skills commands", () => {
             const metadataContent = await readFile(metadataPath, "utf8");
             expect(metadataContent).toContain("\"kind\": \"bundled\"");
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(storePaths.telemetryDirectory)[0]!,
+                readTelemetryRowsForTest(storePaths.databaseFilePath)[0]!,
             )!;
             expect(telemetryPayload).toMatchObject({
                 properties: {
@@ -2458,7 +2458,7 @@ describe("skills commands", () => {
             expect(requests[1]!.headers.get("Authorization")).toBe("secret-1");
             expect(requests[2]!.headers.get("Authorization")).toBe("secret-1");
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(storePaths.telemetryDirectory)[0]!,
+                readTelemetryRowsForTest(storePaths.databaseFilePath)[0]!,
             );
 
             expect(telemetryPayload).toMatchObject({
@@ -2647,7 +2647,7 @@ describe("skills commands", () => {
             expect(await readFile(join(claudeSkillDirectoryPath, "SKILL.md"), "utf8"))
                 .toContain("# Claude");
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(storePaths.telemetryDirectory)[0]!,
+                readTelemetryRowsForTest(storePaths.databaseFilePath)[0]!,
             );
 
             expect(telemetryPayload).toMatchObject({

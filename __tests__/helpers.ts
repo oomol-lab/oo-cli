@@ -1,4 +1,5 @@
 import type { Logger } from "pino";
+import type { StorePaths } from "../src/adapters/store/store-path.ts";
 import type { CliInvocation } from "../src/application/bootstrap/run-cli.ts";
 import type {
     OomolConnectorTarget,
@@ -20,6 +21,7 @@ import type { SettingsStore } from "../src/application/contracts/settings-store.
 import type { AuthFile } from "../src/application/schemas/auth.ts";
 import type { ConnectorFile } from "../src/application/schemas/connector.ts";
 import type { AppSettings } from "../src/application/schemas/settings.ts";
+import type { TelemetryEventRow } from "../src/application/telemetry/outbox.ts";
 import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
@@ -27,6 +29,7 @@ import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, test } from "bun:test";
 import pino from "pino";
+import { SharedSqliteDatabase } from "../src/adapters/store/sqlite-utils.ts";
 import { resolveStorePaths } from "../src/adapters/store/store-path.ts";
 import {
     executeCli as executeCliInvocation,
@@ -43,6 +46,7 @@ import { CliUserError } from "../src/application/contracts/cli.ts";
 import { serializeErrorForLogging } from "../src/application/logging/url-sanitizer.ts";
 import { defaultSettings, renderSettingsFile } from "../src/application/schemas/settings.ts";
 import { isPathMissingError } from "../src/application/shared/fs-errors.ts";
+import { readTelemetryRowsForTest } from "../src/application/telemetry/outbox.ts";
 
 export interface TextBuffer {
     readonly writer: Writer;
@@ -188,7 +192,6 @@ export const defaultSettingsFileContent = renderSettingsFile(defaultSettings);
 
 export function createNoopFileUploadStore(): FileUploadRecordStore {
     return {
-        close() {},
         deleteExpired: () => 0,
         list: () => [],
         save() {},
@@ -645,6 +648,39 @@ export async function runPrintedAuthLogin(
     });
 }
 
+export function resolveSandboxStorePaths(
+    sandbox: Pick<CliSandbox, "env">,
+): StorePaths {
+    return resolveStorePaths({
+        appName: APP_NAME,
+        env: sandbox.env,
+        platform: process.platform,
+    });
+}
+
+// Reads the telemetry events the sandbox's CLI runs left in its outbox.
+export function readSandboxTelemetryRows(
+    sandbox: Pick<CliSandbox, "env">,
+): TelemetryEventRow[] {
+    return readTelemetryRowsForTest(resolveSandboxStorePaths(sandbox).databaseFilePath);
+}
+
+// Runs `use` against a short-lived handle on a shared database file, the way
+// one CLI process opens it and closes it again.
+export async function withSharedSqliteDatabase<Result>(
+    filePath: string,
+    use: (database: SharedSqliteDatabase) => Result | Promise<Result>,
+): Promise<Result> {
+    const database = new SharedSqliteDatabase(filePath);
+
+    try {
+        return await use(database);
+    }
+    finally {
+        database.close();
+    }
+}
+
 export async function readLatestLogContent(sandbox: CliSandbox): Promise<string> {
     const logDirectoryPath = resolveStorePaths({
         appName: APP_NAME,
@@ -1039,7 +1075,6 @@ export function createCacheStore<Value>(
 
             return (cache ?? { clear() {}, delete: () => false, get: () => null, has: () => false, set() {} }) as unknown as Cache<CurrentValue>;
         },
-        close() {},
     };
 }
 
@@ -1107,6 +1142,8 @@ export function createRecordingTelemetry(): {
     return {
         recordedProperties,
         telemetry: {
+            // Never opened: the double has no outbox.
+            database: new SharedSqliteDatabase(""),
             directoryPath: "",
             recordProperties: (properties) => {
                 recordedProperties.push(properties);

@@ -466,7 +466,6 @@ function createMemoryCacheStore(now: () => number): CacheStore {
     const caches = new Map<string, Cache<unknown>>();
 
     return {
-        close() {},
         getCache<Value>(options: CacheOptions) {
             const existingCache = caches.get(options.id);
 

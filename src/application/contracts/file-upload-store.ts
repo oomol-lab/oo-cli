@@ -21,5 +21,4 @@ export interface FileUploadRecordStore {
     save: (record: FileUploadRecord) => void;
     list: (options: FileUploadListOptions) => FileUploadRecord[];
     deleteExpired: (now: number) => number;
-    close: () => void;
 }

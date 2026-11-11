@@ -459,7 +459,6 @@ function createCommanderContext(
             write: async connectorFile => connectorFile,
         },
         cacheStore: {
-            close() {},
             getCache() {
                 return {
                     clear() {},

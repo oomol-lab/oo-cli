@@ -15,6 +15,7 @@ import {
     createSettingsStore,
     createTemporaryDirectory,
     createTextBuffer,
+    readSandboxTelemetryRows,
     toRequest,
     useTemporaryDirectoryCleanup,
     writeAuthFile,
@@ -25,7 +26,6 @@ import { APP_NAME } from "../../config/app-config.ts";
 import { defaultSettings } from "../../schemas/settings.ts";
 import {
     parseTelemetryRowPayload,
-    readTelemetryRowsForTest,
 } from "../../telemetry/outbox.ts";
 import { resolveManagedSkillAgentHomeDirectory } from "./managed-skill-agents.ts";
 import {
@@ -103,9 +103,7 @@ describe("skills publish command", () => {
             });
 
             const telemetryPayload = parseTelemetryRowPayload(
-                readTelemetryRowsForTest(
-                    join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry"),
-                )[0]!,
+                readSandboxTelemetryRows(sandbox)[0]!,
             );
 
             expect(telemetryPayload).toMatchObject({

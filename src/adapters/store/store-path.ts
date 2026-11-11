@@ -4,10 +4,16 @@ import { resolveHomeDirectory } from "../../application/path/home-directory.ts";
 export const defaultSettingsFileName = "settings.toml";
 export const defaultAuthFileName = "auth.toml";
 export const defaultConnectorFileName = "connector.toml";
-const defaultCacheFileName = "cache.sqlite";
+const defaultDatabaseFileName = "oo.sqlite";
 const defaultDownloadSessionsDirectoryName = "download-sessions";
-const defaultLegacyDownloadSessionsFileName = "download-sessions.sqlite";
-const defaultUploadsFileName = "uploads.sqlite";
+// SQLite files written by releases that kept one database per store. Their
+// contents are disposable and are never migrated.
+const legacyDataSqliteFileNames = [
+    "cache.sqlite",
+    "download-sessions.sqlite",
+    "uploads.sqlite",
+];
+const legacyTelemetrySqliteFileName = "telemetry.sqlite";
 const defaultLogDirectoryName = "logs";
 const defaultWindowsLogDirectoryName = "Logs";
 const defaultTelemetryDirectoryName = "telemetry";
@@ -21,16 +27,15 @@ export interface FileStoreLocationOptions {
 
 export interface StorePaths {
     authFilePath: string;
-    cacheFilePath: string;
     connectorFilePath: string;
     dataDirectory: string;
+    databaseFilePath: string;
     downloadSessionsDirectoryPath: string;
-    legacyDownloadSessionsFilePath: string;
+    legacySqliteFilePaths: string[];
     logDirectoryPath: string;
     rootDirectory: string;
     settingsFilePath: string;
     telemetryDirectory: string;
-    uploadsFilePath: string;
 }
 
 export function resolveStoreDirectory(
@@ -103,21 +108,23 @@ export function resolveStorePaths(
     // OO_DATA_DIR overrides the data directory directly; otherwise it follows the
     // config root, preserving the historical `<root>/data` layout.
     const dataDirectory = options.env.OO_DATA_DIR || join(rootDirectory, "data");
+    const telemetryDirectory = join(rootDirectory, defaultTelemetryDirectoryName);
 
     return {
         authFilePath: join(rootDirectory, defaultAuthFileName),
-        cacheFilePath: join(dataDirectory, defaultCacheFileName),
         connectorFilePath: join(rootDirectory, defaultConnectorFileName),
         dataDirectory,
+        // The only SQLite file: every sqlite-backed store lives in it, so
+        // OO_DATA_DIR alone decides where SQLite data is written.
+        databaseFilePath: join(dataDirectory, defaultDatabaseFileName),
         downloadSessionsDirectoryPath: join(dataDirectory, defaultDownloadSessionsDirectoryName),
-        legacyDownloadSessionsFilePath: join(
-            dataDirectory,
-            defaultLegacyDownloadSessionsFileName,
-        ),
+        legacySqliteFilePaths: [
+            ...legacyDataSqliteFileNames.map(fileName => join(dataDirectory, fileName)),
+            join(telemetryDirectory, legacyTelemetrySqliteFileName),
+        ],
         logDirectoryPath: resolveLogDirectory(options),
         rootDirectory,
         settingsFilePath: join(rootDirectory, defaultSettingsFileName),
-        telemetryDirectory: join(rootDirectory, defaultTelemetryDirectoryName),
-        uploadsFilePath: join(dataDirectory, defaultUploadsFileName),
+        telemetryDirectory,
     };
 }
