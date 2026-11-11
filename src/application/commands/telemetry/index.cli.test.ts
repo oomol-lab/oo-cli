@@ -636,34 +636,54 @@ describe("telemetry CLI", () => {
         }
     });
 
-    test("drops telemetry without affecting commands when the outbox is full", async () => {
+    test("drops the event but still reserves a flusher spawn when the outbox is full", async () => {
         const sandbox = await createCliSandbox();
 
         try {
-            await withSharedSqliteDatabase(
-                resolveSandboxStorePaths(sandbox).databaseFilePath,
-                (database) => {
-                    const connection = openTelemetryDatabase(database);
-                    const insert = connection.query(
-                        [
-                            "INSERT INTO telemetry_events",
-                            "(id, created_at_ms, available_at_ms, payload_json, payload_bytes)",
-                            "VALUES ($id, 1000, 1000, '{}', 2)",
-                        ].join(" "),
-                    );
+            await fillTelemetryOutbox(sandbox);
 
-                    connection.transaction(() => {
-                        for (let index = 0; index < telemetryOutboxMaxEvents; index += 1) {
-                            insert.run({ id: `pending-${index}` });
-                        }
-                    }).immediate();
-                },
-            );
-
+            const startedAtMs = Date.now();
             const command = await sandbox.run(["config", "list"]);
 
             expect(command.exitCode).toBe(0);
             expect(command.stderr).toBe("");
+            expect(readSandboxTelemetryRows(sandbox)).toHaveLength(
+                telemetryOutboxMaxEvents,
+            );
+            // Without this reservation nothing would ever drain a full outbox.
+            expect(
+                await readNextTelemetrySpawnAfterMs(sandbox),
+            ).toBeGreaterThanOrEqual(startedAtMs + telemetrySpawnIntervalMs);
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    posixTest("spawns the flusher for a full outbox once the spawn backoff has passed", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const markerPath = join(sandbox.cwd, "spawn-marker");
+            const execPath = join(sandbox.cwd, "spawn-recorder");
+
+            await writeTelemetrySpawnRecorder(execPath);
+            sandbox.env.OO_TEST_TELEMETRY_SPAWN_MARKER = markerPath;
+            await fillTelemetryOutbox(sandbox);
+            // An earlier flusher could not be started and its backoff is over.
+            await withSharedSqliteDatabase(
+                resolveSandboxStorePaths(sandbox).databaseFilePath,
+                database => writeTelemetryStateNumber(
+                    openTelemetryDatabase(database),
+                    "next_spawn_after_ms",
+                    Date.now() - 1,
+                ),
+            );
+
+            const command = await sandbox.run(["config", "list"], { execPath });
+
+            expect(command.exitCode).toBe(0);
+            expect(await waitForFile(markerPath)).toBeTrue();
             expect(readSandboxTelemetryRows(sandbox)).toHaveLength(
                 telemetryOutboxMaxEvents,
             );
@@ -887,6 +907,43 @@ function resolveSandboxTelemetryDirectory(sandbox: {
     env: Record<string, string | undefined>;
 }): string {
     return join(sandbox.env.XDG_CONFIG_HOME!, APP_NAME, "telemetry");
+}
+
+// Fills the sandbox's outbox up to its cap with placeholder events.
+async function fillTelemetryOutbox(sandbox: {
+    env: Record<string, string | undefined>;
+}): Promise<void> {
+    await withSharedSqliteDatabase(
+        resolveSandboxStorePaths(sandbox).databaseFilePath,
+        (database) => {
+            const connection = openTelemetryDatabase(database);
+            const insert = connection.query(
+                [
+                    "INSERT INTO telemetry_events",
+                    "(id, created_at_ms, available_at_ms, payload_json, payload_bytes)",
+                    "VALUES ($id, 1000, 1000, '{}', 2)",
+                ].join(" "),
+            );
+
+            connection.transaction(() => {
+                for (let index = 0; index < telemetryOutboxMaxEvents; index += 1) {
+                    insert.run({ id: `pending-${index}` });
+                }
+            }).immediate();
+        },
+    );
+}
+
+async function readNextTelemetrySpawnAfterMs(sandbox: {
+    env: Record<string, string | undefined>;
+}): Promise<number | undefined> {
+    return withSharedSqliteDatabase(
+        resolveSandboxStorePaths(sandbox).databaseFilePath,
+        database => readTelemetryStateNumber(
+            openTelemetryDatabase(database),
+            "next_spawn_after_ms",
+        ),
+    );
 }
 
 async function writeTelemetrySpawnRecorder(filePath: string): Promise<void> {

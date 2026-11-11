@@ -13,6 +13,7 @@ import {
 } from "./__tests__/helpers.ts";
 import { telemetryOutboxMaxEvents } from "./constants.ts";
 import {
+    countTelemetryEvents,
     enqueueTelemetryBatchItem,
     openTelemetryDatabase,
     purgeTelemetryOutboxIfExists,
@@ -84,6 +85,44 @@ describe("telemetry outbox", () => {
         );
     });
 
+    test("runs the follow-up step for an event the full outbox rejected", async () => {
+        const root = await createTemporaryDirectory("telemetry-outbox-full-follow-up");
+        temporaryDirectories.track(root);
+        const databaseFilePath = join(root, "oo.sqlite");
+        const pendingCounts: number[] = [];
+
+        await withSharedSqliteDatabase(databaseFilePath, (database) => {
+            const connection = openTelemetryDatabase(database);
+            const insert = connection.query(
+                [
+                    "INSERT INTO telemetry_events",
+                    "(id, created_at_ms, available_at_ms, payload_json, payload_bytes)",
+                    "VALUES ($id, 1000, 1000, '{}', 2)",
+                ].join(" "),
+            );
+
+            connection.transaction(() => {
+                for (let index = 0; index < telemetryOutboxMaxEvents; index += 1) {
+                    insert.run({ id: `pending-${index}` });
+                }
+            }).immediate();
+
+            const inserted = enqueueTelemetryBatchItem({
+                afterAttempt: (attemptConnection) => {
+                    pendingCounts.push(countTelemetryEvents(attemptConnection));
+                },
+                database,
+                item: createTelemetryItemForTest(1),
+                nowMs: 1000,
+            });
+
+            expect(inserted).toBe(false);
+        });
+
+        // The step ran once, and the rejected event was not inserted.
+        expect(pendingCounts).toEqual([telemetryOutboxMaxEvents]);
+    });
+
     test("rolls the insert back when its follow-up step fails", async () => {
         const root = await createTemporaryDirectory("telemetry-outbox-atomic");
         temporaryDirectories.track(root);
@@ -92,7 +131,7 @@ describe("telemetry outbox", () => {
         await expect(withSharedSqliteDatabase(
             databaseFilePath,
             database => enqueueTelemetryBatchItem({
-                afterInsert: () => {
+                afterAttempt: () => {
                     throw new Error("follow-up failed");
                 },
                 database,
