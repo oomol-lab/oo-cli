@@ -6,6 +6,7 @@ import { randomUUIDv7 } from "bun";
 import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
+import { abortableSleep } from "../../shared/abortable-sleep.ts";
 import { createInsufficientCreditError } from "../shared/billing.ts";
 import { requestOoResponse } from "../shared/oo-request.ts";
 import { resolveAccountTeamIdentity, teamIdentityHeaders } from "../team/identity.ts";
@@ -173,7 +174,7 @@ export async function requestSpacesApi<Value>(
     target: SpacesApiTarget,
     context: SpacesRequestContext,
     request: SpacesApiRequest<Value>,
-    sleep: (delayMs: number) => Promise<unknown> = Bun.sleep,
+    sleep: (delayMs: number, signal?: AbortSignal) => Promise<unknown> = abortableSleep,
 ): Promise<Value> {
     const method = request.method ?? "GET";
     const signal = AbortSignal.timeout(request.timeoutMs ?? defaultTimeoutMs);
@@ -229,7 +230,13 @@ export async function requestSpacesApi<Value>(
                 });
         }
 
-        await sleep(inFlightReplayDelayMs);
+        // A deadline that passes during the pause ends it at once; the next
+        // attempt then fails on the same signal and is reported as a timeout.
+        await sleep(inFlightReplayDelayMs, signal).catch((error: unknown) => {
+            if (!signal.aborted) {
+                throw error;
+            }
+        });
     }
 }
 

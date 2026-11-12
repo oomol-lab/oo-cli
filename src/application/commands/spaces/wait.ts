@@ -4,6 +4,8 @@ import { CliUserError } from "../../contracts/cli.ts";
 import { getJob, isTerminalJob } from "./api.ts";
 
 const jobPollIntervalMs = 2_000;
+// The budget of a poll and the clock read here can disagree by a timer tick.
+const deadlineSlackMs = 50;
 export const defaultWaitTimeoutMs = 5 * 60_000;
 
 interface WaitOptions {
@@ -50,7 +52,7 @@ export async function waitForJob(
         catch (error) {
             // A poll cut short by the deadline is the wait running out, not a
             // failed request.
-            if (remainingMs() <= 0) {
+            if (remainingMs() <= deadlineSlackMs) {
                 throw createWaitTimeoutError(previous, space, options.timeoutMs);
             }
 

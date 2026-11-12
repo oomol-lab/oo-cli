@@ -143,6 +143,29 @@ describe("spaces api requests", () => {
     });
 });
 
+describe("spaces api deadlines", () => {
+    test("ends the pause before a replay when the request deadline passes", async () => {
+        let attempts = 0;
+        const fetcher: Fetcher = async (_input, init) => {
+            attempts += 1;
+            // Like fetch itself: a request on an aborted signal fails at once.
+            init?.signal?.throwIfAborted();
+
+            return Response.json({ code: "idempotency_in_flight", message: "in flight" }, { status: 409 });
+        };
+        const context = { fetcher, logger: createLogCapture().logger, translator: createTranslator("en") };
+        const startedAt = Date.now();
+
+        // The replay is due after two seconds, well past this deadline.
+        await expect(requestSpacesApi(target, context, { method: "POST", path: "/v1/spaces", schema, timeoutMs: 40 }))
+            .rejects
+            .toBeDefined();
+
+        expect(attempts).toBe(2);
+        expect(Date.now() - startedAt).toBeLessThan(1_500);
+    });
+});
+
 describe("spaces api lists", () => {
     test("refuses a page that hands back the cursor it was requested with", async () => {
         const cursors: (string | undefined)[] = [];
