@@ -59,6 +59,7 @@ Commands:
   skills                       Manage AI agent skills
   log                          Manage persisted debug logs
   search [options] <text>      Search connector actions
+  spaces                       Create and deploy full-stack apps on OOMOL Spaces
   telemetry                    Manage CLI telemetry
   uninstall [options]          Uninstall the CLI
   update|upgrade [options]     Update the CLI
@@ -107,6 +108,7 @@ Commands:
   skills                       Manage AI agent skills
   log                          Manage persisted debug logs
   search [options] <text>      Search connector actions
+  spaces                       Create and deploy full-stack apps on OOMOL Spaces
   telemetry                    Manage CLI telemetry
   uninstall [options]          Uninstall the CLI
   update|upgrade [options]     Update the CLI
@@ -150,6 +152,7 @@ exports[`runCli bootstrap renders help in English and Chinese 1`] = `
   skills                       管理 AI Agent skill
   log                          管理持久化 debug 日志
   search [options] <text>      搜索 connector action
+  spaces                       在 OOMOL Spaces 上创建和部署全栈应用
   telemetry                    管理 CLI telemetry
   uninstall [options]          卸载 CLI
   update|upgrade [options]     更新 CLI
@@ -192,6 +195,7 @@ Commands:
   skills                       Manage AI agent skills
   log                          Manage persisted debug logs
   search [options] <text>      Search connector actions
+  spaces                       Create and deploy full-stack apps on OOMOL Spaces
   telemetry                    Manage CLI telemetry
   uninstall [options]          Uninstall the CLI
   update|upgrade [options]     Update the CLI
@@ -238,6 +242,7 @@ Commands:
   skills                       Manage AI agent skills
   log                          Manage persisted debug logs
   search [options] <text>      Search connector actions
+  spaces                       Create and deploy full-stack apps on OOMOL Spaces
   telemetry                    Manage CLI telemetry
   uninstall [options]          Uninstall the CLI
   update|upgrade [options]     Update the CLI

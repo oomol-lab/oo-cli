@@ -79,6 +79,34 @@ describe("createRetryingFetcher", () => {
         }
     });
 
+    test("stops waiting for a retry as soon as the request's deadline passes", async () => {
+        const logCapture = createLogCapture();
+        let fetchCount = 0;
+
+        try {
+            const fetcher = createRetryingFetcher({
+                fetcher: async () => {
+                    fetchCount += 1;
+
+                    return new Response("unavailable", { status: 503 });
+                },
+                logger: logCapture.logger,
+            });
+            const startedAt = Date.now();
+
+            // The first retry is due after a second, well past this deadline.
+            await expect(fetcher("https://example.com/items", { signal: AbortSignal.timeout(30) }))
+                .rejects
+                .toMatchObject({ name: "TimeoutError" });
+
+            expect(fetchCount).toBe(1);
+            expect(Date.now() - startedAt).toBeLessThan(800);
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
     test("does not retry non-retryable failures or aborted requests", async () => {
         const logCapture = createLogCapture();
         const retryDelays: number[] = [];

@@ -2453,6 +2453,57 @@ oo website list --team my-team --json
   `{ "fileName": string, "fileSize": number, "url": string }`。
 - 说明：文本输出为本地化的成功提示行，随后是文件大小和 URL。
 
+## Spaces
+
+一个 Space 是一个静态站点加它自己的 Convex 后端 (数据库、服务端函数、文件存储、定时任务), 使用独立子域名访问。
+
+```bash
+oo spaces list [--status suspended] --team my-team --json
+oo spaces create my-app [--name "My app"] [--visibility team|public] --json
+oo spaces get my-app --json
+oo spaces deploy my-app --wait --json
+oo spaces deploy my-app --project ./my-app --wait --json
+oo spaces deploy my-app --dir ./dist --wait --json
+oo spaces deployments my-app --json
+oo spaces deployment my-app <job-id> --json
+oo spaces artifacts my-app --json
+oo spaces rollback my-app <version> --wait --json
+oo spaces env list my-app --json
+printf %s "$VALUE" | oo spaces env set my-app API_KEY --stdin
+oo spaces env remove my-app API_KEY --yes
+oo spaces access get my-app --json
+oo spaces access set my-app --visibility public --json
+oo spaces access revoke-sessions my-app --json
+oo spaces usage my-app [--from 2026-01-01] [--to 2026-01-31] --json
+oo spaces resume my-app other-app --json
+oo spaces resume --all --json
+oo spaces delete my-app --yes --json
+```
+
+`<space>` 是 Space 的 ID 或 slug。这些命令沿用现有的 OO 账号与团队选择 (`--team`、`OO_TEAM_ID` / `OO_TEAM_NAME`、账号默认团队), 访问 `https://spaces.<账号 endpoint>` 上的 Spaces 服务 (例如 `spaces.oomol.com`)。每个写请求都带 `Idempotency-Key`; 网关的瞬时故障会用同一个 key 重试, 服务端仍在处理的写请求会等待其完成而不是重复提交。
+
+`list` 以数组返回团队的全部 Space, `--status <status>` (`creating`、`live`、`suspended`、`failed`、`deleting`) 用于过滤。`create <slug>` 创建 Space 并开通它的 Convex 部署; slug 由小写字母、数字和连字符组成, 最多 32 个字符, `--name` 设置显示名称, `--visibility` 为 `team` (默认) 或 `public` (`public` 需要团队管理员)。`get` 返回一个 Space。Space 的字段有 `id`、`teamId`、`slug`、`name`、`status`、`visibility`、`url`、`building`、`convexDeploymentName`、`convexDeploymentUrl`、`nextChargeAt`、`suspendedAt`、`graceUntil`、`lastError`、`createdBy`、`createdAt`、`updatedAt`。时间为 Unix 秒。`list` 的文本输出是表格 (状态后的 `*` 表示正在构建), `create` 与 `get` 的文本输出是 slug 加各字段。
+
+Space 按月从团队余额扣费: `create` 立即扣第一个周期, 团队无法支付时以余额不足错误失败。续费无法支付时 Space 变为 `suspended`: 访客收到 HTTP 402, `deploy` 与 `rollback` 被 `space_suspended` 拒绝。团队可在 `graceUntil` 之前充值, 之后 Space 会被永久删除。余额恢复后服务会很快自动恢复被暂停的 Space; `resume <space>...` 或 `resume --all` 立即恢复, 每恢复一个 Space 扣一个新周期, 返回 `{resumed: Space[], skipped: {spaceId, code}[]}`。Space 参数与 `--all` 只能二选一 (否则退出码 `2`)。
+
+`delete` 永久删除 Space, 连同站点、所有版本和 Convex 项目 (全部数据与文件); 当前计费周期不退款。需要 `--yes` (缺少时退出码 `2`), 返回 `{job}`。
+
+`deploy <space>` 部署一个项目目录 (`--project <directory>`, 默认当前目录), 依次执行以下步骤, 任一步失败即停止: 安装依赖 (`--no-install` 跳过); 项目有 `convex/` 目录时, 用项目自己的 `convex` 包推送后端, 使用的短期部署凭据永不输出; 执行构建 (`--build <command>`, `package.json` 有 `build` 脚本时默认 `bun run build`, `--build ""` 跳过), 并把 Convex 部署地址放进 `VITE_CONVEX_URL`、`CONVEX_URL`、`NEXT_PUBLIC_CONVEX_URL`、`PUBLIC_CONVEX_URL` (`--url-env <name>` 再加一个); 最后打包构建产物 (`--dist <directory>`, 默认 `dist`) 并上传为新版本。安装、后端推送与构建都运行在 `oo` 内置的 Bun 运行时上, 宿主机不需要 `node`、`npm` 或 `bun`; 它们的输出转发到 stderr。后端先于前端构建推送, 所以构建失败时新的后端已经生效; 修好构建后重新部署即可。只有 `live` 状态的 Space 才能部署, 这一点在安装任何东西之前检查。
+
+`deploy <space> --dir <directory>` 或 `--zip <file>` 上传已经构建好的站点, 不改动后端; 两者不能同时使用, 也不能与 `--project`、`--build`、`--dist`、`--url-env`、`--no-install` 同时使用 (退出码 `2`)。站点根目录需要有 `index.html`, 最多 5000 个文件、打包后 50 MiB, 且不能包含符号链接。
+
+部署与回滚是服务端的作业。不带 `--wait` 时, 作业入队后命令立即返回 `{job}` (项目部署会多带 `backendDeployed` 与 `convexDeploymentUrl`)。带 `--wait` 时轮询作业直到结束, 返回作业并附带站点 `url`; 作业以 `failed` 或 `cancelled` 结束时命令以 `spaces.jobFailed` 失败。`--timeout <duration>` (例如 `90s` 或 `10m`, 默认 `5m`) 限制等待时长; 超时后命令以 `spaces.waitTimeout` 失败, 作业继续运行。同一个 Space 同时只能有一个部署或回滚, 第二个会被 `deploy_in_progress` 拒绝。
+
+`deployments` 以数组返回部署与回滚作业 (最新的在前), `deployment <space> <job-id>` 返回一个作业。作业的字段有 `id`、`kind`、`status` (`queued`、`running`、`succeeded`、`failed`、`cancelled`)、`version`、`error`、`attempt`、`createdAt`、`startedAt`、`finishedAt`。`artifacts` 以数组返回已上传的前端版本, 字段有 `id`、`version`、`status`、`rollbackable`、`active`、`sizeBytes`、`fileCount`、`sha256`、`createdAt`。`rollback <space> <version>` 启用一个 `rollbackable` 为 true 的较早版本 (`3` 与 `v3` 都接受); 只切换站点, 后端的代码与数据保持不变。
+
+`env` 管理 Space 的 Convex 部署的环境变量, 供服务端函数读取。`env list` 返回 `{names}`, 值永不返回。`env set <space> <name> --stdin` 把 stdin 的原样内容 (含结尾换行) 存为值 (最多 8192 字节 UTF-8; 空的 stdin 存为空值), 返回 `{name}`; 值不能作为命令行参数传入。`env remove <space> <name> --yes` 删除一个变量, 返回 `{name}`。变量名以字母开头, 后接字母、数字或下划线, 最多 256 个字符。
+
+`access get` 返回 `{visibility}` (`team` 或 `public`), `access set <space> --visibility <visibility>` 修改它, `access revoke-sessions` 让所有访客重新登录并返回 `{ok: true}`; 后两者需要团队管理员。可见性只限制前端: 数据访问由应用自己的 Convex 函数控制。
+
+`usage` 返回 Space 的 Convex 部署的每日用量快照 `{from, to, items}`, 每个 UTC 日一条, 含 `day`、`sampledAt`、`seedStatus`、`metrics` (每个指标名对应 `{unit, currentDay, currentMonth}`)。`--from <day>` 与 `--to <day>` 接受 `YYYY-MM-DD` 日期, 默认最近 30 天。文本输出展示函数调用、数据库 IO 和出网流量。
+
+文本模式下进度信息写到 stderr。服务端错误会显示服务返回的信息和错误码, 例如 `space_not_found`; `--json` 的错误输出在 `error.details.serviceCode` 中给出错误码。`space_suspended`、`deploy_in_progress`、`manager_required`、`balance_unavailable` 不显示服务端信息, 改为说明下一步该怎么做。`insufficient_balance` 按 CLI 统一的余额不足错误报告 (退出码 `3`, `billing.insufficientCredit`), 并在 details 中带上 `serviceCode`。`spaces.jobFailed` 的 details 带 `jobId`、`jobKind`、`jobStatus`, `spaces.waitTimeout` 的 details 带 `jobId`、`jobStatus`。
+
 ## Variables
 
 在 OOMOL 云端存取具名字符串变量。别名：`oo variable`、`oo var`、

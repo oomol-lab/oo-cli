@@ -2,6 +2,7 @@ import type { Logger } from "pino";
 
 import type { Fetcher } from "../contracts/cli.ts";
 import { withRequestTarget } from "../logging/log-fields.ts";
+import { abortableSleep } from "./abortable-sleep.ts";
 
 const defaultRetryableStatusCodes = [429, 502, 503, 504] as const;
 const retryBaseDelayMs = 1_000;
@@ -13,7 +14,8 @@ export interface CreateRetryingFetcherOptions {
     logger: Logger;
     maxRetries?: number;
     retryableStatusCodes?: readonly number[];
-    sleep?: (delayMs: number) => Promise<void>;
+    /** Receives the signal of the request, so a cancelled request does not sit out the delay. */
+    sleep?: (delayMs: number, signal?: AbortSignal) => Promise<void>;
 }
 
 export function createRetryingFetcher(
@@ -23,7 +25,7 @@ export function createRetryingFetcher(
     const retryableStatusCodes = new Set(
         options.retryableStatusCodes ?? defaultRetryableStatusCodes,
     );
-    const sleep = options.sleep ?? Bun.sleep;
+    const sleep = options.sleep ?? abortableSleep;
 
     return async (input, init) => {
         for (let attempt = 0; ; attempt += 1) {
@@ -77,7 +79,7 @@ export function createRetryingFetcher(
                 );
             }
 
-            await sleep(retryDelayMs);
+            await sleep(retryDelayMs, init?.signal ?? undefined);
         }
     };
 }
