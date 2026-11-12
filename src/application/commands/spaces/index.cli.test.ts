@@ -228,8 +228,14 @@ describe("spaces commands", () => {
         });
     });
 
-    test.skipIf(process.platform === "win32")("deploys a project: backend first, then the build, then the upload", async () => {
+    test("deploys a project: backend first, then the build, then the upload", async () => {
         await withSandbox(async (sandbox) => {
+            // The sandbox has no PATH, so `node` in the build script can only
+            // be the embedded runtime. Windows processes need these to start.
+            for (const name of ["ComSpec", "PATHEXT", "SystemRoot", "TEMP", "TMP"]) {
+                sandbox.env[name] = process.env[name];
+            }
+
             await writeFiles(sandbox.cwd, {
                 "build.js": [
                     "const fs = require('node:fs');",

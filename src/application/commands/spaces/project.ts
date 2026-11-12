@@ -3,7 +3,6 @@ import type { Space, SpacesClient } from "./api.ts";
 
 import { readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import process from "node:process";
 import { CliUserError } from "../../contracts/cli.ts";
 import { isPathMissingError } from "../../shared/fs-errors.ts";
 import { issueDeployCredentials } from "./api.ts";
@@ -134,12 +133,6 @@ export async function deployProjectLocally(
 
     if (deploymentUrl === null) {
         throw new CliUserError("errors.spaces.notReady", 1, { slug: space.slug, status: space.status });
-    }
-
-    // The `bun` and `node` links the runtime relies on need symbolic links to
-    // an executable, which Windows does not offer without elevation.
-    if (process.platform === "win32") {
-        throw new CliUserError("errors.spaces.projectDeployUnsupportedPlatform", 1);
     }
 
     const runtime = await createEmbeddedRuntime(context.execPath);

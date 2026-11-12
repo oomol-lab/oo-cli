@@ -2488,7 +2488,7 @@ Space 按月从团队余额扣费: `create` 立即扣第一个周期, 团队无�
 
 `delete` 永久删除 Space, 连同站点、所有版本和 Convex 项目 (全部数据与文件); 当前计费周期不退款。需要 `--yes` (缺少时退出码 `2`), 返回 `{job}`。
 
-`deploy <space>` 部署一个项目目录 (`--project <directory>`, 默认当前目录), 依次执行以下步骤, 任一步失败即停止: 安装依赖 (`--no-install` 跳过); 项目有 `convex/` 目录时, 用项目自己的 `convex` 包推送后端, 使用的短期部署凭据永不输出; 执行构建 (`--build <command>`, `package.json` 有 `build` 脚本时默认 `bun run build`, `--build ""` 跳过), 并把 Convex 部署地址放进 `VITE_CONVEX_URL`、`CONVEX_URL`、`NEXT_PUBLIC_CONVEX_URL`、`PUBLIC_CONVEX_URL` (`--url-env <name>` 再加一个); 最后打包构建产物 (`--dist <directory>`, 默认 `dist`) 并上传为新版本。安装、后端推送与构建都运行在 `oo` 内置的 Bun 运行时上, 宿主机不需要 `node`、`npm` 或 `bun`; 它们的输出转发到 stderr。后端先于前端构建推送, 所以构建失败时新的后端已经生效; 修好构建后重新部署即可。只有 `live` 状态的 Space 才能部署, 这一点在安装任何东西之前检查。Windows 上不支持部署项目。
+`deploy <space>` 部署一个项目目录 (`--project <directory>`, 默认当前目录), 依次执行以下步骤, 任一步失败即停止: 安装依赖 (`--no-install` 跳过); 项目有 `convex/` 目录时, 用项目自己的 `convex` 包推送后端, 使用的短期部署凭据永不输出; 执行构建 (`--build <command>`, `package.json` 有 `build` 脚本时默认 `bun run build`, `--build ""` 跳过), 并把 Convex 部署地址放进 `VITE_CONVEX_URL`、`CONVEX_URL`、`NEXT_PUBLIC_CONVEX_URL`、`PUBLIC_CONVEX_URL` (`--url-env <name>` 再加一个); 最后打包构建产物 (`--dist <directory>`, 默认 `dist`) 并上传为新版本。安装、后端推送与构建都运行在 `oo` 内置的 Bun 运行时上, 宿主机不需要 `node`、`npm` 或 `bun`; 它们的输出转发到 stderr。后端先于前端构建推送, 所以构建失败时新的后端已经生效; 修好构建后重新部署即可。只有 `live` 状态的 Space 才能部署, 这一点在安装任何东西之前检查。
 
 `deploy <space> --dir <directory>` 或 `--zip <file>` 上传已经构建好的站点, 不改动后端; 两者不能同时使用, 也不能与 `--project`、`--build`、`--dist`、`--url-env`、`--no-install` 同时使用 (退出码 `2`)。站点根目录需要有 `index.html`, 最多 5000 个文件、打包后 50 MiB, 且不能包含符号链接。
 
