@@ -167,7 +167,8 @@ export async function createSpacesClient(
 // key, so the service replays or reruns a write safely. While the first
 // attempt of a key is still running the service answers 409
 // `idempotency_in_flight`; the request is then replayed with that key until
-// the original finishes.
+// the original finishes. One deadline covers the whole request: the retries of
+// the fetcher and the replays here all run against the same signal.
 export async function requestSpacesApi<Value>(
     target: SpacesApiTarget,
     context: SpacesRequestContext,
@@ -175,7 +176,7 @@ export async function requestSpacesApi<Value>(
     sleep: (delayMs: number) => Promise<unknown> = Bun.sleep,
 ): Promise<Value> {
     const method = request.method ?? "GET";
-    const timeoutMs = request.timeoutMs ?? defaultTimeoutMs;
+    const signal = AbortSignal.timeout(request.timeoutMs ?? defaultTimeoutMs);
     const headers = method === "GET"
         ? target.headers
         : { ...target.headers, "Idempotency-Key": randomUUIDv7() };
@@ -191,11 +192,7 @@ export async function requestSpacesApi<Value>(
             authorization: target.account.apiKey,
             body: request.bytes?.body,
             context: {
-                // One budget for the whole request, retries included.
-                fetcher: async (input, init) => await context.fetcher(input, {
-                    ...init,
-                    signal: AbortSignal.timeout(timeoutMs),
-                }),
+                fetcher: async (input, init) => await context.fetcher(input, { ...init, signal }),
                 logger: context.logger,
                 translator: context.translator,
             },
@@ -324,6 +321,8 @@ function spacePath(space: string, suffix = ""): string {
 }
 
 // Lists follow the cursor to the end, so a command always prints every item.
+// A page that hands back the cursor it was requested with would repeat forever
+// and is refused.
 async function listAllPages<Item>(
     client: SpacesClient,
     path: string,
@@ -340,6 +339,10 @@ async function listAllPages<Item>(
 
         if (page.nextCursor === null || page.nextCursor === undefined || page.nextCursor === "") {
             return items;
+        }
+
+        if (page.nextCursor === cursor) {
+            throw new CliUserError("errors.spaces.invalidResponse", 1);
         }
 
         cursor = page.nextCursor;
@@ -395,10 +398,12 @@ export async function listJobs(client: SpacesClient, space: string): Promise<Spa
     return await listAllPages(client, spacePath(space, "/deploys"), jobSchema);
 }
 
-export async function getJob(client: SpacesClient, space: string, jobId: string): Promise<SpaceJob> {
+/** `timeoutMs` shortens the request budget, for a caller with a deadline of its own. */
+export async function getJob(client: SpacesClient, space: string, jobId: string, timeoutMs?: number): Promise<SpaceJob> {
     return await client.request({
         path: spacePath(space, `/deploys/${encodeURIComponent(jobId)}`),
         schema: jobSchema,
+        timeoutMs: timeoutMs === undefined ? undefined : Math.min(timeoutMs, defaultTimeoutMs),
     });
 }
 

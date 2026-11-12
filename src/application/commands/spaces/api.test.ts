@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { createLogCapture, expectCliUserError, toRequest } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
-import { requestSpacesApi } from "./api.ts";
+import { listSpaces, requestSpacesApi } from "./api.ts";
 
 const target = { account: { apiKey: "secret-1", endpoint: "oomol.com" }, headers: { "x-oo-team-name": "team-a" } };
 const schema = z.object({ ok: z.boolean() });
@@ -36,6 +36,20 @@ describe("spaces api requests", () => {
         expect(requests).toHaveLength(2);
         expect(requests[0]!.headers.get("Idempotency-Key")).toBeTruthy();
         expect(requests[1]!.headers.get("Idempotency-Key")).toBe(requests[0]!.headers.get("Idempotency-Key"));
+    });
+
+    test("runs every replay against the deadline of the first attempt", async () => {
+        const responses = [
+            Response.json({ code: "idempotency_in_flight", message: "in flight" }, { status: 409 }),
+            Response.json({ ok: true }),
+        ];
+        const { send, signals } = createApi(() => responses.shift()!);
+
+        await send({ method: "POST", path: "/v1/spaces", schema });
+
+        expect(signals).toHaveLength(2);
+        expect(signals[0]).toBeInstanceOf(AbortSignal);
+        expect(signals[1]).toBe(signals[0]);
     });
 
     test("sends raw bytes with their content type", async () => {
@@ -129,11 +143,30 @@ describe("spaces api requests", () => {
     });
 });
 
+describe("spaces api lists", () => {
+    test("refuses a page that hands back the cursor it was requested with", async () => {
+        const cursors: (string | undefined)[] = [];
+        const pages = [{ items: [], nextCursor: "cursor-1" }, { items: [], nextCursor: "cursor-1" }];
+        const error = await expectCliUserError(listSpaces({
+            request: async (request) => {
+                cursors.push(request.query?.cursor);
+
+                return request.schema.parse(pages.shift());
+            },
+        }, undefined));
+
+        expect(error.key).toBe("errors.spaces.invalidResponse");
+        expect(cursors).toEqual([undefined, "cursor-1"]);
+    });
+});
+
 // Binds requestSpacesApi to a fake fetcher and records what it was sent.
 function createApi(respond: () => Response, sleep: (delayMs: number) => Promise<unknown> = async () => {}) {
     const requests: Request[] = [];
+    const signals: unknown[] = [];
     const fetcher: Fetcher = async (input, init) => {
         requests.push(toRequest(input, init));
+        signals.push(init?.signal);
 
         return respond();
     };
@@ -141,6 +174,7 @@ function createApi(respond: () => Response, sleep: (delayMs: number) => Promise<
 
     return {
         requests,
+        signals,
         send: async <Value>(request: Parameters<typeof requestSpacesApi<Value>>[2]) =>
             await requestSpacesApi(target, context, request, sleep),
     };

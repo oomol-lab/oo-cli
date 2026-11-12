@@ -12,7 +12,7 @@ describe("spaces durations", () => {
     });
 
     test("rejects text that is not a positive duration", () => {
-        for (const value of ["", "m", "0", "0s", "-5s", "1e3", "5 minutes", "1.2.3s", ".5s"]) {
+        for (const value of ["", "m", "0", "0s", "-5s", "1e3", "5 minutes", "1.2.3s", ".5s", `${"9".repeat(400)}h`]) {
             expect(parseDuration(value)).toBeUndefined();
         }
     });

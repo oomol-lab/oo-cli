@@ -482,7 +482,11 @@ describe("spaces commands", () => {
             expect(result.stdout).toContain("2026-09-01  complete  12           340            -         0.0012     2023-11-14T22:13:20Z");
             expect(query.get("from")).toBe("2026-09-01");
             expect(query.get("to")).toBe("2026-09-02");
-            expect((await sandbox.run(["spaces", "usage", "blog", "--from", "09/01/2026"], service)).exitCode).toBe(2);
+
+            for (const day of ["09/01/2026", "2026-13-01", "2026-02-30"]) {
+                expect((await sandbox.run(["spaces", "usage", "blog", "--from", day], service)).exitCode).toBe(2);
+            }
+
             expect(service.requests).toHaveLength(1);
         });
     });

@@ -69,6 +69,21 @@ describe("spaces site packing", () => {
         expect(missing.key).toBe("errors.spaces.zipNotFound");
         expect(missing.exitCode).toBe(2);
     });
+
+    test("refuses a site or a zip above the size limit", async () => {
+        const dir = await createSite();
+        const { zip } = await packDirectory(dir);
+        const zipPath = join(dir, "site.zip");
+
+        await writeFile(zipPath, zip);
+
+        const packed = await expectCliUserError(packDirectory(dir, zip.byteLength - 1));
+        const read = await expectCliUserError(readZipFile(zipPath, zip.byteLength - 1));
+
+        expect(packed.key).toBe("errors.spaces.siteTooLarge");
+        expect(read.key).toBe("errors.spaces.siteTooLarge");
+        expect((await readZipFile(zipPath, zip.byteLength)).byteLength).toBe(zip.byteLength);
+    });
 });
 
 async function createSite(): Promise<string> {

@@ -76,15 +76,38 @@ export async function collectSiteFiles(root: string): Promise<SiteFile[]> {
     return files;
 }
 
-export async function packDirectory(root: string): Promise<{ fileCount: number; zip: Uint8Array }> {
+export async function packDirectory(
+    root: string,
+    maxBytes: number = maxZipBytes,
+): Promise<{ fileCount: number; zip: Uint8Array }> {
     const files = await collectSiteFiles(root);
     const zip = await new Promise<Uint8Array>((resolve, reject) => {
         const archive = new ZipFile();
-        const chunks: Buffer[] = [];
+        let chunks: Buffer[] = [];
+        let byteLength = 0;
 
-        archive.outputStream.on("data", (chunk: Buffer) => chunks.push(chunk));
+        // Past the limit the archive is only measured, for the error message,
+        // and no longer kept: an oversized site must not exhaust memory.
+        archive.outputStream.on("data", (chunk: Buffer) => {
+            byteLength += chunk.byteLength;
+
+            if (byteLength > maxBytes) {
+                chunks = [];
+            }
+            else {
+                chunks.push(chunk);
+            }
+        });
         archive.outputStream.on("error", reject);
-        archive.outputStream.on("end", () => resolve(new Uint8Array(Buffer.concat(chunks))));
+        archive.outputStream.on("end", () => {
+            try {
+                assertZipSize(byteLength, maxBytes);
+                resolve(new Uint8Array(Buffer.concat(chunks)));
+            }
+            catch (error) {
+                reject(error);
+            }
+        });
 
         for (const file of files) {
             archive.addFile(file.absolute, file.relative, { mode: 0o644 });
@@ -93,21 +116,25 @@ export async function packDirectory(root: string): Promise<{ fileCount: number; 
         archive.end();
     });
 
-    assertZipSize(zip.byteLength);
-
     return { fileCount: files.length, zip };
 }
 
-export async function readZipFile(path: string): Promise<Uint8Array> {
-    const bytes = await readFile(path).catch((error: unknown) => {
+export async function readZipFile(path: string, maxBytes: number = maxZipBytes): Promise<Uint8Array> {
+    const throwNotFound = (error: unknown): never => {
         if (isPathMissingError(error)) {
             throw new CliUserError("errors.spaces.zipNotFound", 2, { path });
         }
 
         throw error;
-    });
+    };
 
-    assertZipSize(bytes.byteLength);
+    // The size is checked before the file is read, so an oversized file is
+    // refused without loading it, and again on what was actually read.
+    assertZipSize((await stat(path).catch(throwNotFound)).size, maxBytes);
+
+    const bytes = await readFile(path).catch(throwNotFound);
+
+    assertZipSize(bytes.byteLength, maxBytes);
 
     // Only the magic number is checked here; the service validates the structure.
     if (bytes.byteLength < 4 || bytes[0] !== 0x50 || bytes[1] !== 0x4B) {
@@ -117,10 +144,10 @@ export async function readZipFile(path: string): Promise<Uint8Array> {
     return new Uint8Array(bytes);
 }
 
-function assertZipSize(byteLength: number): void {
-    if (byteLength > maxZipBytes) {
+function assertZipSize(byteLength: number, maxBytes: number): void {
+    if (byteLength > maxBytes) {
         throw new CliUserError("errors.spaces.siteTooLarge", 1, {
-            max: formatFileSize(maxZipBytes),
+            max: formatFileSize(maxBytes),
             size: formatFileSize(byteLength),
         });
     }

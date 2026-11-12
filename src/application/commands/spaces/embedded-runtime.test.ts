@@ -23,7 +23,7 @@ describe("spaces embedded runtime", () => {
         }
 
         await runtime.dispose();
-        expect(lstat(runtime.shimDir)).rejects.toMatchObject({ code: "ENOENT" });
+        await expect(lstat(runtime.shimDir)).rejects.toMatchObject({ code: "ENOENT" });
     });
 
     test("copies the executable to bun.exe and node.exe on Windows and removes them on dispose", async () => {
@@ -45,7 +45,7 @@ describe("spaces embedded runtime", () => {
         }
 
         await runtime.dispose();
-        expect(lstat(runtime.shimDir)).rejects.toMatchObject({ code: "ENOENT" });
+        await expect(lstat(runtime.shimDir)).rejects.toMatchObject({ code: "ENOENT" });
         expect(await readFile(execPath, "utf8")).toBe("executable bytes");
     });
 
@@ -54,7 +54,7 @@ describe("spaces embedded runtime", () => {
 
         temporaryDirectories.track(dir);
 
-        expect(createEmbeddedRuntime(join(dir, "missing.exe"), "win32")).rejects.toMatchObject({ code: "ENOENT" });
+        await expect(createEmbeddedRuntime(join(dir, "missing.exe"), "win32")).rejects.toMatchObject({ code: "ENOENT" });
     });
 
     test("removes runtime directories a killed deploy left behind, and only those", async () => {
@@ -71,7 +71,7 @@ describe("spaces embedded runtime", () => {
 
         temporaryDirectories.track(runtime.shimDir);
 
-        expect(lstat(stale)).rejects.toMatchObject({ code: "ENOENT" });
+        await expect(lstat(stale)).rejects.toMatchObject({ code: "ENOENT" });
         expect((await lstat(recent)).isDirectory()).toBeTrue();
         expect((await lstat(runtime.shimDir)).isDirectory()).toBeTrue();
 
@@ -100,7 +100,7 @@ describe("spaces embedded runtime", () => {
 
         expect(output.read()).toContain("node-mode:string");
         expect(result.exitCode).toBe(0);
-        expect(lstat(runtime.shimDir)).rejects.toMatchObject({ code: "ENOENT" });
+        await expect(lstat(runtime.shimDir)).rejects.toMatchObject({ code: "ENOENT" });
     });
 
     test("forwards the child's stdout and stderr and reports its exit code", async () => {
@@ -148,7 +148,7 @@ describe("spaces embedded runtime", () => {
 
         temporaryDirectories.track(dir);
 
-        expect(runProcess(join(dir, "missing-command"), [], {
+        await expect(runProcess(join(dir, "missing-command"), [], {
             cwd: dir,
             env: {},
             output: createTextBuffer().writer,
@@ -160,6 +160,7 @@ describe("spaces runtime environment", () => {
     test("puts the runtime and the project's binaries first on PATH and keeps credentials out", () => {
         const env = createRuntimeEnv({
             base: {
+                CONVEX_DEPLOY_KEY: "prod:other|key",
                 CONVEX_DEPLOYMENT: "dev:other",
                 EMPTY: undefined,
                 HOME: "/home/x",
@@ -189,6 +190,7 @@ describe("spaces runtime environment", () => {
     test("matches variable names case-insensitively on Windows and writes the search path as PATH", () => {
         const env = createRuntimeEnv({
             base: {
+                Convex_Deploy_Key: "prod:other|key",
                 Convex_Deployment: "dev:other",
                 Oo_Api_Key: "secret",
                 Path: "C:\\Windows\\System32",

@@ -21,6 +21,14 @@ function parseDay(value: string, option: string): string {
         throw new CliUserError("errors.spaces.invalidDay", 2, { option, value });
     }
 
+    // The calendar decides the rest: a day such as 2026-02-30 does not survive
+    // the round trip.
+    const parsed = new Date(Date.UTC(Number(year), Number(month) - 1, Number(date)));
+
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== day) {
+        throw new CliUserError("errors.spaces.invalidDay", 2, { option, value });
+    }
+
     return day;
 }
 

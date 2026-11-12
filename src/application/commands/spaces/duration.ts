@@ -14,7 +14,7 @@ export function parseDuration(value: string): number | undefined {
 
     const milliseconds = Math.round(Number(amountText) * (unit?.[1] ?? 1_000));
 
-    return milliseconds > 0 ? milliseconds : undefined;
+    return Number.isFinite(milliseconds) && milliseconds > 0 ? milliseconds : undefined;
 }
 
 export function formatDuration(milliseconds: number): string {

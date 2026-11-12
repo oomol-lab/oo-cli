@@ -122,11 +122,15 @@ async function removeShimDir(shimDir: string): Promise<void> {
 }
 
 // The environment of every child process: the CLI's own credentials (`OO_*`)
-// stay out of project scripts, and CONVEX_DEPLOYMENT is dropped because a dev
-// deployment left in the caller's environment must not redirect the deploy,
-// which is selected by CONVEX_DEPLOY_KEY alone. Windows variable names are
+// stay out of project scripts, and so does a CONVEX_DEPLOY_KEY of the caller,
+// since install and build scripts need none and the backend push gets the one
+// issued for it. CONVEX_DEPLOYMENT is dropped because a dev deployment left in
+// the caller's environment must not redirect the deploy, which is selected by
+// the issued key alone. Windows variable names are
 // case-insensitive (the search path is usually spelled `Path`), so they are
 // compared in upper case there and the search path is written back as `PATH`.
+const droppedVariableNames = new Set(["CONVEX_DEPLOYMENT", "CONVEX_DEPLOY_KEY"]);
+
 export function createRuntimeEnv(input: {
     base: Record<string, string | undefined>;
     platform?: NodeJS.Platform;
@@ -140,7 +144,7 @@ export function createRuntimeEnv(input: {
     for (const [key, value] of Object.entries(input.base)) {
         const name = isWindows ? key.toUpperCase() : key;
 
-        if (value === undefined || name.startsWith("OO_") || name === "CONVEX_DEPLOYMENT") {
+        if (value === undefined || name.startsWith("OO_") || droppedVariableNames.has(name)) {
             continue;
         }
 
