@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import { lstat, readdir, readFile, stat } from "node:fs/promises";
+import { lstat, readdir, stat } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { ZipFile } from "yazl";
 import { CliUserError } from "../../contracts/cli.ts";
@@ -129,10 +129,11 @@ export async function readZipFile(path: string, maxBytes: number = maxZipBytes):
     };
 
     // The size is checked before the file is read, so an oversized file is
-    // refused without loading it, and again on what was actually read.
+    // refused without loading it. The read itself stops one byte past the
+    // limit, which bounds memory even if the file grows in between.
     assertZipSize((await stat(path).catch(throwNotFound)).size, maxBytes);
 
-    const bytes = await readFile(path).catch(throwNotFound);
+    const bytes = new Uint8Array(await Bun.file(path).slice(0, maxBytes + 1).arrayBuffer().catch(throwNotFound));
 
     assertZipSize(bytes.byteLength, maxBytes);
 
@@ -141,7 +142,7 @@ export async function readZipFile(path: string, maxBytes: number = maxZipBytes):
         throw new CliUserError("errors.spaces.notAZip", 1, { path });
     }
 
-    return new Uint8Array(bytes);
+    return bytes;
 }
 
 function assertZipSize(byteLength: number, maxBytes: number): void {
