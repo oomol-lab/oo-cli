@@ -33,6 +33,7 @@ type OoService
         | "registry"
         | "relation-control"
         | "search"
+        | "spaces"
         | "websites-api";
 
 export type OoRequestHost

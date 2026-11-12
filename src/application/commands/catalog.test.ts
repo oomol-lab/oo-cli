@@ -24,6 +24,7 @@ describe("loadCliCatalog", () => {
             "skills",
             "log",
             "search",
+            "spaces",
             "telemetry",
             "uninstall",
             "update",

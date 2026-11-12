@@ -59,6 +59,7 @@ const commandLoaders: readonly CliCommandLoader[] = [
     { name: "skills", load: async () => (await import("./skills/index.ts")).skillsCommand },
     { name: "log", load: async () => (await import("./log/index.ts")).logCommand },
     { name: "search", load: async () => (await import("./search.ts")).searchCommand },
+    { name: "spaces", load: async () => (await import("./spaces/index.ts")).spacesCommand },
     { name: "telemetry", load: async () => (await import("./telemetry/index.ts")).telemetryCommand },
     { name: "uninstall", load: async () => (await import("./uninstall.ts")).uninstallCommand },
     {

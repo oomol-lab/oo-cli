@@ -573,6 +573,103 @@ const commandTelemetryDecisions = {
         kind: "generic",
         reason: "Generic command telemetry is enough; local validation path is not recorded.",
     },
+    "spaces": {
+        kind: "generic",
+        reason: "Command group; child commands record the team identity selection category.",
+    },
+    "spaces.list": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the team identity selection category; the space, its contents and its data are private.",
+    },
+    "spaces.create": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the team identity selection category; the space, its contents and its data are private.",
+    },
+    "spaces.get": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the team identity selection category; the space, its contents and its data are private.",
+    },
+    "spaces.delete": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the team identity selection category; the space, its contents and its data are private.",
+    },
+    "spaces.resume": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the team identity selection category; the space, its contents and its data are private.",
+    },
+    "spaces.deploy": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the team identity selection category; project paths, build commands and site contents are private.",
+    },
+    "spaces.deployments": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the team identity selection category; the space, its contents and its data are private.",
+    },
+    "spaces.deployment": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the team identity selection category; the space, its contents and its data are private.",
+    },
+    "spaces.rollback": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the team identity selection category; the space, its contents and its data are private.",
+    },
+    "spaces.artifacts": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the team identity selection category; the space, its contents and its data are private.",
+    },
+    "spaces.env": {
+        kind: "generic",
+        reason: "Command group; child commands record the team identity selection category.",
+    },
+    "spaces.env.list": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the team identity selection category; variable names and values are private.",
+    },
+    "spaces.env.set": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the team identity selection category; variable names and values are private.",
+    },
+    "spaces.env.remove": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the team identity selection category; variable names and values are private.",
+    },
+    "spaces.access": {
+        kind: "generic",
+        reason: "Command group; child commands record the team identity selection category.",
+    },
+    "spaces.access.get": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the team identity selection category; the space, its contents and its data are private.",
+    },
+    "spaces.access.set": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the team identity selection category; the space, its contents and its data are private.",
+    },
+    "spaces.access.revoke-sessions": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the team identity selection category; the space, its contents and its data are private.",
+    },
+    "spaces.usage": {
+        kind: "properties",
+        properties: ["identity_source"],
+        reason: "Records only the team identity selection category; the space, its period and its usage numbers are private.",
+    },
     "telemetry": {
         kind: "excluded",
         reason: "Telemetry control commands must not observe themselves.",

@@ -2932,6 +2932,57 @@ is served from.
 - Notes: text output is the localized success line followed by the file size
   and the URL.
 
+## Spaces
+
+A Space is one static site plus its own Convex backend (database, server functions, file storage, scheduled functions), served on its own subdomain.
+
+```bash
+oo spaces list [--status suspended] --team my-team --json
+oo spaces create my-app [--name "My app"] [--visibility team|public] --json
+oo spaces get my-app --json
+oo spaces deploy my-app --wait --json
+oo spaces deploy my-app --project ./my-app --wait --json
+oo spaces deploy my-app --dir ./dist --wait --json
+oo spaces deployments my-app --json
+oo spaces deployment my-app <job-id> --json
+oo spaces artifacts my-app --json
+oo spaces rollback my-app <version> --wait --json
+oo spaces env list my-app --json
+printf %s "$VALUE" | oo spaces env set my-app API_KEY --stdin
+oo spaces env remove my-app API_KEY --yes
+oo spaces access get my-app --json
+oo spaces access set my-app --visibility public --json
+oo spaces access revoke-sessions my-app --json
+oo spaces usage my-app [--from 2026-01-01] [--to 2026-01-31] --json
+oo spaces resume my-app other-app --json
+oo spaces resume --all --json
+oo spaces delete my-app --yes --json
+```
+
+`<space>` is a space ID or its slug. These commands use the existing OO account and team selection (`--team`, `OO_TEAM_ID` / `OO_TEAM_NAME`, the account's default team) and talk to the Spaces service at `https://spaces.<account endpoint>` (for example `spaces.oomol.com`). Every write request carries an `Idempotency-Key`; a transient gateway failure is retried with the same key, and a write that is still running on the service is waited for instead of being repeated.
+
+`list` returns every space of the team as an array, and `--status <status>` (`creating`, `live`, `suspended`, `failed`, `deleting`) filters it. `create <slug>` provisions the space and its Convex deployment; the slug is lowercase letters, digits and hyphens, at most 32 characters, `--name` sets the display name and `--visibility` is `team` (default) or `public` (`public` requires a team manager). `get` returns one space. Spaces have `id`, `teamId`, `slug`, `name`, `status`, `visibility`, `url`, `building`, `convexDeploymentName`, `convexDeploymentUrl`, `nextChargeAt`, `suspendedAt`, `graceUntil`, `lastError`, `createdBy`, `createdAt` and `updatedAt`. Times are Unix seconds. The text output of `list` is a table (a `*` after the status marks a space that is building) and that of `create` and `get` is the slug followed by the fields.
+
+A space is billed monthly from the team balance: `create` charges the first period at once and fails with the insufficient balance error when the team cannot pay. When a renewal cannot be paid the space becomes `suspended`: visitors get HTTP 402 and `deploy` and `rollback` are refused with `space_suspended`. The team has until `graceUntil` to top up, after which the space is deleted for good. The service resumes a suspended space on its own shortly after the balance is back; `resume <space>...` or `resume --all` does it at once, charging a new period for each resumed space, and returns `{resumed: Space[], skipped: {spaceId, code}[]}`. Pass either spaces or `--all` (exit `2` otherwise).
+
+`delete` removes a space permanently, together with its site, its versions and its Convex project (all data and files); the current billing period is not refunded. It requires `--yes` (exit `2` without it) and returns `{job}`.
+
+`deploy <space>` deploys a project directory (`--project <directory>`, the current directory by default) in this order, stopping at the first failure: it installs the dependencies (`--no-install` skips this); when the project has a `convex/` directory it pushes the backend with the project's own `convex` package, using a short-lived deploy credential that is never printed; it runs the build (`--build <command>`, by default `bun run build` when `package.json` has a `build` script, `--build ""` to skip) with the Convex deployment URL in `VITE_CONVEX_URL`, `CONVEX_URL`, `NEXT_PUBLIC_CONVEX_URL` and `PUBLIC_CONVEX_URL` (`--url-env <name>` adds one); and it packs the build output (`--dist <directory>`, `dist` by default) and uploads it as a new version. The install, the backend push and the build run on the Bun runtime built into `oo`, so the host needs neither `node`, `npm` nor `bun`; their output is forwarded to stderr. The backend is pushed before the front end is built, so a failed build leaves the new backend live; fix the build and deploy again. Only a `live` space can be deployed to, which is checked before anything is installed. Deploying a project is not supported on Windows.
+
+`deploy <space> --dir <directory>` or `--zip <file>` uploads a site that is already built and leaves the backend untouched; they cannot be combined with each other or with `--project`, `--build`, `--dist`, `--url-env` or `--no-install` (exit `2`). A site needs an `index.html` at its root, holds at most 5000 files and 50 MiB packed, and must not contain symbolic links.
+
+A deploy or rollback is a job on the service. Without `--wait` the command returns `{job}` as soon as the job is queued (a project deploy adds `backendDeployed` and `convexDeploymentUrl`). With `--wait` it polls the job until it finishes and returns the job plus the site `url`; a job that ends as `failed` or `cancelled` fails the command with `spaces.jobFailed`. `--timeout <duration>` (for example `90s` or `10m`, default `5m`) bounds the wait; after it the command fails with `spaces.waitTimeout` while the job keeps running. One deploy or rollback runs at a time per space; a second one is refused with `deploy_in_progress`.
+
+`deployments` returns the deploy and rollback jobs as an array, newest first, and `deployment <space> <job-id>` returns one job. Jobs have `id`, `kind`, `status` (`queued`, `running`, `succeeded`, `failed`, `cancelled`), `version`, `error`, `attempt`, `createdAt`, `startedAt` and `finishedAt`. `artifacts` returns the uploaded front end versions as an array; versions have `id`, `version`, `status`, `rollbackable`, `active`, `sizeBytes`, `fileCount`, `sha256` and `createdAt`. `rollback <space> <version>` activates an earlier version whose `rollbackable` is true (`3` and `v3` are both accepted); only the site is switched, the backend keeps its current code and data.
+
+`env` manages the environment variables of the space's Convex deployment, which its server functions read. `env list` returns `{names}`; values are never returned. `env set <space> <name> --stdin` stores the exact content of stdin, including any trailing newline, as the value (at most 8192 bytes of UTF-8; empty stdin stores an empty value) and returns `{name}`; a value is never accepted as an argument. `env remove <space> <name> --yes` removes one variable and returns `{name}`. A name is a letter followed by letters, digits or underscores, at most 256 characters.
+
+`access get` returns `{visibility}` (`team` or `public`), `access set <space> --visibility <visibility>` changes it and `access revoke-sessions` signs every visitor out, returning `{ok: true}`; the last two require a team manager. Visibility gates the front end only: data access is enforced by the app's own Convex functions.
+
+`usage` returns the daily usage snapshots of the space's Convex deployment as `{from, to, items}`, one item per UTC day with `day`, `sampledAt`, `seedStatus` and `metrics` (`{unit, currentDay, currentMonth}` per metric name). `--from <day>` and `--to <day>` take `YYYY-MM-DD` dates; the default period is the last 30 days. The text output shows function calls, database IO and data egress.
+
+In text mode, progress is written to stderr. Service errors are reported with the service message and its error code, for example `space_not_found`; `--json` error output carries the code as `error.details.serviceCode`. `space_suspended`, `deploy_in_progress`, `manager_required` and `balance_unavailable` are reported with what to do next instead of the service message. `insufficient_balance` is reported as the CLI's insufficient balance error (exit `3`, `billing.insufficientCredit`, see [Insufficient OOMOL balance](#insufficient-oomol-balance)), with `serviceCode` in its details. `spaces.jobFailed` carries `jobId`, `jobKind` and `jobStatus` in its details, and `spaces.waitTimeout` carries `jobId` and `jobStatus`.
+
 ## Variables
 
 Store and read named string variables in the OOMOL cloud. Aliases:
