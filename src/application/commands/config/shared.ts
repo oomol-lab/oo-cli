@@ -3,11 +3,14 @@ import type { AppSettings } from "../../schemas/settings.ts";
 import { z } from "zod";
 import { CliUserError } from "../../contracts/cli.ts";
 import {
+    getConfiguredBundledSkillAutoSync,
     getConfiguredFileDownloadOutDir,
     getConfiguredTelemetryEnabled,
     localeSchema,
+    setBundledSkillAutoSync,
     setFileDownloadOutDir,
     setTelemetryEnabled,
+    unsetBundledSkillAutoSync,
     unsetFileDownloadOutDir,
     unsetTelemetryEnabled,
 } from "../../schemas/settings.ts";
@@ -34,6 +37,32 @@ function createValueErrorFactory(translationKey: string) {
 
 const fileDownloadOutDirConfigKey = "file.download.out_dir" as const;
 export const telemetryEnabledConfigKey = "telemetry.enabled" as const;
+const bundledSkillAutoSyncConfigKey = "skills.bundled.auto_sync" as const;
+
+// Accepts only lowercase `true` and `false`, the same as `telemetry.enabled`.
+function parseBooleanConfigValue(
+    rawValue: string,
+    apply: (settings: AppSettings, value: boolean) => AppSettings,
+): ParsedConfigValue | undefined {
+    switch (rawValue) {
+        case "false":
+            return {
+                apply: settings => apply(settings, false),
+                renderedValue: "false",
+            };
+        case "true":
+            return {
+                apply: settings => apply(settings, true),
+                renderedValue: "true",
+            };
+        default:
+            return undefined;
+    }
+}
+
+function renderOptionalBoolean(value: boolean | undefined): string | undefined {
+    return value === undefined ? undefined : String(value);
+}
 
 export const configDefinitions = {
     lang: {
@@ -88,28 +117,25 @@ export const configDefinitions = {
     [telemetryEnabledConfigKey]: {
         createInvalidValueError: createValueErrorFactory("errors.config.invalidTelemetryEnabledValue"),
         getValue(settings: AppSettings): string | undefined {
-            const value = getConfiguredTelemetryEnabled(settings);
-
-            return value === undefined ? undefined : String(value);
+            return renderOptionalBoolean(getConfiguredTelemetryEnabled(settings));
         },
         parseRawValue(rawValue: string): ParsedConfigValue | undefined {
-            switch (rawValue) {
-                case "false":
-                    return {
-                        apply: settings => setTelemetryEnabled(settings, false),
-                        renderedValue: "false",
-                    };
-                case "true":
-                    return {
-                        apply: settings => setTelemetryEnabled(settings, true),
-                        renderedValue: "true",
-                    };
-                default:
-                    return undefined;
-            }
+            return parseBooleanConfigValue(rawValue, setTelemetryEnabled);
         },
         unsetValue(settings: AppSettings): AppSettings {
             return unsetTelemetryEnabled(settings);
+        },
+    } satisfies ConfigDefinition,
+    [bundledSkillAutoSyncConfigKey]: {
+        createInvalidValueError: createValueErrorFactory("errors.config.invalidBundledSkillAutoSyncValue"),
+        getValue(settings: AppSettings): string | undefined {
+            return renderOptionalBoolean(getConfiguredBundledSkillAutoSync(settings));
+        },
+        parseRawValue(rawValue: string): ParsedConfigValue | undefined {
+            return parseBooleanConfigValue(rawValue, setBundledSkillAutoSync);
+        },
+        unsetValue(settings: AppSettings): AppSettings {
+            return unsetBundledSkillAutoSync(settings);
         },
     } satisfies ConfigDefinition,
 } as const;

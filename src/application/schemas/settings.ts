@@ -79,13 +79,26 @@ const skillsAutoTriggerSettingsShape = {
 const skillsAutoTriggerSettingsReadSchema = z.object(skillsAutoTriggerSettingsShape);
 const skillsAutoTriggerSettingsSchema = z.object(skillsAutoTriggerSettingsShape).strict();
 
+// Whether oo may materialize bundled skills into agent home directories on its
+// own: the startup synchronization, the post-update `oo skills add`, and the
+// auto-trigger republication. Explicit `oo skills install` and `oo skills
+// repair` are user requests and stay available when this is off.
+const skillsBundledSettingsShape = {
+    auto_sync: z.boolean().optional(),
+};
+
+const skillsBundledSettingsReadSchema = z.object(skillsBundledSettingsShape);
+const skillsBundledSettingsSchema = z.object(skillsBundledSettingsShape).strict();
+
 const skillsSettingsReadSchema = z.object({
     auto_trigger: skillsAutoTriggerSettingsReadSchema.optional(),
+    bundled: skillsBundledSettingsReadSchema.optional(),
     recommend: skillsRecommendSettingsReadSchema.optional(),
 });
 
 const skillsSettingsSchema = z.object({
     auto_trigger: skillsAutoTriggerSettingsSchema.optional(),
+    bundled: skillsBundledSettingsSchema.optional(),
     recommend: skillsRecommendSettingsSchema.optional(),
 }).strict();
 
@@ -155,6 +168,16 @@ const defaultSettingsCommentBlocks = [
         "# disabled_all = false",
         "# disabled = [\"oo-create-skill\"]",
     ],
+    [
+        "# skills.bundled.auto_sync controls whether oo installs and refreshes its bundled skills in agent home directories on its own.",
+        "# This covers CLI startup, `oo update`, `oo install`, and `oo skills auto-trigger`.",
+        "# When false, bundled skills that are already installed stay as they are but are no longer refreshed.",
+        "# `oo skills install` and `oo skills repair` still work when you run them.",
+        "# Default: true.",
+        "# Supported values: true or false.",
+        "# [skills.bundled]",
+        "# auto_sync = true",
+    ],
 ] as const;
 
 export function renderSettingsFile(settings: AppSettings): string {
@@ -215,7 +238,7 @@ export function renderSettingsFile(settings: AppSettings): string {
     return `${lines.join("\n")}\n`;
 }
 
-// Both `[skills]` subsections drop keys that hold their implicit default, so an
+// The `[skills]` list and flag subsections drop keys that hold their implicit default, so an
 // installation that never changed them keeps the file at its default shape. A
 // subsection with nothing left to say is omitted, and so is `[skills]` itself.
 function buildPersistedSkillsSection(
@@ -251,6 +274,12 @@ function buildPersistedSkillsSection(
 
     if (Object.keys(persistedAutoTrigger).length > 0) {
         persistedSkills.auto_trigger = persistedAutoTrigger;
+    }
+
+    // Kept whichever value it holds, like `telemetry.enabled`: the key is set
+    // through `oo config set`, and `oo config get` must read back what was set.
+    if (skills?.bundled?.auto_sync !== undefined) {
+        persistedSkills.bundled = { auto_sync: skills.bundled.auto_sync };
     }
 
     if (Object.keys(persistedSkills).length === 0) {
@@ -437,6 +466,42 @@ export function removeDismissedSkillRecommendations(
             },
         },
     };
+}
+
+export function getConfiguredBundledSkillAutoSync(
+    settings: AppSettings,
+): boolean | undefined {
+    return settings.skills?.bundled?.auto_sync;
+}
+
+export function isBundledSkillAutoSyncEnabled(settings: AppSettings): boolean {
+    return getConfiguredBundledSkillAutoSync(settings) ?? true;
+}
+
+export function setBundledSkillAutoSync(
+    settings: AppSettings,
+    value: boolean,
+): AppSettings {
+    return {
+        ...settings,
+        skills: {
+            ...settings.skills,
+            bundled: {
+                ...settings.skills?.bundled,
+                auto_sync: value,
+            },
+        },
+    };
+}
+
+export function unsetBundledSkillAutoSync(
+    settings: AppSettings,
+): AppSettings {
+    if (settings.skills?.bundled?.auto_sync === undefined) {
+        return settings;
+    }
+
+    return deleteNestedProperty(settings, ["skills", "bundled", "auto_sync"]);
 }
 
 export function isSkillAutoTriggerDisabledForAll(settings: AppSettings): boolean {

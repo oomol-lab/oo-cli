@@ -114,6 +114,9 @@ export async function resolveLatestSelfUpdateVersion(options: {
 export async function performSelfUpdateOperation(options: {
     currentVersion: string;
     forceReinstall: boolean;
+    // Runs `oo skills add` with the installed binary once it is active.
+    // Defaults to true; `skills.bundled.auto_sync = false` turns it off.
+    installManagedSkills?: boolean;
     modifyPath?: boolean;
     reportStage?: (event: SelfUpdateProgressEvent) => void;
     runtime: SelfUpdateRuntime;
@@ -206,13 +209,20 @@ export async function performSelfUpdateOperation(options: {
             platform: options.runtime.platform,
             targetVersion: options.targetVersion,
         });
-        await attemptManagedSkillInstall({
-            commandPath: resolveSelfUpdateVersionExecutablePath(
-                paths,
-                options.targetVersion,
-            ),
-            runtime: options.runtime,
-        });
+        if (options.installManagedSkills ?? true) {
+            await attemptManagedSkillInstall({
+                commandPath: resolveSelfUpdateVersionExecutablePath(
+                    paths,
+                    options.targetVersion,
+                ),
+                runtime: options.runtime,
+            });
+        }
+        else {
+            options.runtime.logger.info(
+                "Managed skill install skipped because skills.bundled.auto_sync is false.",
+            );
+        }
         await attemptLegacyPackageManagerUninstall(options.runtime);
         const { commandResolution, pathConfiguration }
             = await ensureSelfUpdateExecutableDirectoryOnPath({

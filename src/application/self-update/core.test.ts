@@ -708,6 +708,59 @@ describe("performSelfUpdateOperation", () => {
         }
     });
 
+    test("skips the managed skill install when installManagedSkills is false", async () => {
+        const rootDirectory = await createTemporaryDirectory("oo-self-update-no-skills");
+        const env = createSelfUpdateEnv(rootDirectory);
+        const paths = resolveSelfUpdatePaths({
+            env,
+            platform: process.platform,
+        });
+        const targetVersionPath = resolveSelfUpdateVersionExecutablePath(
+            paths,
+            "1.2.3",
+        );
+        const logCapture = createLogCapture();
+        const invokedCommands: Array<{
+            commandArguments: readonly string[];
+            commandPath: string;
+            timeoutMs: number;
+        }> = [];
+
+        trackDirectory(rootDirectory);
+        await mkdir(paths.versionsDirectory, { recursive: true });
+        await writeManagedVersion(targetVersionPath);
+
+        try {
+            const result = await performSelfUpdateOperation({
+                currentVersion: "1.0.0",
+                forceReinstall: false,
+                installManagedSkills: false,
+                runtime: {
+                    arch: process.arch,
+                    env,
+                    execPath: process.execPath,
+                    fetcher: async () => {
+                        throw new Error("binary download should not be called");
+                    },
+                    logger: logCapture.logger,
+                    platform: process.platform,
+                    processId: process.pid,
+                    runCommand: createSuccessfulSelfUpdateCommandRunner(invokedCommands),
+                },
+                targetVersion: "1.2.3",
+            });
+
+            expect(result.status).toBe("installed");
+            expect(invokedCommands).toEqual([]);
+            expect(logCapture.read()).toContain(
+                "Managed skill install skipped because skills.bundled.auto_sync is false.",
+            );
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
     test("uses PATH fallback to uninstall legacy package-manager installs after activation", async () => {
         const rootDirectory = await createTemporaryDirectory("oo-self-update-legacy-path");
         const env = createSelfUpdateEnv(rootDirectory);

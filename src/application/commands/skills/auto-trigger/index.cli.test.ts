@@ -1,7 +1,7 @@
 import type { CliSandbox } from "../../../../../__tests__/helpers.ts";
 import type { BundledSkillAgentName, BundledSkillName } from "../embedded-assets.ts";
 
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
@@ -391,6 +391,57 @@ describe("skills auto-trigger CLI", () => {
             expect(
                 await readOpenAiPolicy(sandbox, "claude", "oo"),
             ).toContain("allow_implicit_invocation: false");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rewrites only installed bundled skills when skills.bundled.auto_sync is false", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            await createClaudeHome(sandbox);
+            expect((await sandbox.run([
+                "config",
+                "set",
+                "skills.bundled.auto_sync",
+                "false",
+            ])).exitCode).toBe(0);
+            // Each host now holds whatever the config invocation's own startup
+            // synchronization released; clear them so only the explicit
+            // install below decides what is installed.
+            for (const agentName of ["universal", "claude"] as const) {
+                await rm(
+                    join(resolveManagedSkillAgentHomeDirectory(sandbox.env, agentName), "skills"),
+                    { force: true, recursive: true },
+                );
+            }
+            // An explicit install is a user request and still works.
+            expect((await sandbox.run(["skills", "install", "--skill", "oo"])).exitCode).toBe(0);
+
+            const result = await sandbox.run(
+                ["skills", "auto-trigger", "off", "--all", "--json"],
+            );
+            const payload = JSON.parse(result.stdout);
+
+            expect(result.exitCode).toBe(0);
+            expect(payload.publications).toEqual([
+                { agent: "universal", skill: "oo", status: "published" },
+                { agent: "claude", skill: "oo", status: "published" },
+            ]);
+            expect(
+                await readSkillMarkdown(sandbox, "claude", "oo"),
+            ).toContain("disable-model-invocation: true");
+
+            for (const agentName of ["universal", "claude"] as const) {
+                expect(await Bun.file(join(
+                    resolveManagedSkillAgentHomeDirectory(sandbox.env, agentName),
+                    "skills",
+                    "oo-find-skills",
+                    "SKILL.md",
+                )).exists()).toBeFalse();
+            }
         }
         finally {
             await sandbox.cleanup();

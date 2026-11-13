@@ -4,6 +4,7 @@ import type { BundledSkillName } from "../embedded-assets.ts";
 import type { ManagedSkillHost } from "../managed-skill-hosts.ts";
 import type { SkillAutoTriggerPublication } from "./report.ts";
 
+import { isBundledSkillAutoSyncEnabled } from "../../../schemas/settings.ts";
 import { resolveBundledSkillCanonicalDirectoryPath } from "../bundled-skill-paths.ts";
 import { availableBundledSkillNames } from "../embedded-assets.ts";
 import {
@@ -35,6 +36,11 @@ type SkillAutoTriggerPublishContext = Pick<
  * as a failure so the caller can exit non-zero — a half-applied policy that
  * reported success would leave the user believing skills are manual-only when
  * some agent still auto-triggers them.
+ *
+ * With `skills.bundled.auto_sync = false` only bundled skills that are already
+ * installed are rewritten. A target with no skill in it is left absent and kept
+ * out of the result: it holds nothing the policy could apply to, and writing it
+ * would release a bundled skill the user asked oo not to release on its own.
  */
 export async function publishBundledSkillsForAutoTrigger(
     context: SkillAutoTriggerPublishContext,
@@ -46,23 +52,33 @@ export async function publishBundledSkillsForAutoTrigger(
         throw createMissingManagedSkillHostError(context.env);
     }
 
+    const installedOnly = !isBundledSkillAutoSyncEnabled(
+        await context.settingsStore.read(),
+    );
     const publications = await Promise.all(
         hosts.flatMap(host =>
             availableBundledSkillNames.map(skillName =>
-                publishOneBundledSkill(host, skillName, autoTriggerPolicy, context),
+                publishOneBundledSkill(host, skillName, autoTriggerPolicy, {
+                    context,
+                    installedOnly,
+                }),
             ),
         ),
     );
 
-    return publications;
+    return publications.filter(publication => publication !== undefined);
 }
 
 async function publishOneBundledSkill(
     host: ManagedSkillHost,
     skillName: BundledSkillName,
     autoTriggerPolicy: SkillAutoTriggerPolicy,
-    context: SkillAutoTriggerPublishContext,
-): Promise<SkillAutoTriggerPublication> {
+    options: {
+        context: SkillAutoTriggerPublishContext;
+        installedOnly: boolean;
+    },
+): Promise<SkillAutoTriggerPublication | undefined> {
+    const { context } = options;
     const settingsFilePath = context.settingsStore.getFilePath();
     const installation = resolveManagedSkillHostInstallation(host, skillName);
     const logFields = {
@@ -82,6 +98,19 @@ async function publishOneBundledSkill(
                 ),
             ),
         ]);
+        const installedState = states[0];
+
+        if (
+            options.installedOnly
+            && (installedState.kind === "missing" || installedState.kind === "empty")
+        ) {
+            context.logger.info(
+                logFields,
+                "Auto-trigger publication skipped because the bundled skill is not installed and skills.bundled.auto_sync is false.",
+            );
+
+            return undefined;
+        }
         const blocked = states.some(state => !isBundledSkillDirectoryWritable(
             state,
             { reclaimNonDirectory: true },
