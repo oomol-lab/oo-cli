@@ -38,7 +38,8 @@ type SkillAutoTriggerPublishContext = Pick<
  * some agent still auto-triggers them.
  *
  * With `skills.bundled.auto_sync = false` only bundled skills that are already
- * installed are rewritten. A target with no skill in it is left absent and kept
+ * installed are rewritten. A target with no skill in it (missing, empty, or a
+ * non-directory such as a regular file) is left as it is and kept
  * out of the result: it holds nothing the policy could apply to, and writing it
  * would release a bundled skill the user asked oo not to release on its own.
  */
@@ -100,9 +101,15 @@ async function publishOneBundledSkill(
         ]);
         const installedState = states[0];
 
+        // A non-directory holds no installed skill either. Reclaiming it here
+        // would delete the user's file and install the skill in its place.
         if (
             options.installedOnly
-            && (installedState.kind === "missing" || installedState.kind === "empty")
+            && (
+                installedState.kind === "missing"
+                || installedState.kind === "empty"
+                || installedState.kind === "not-directory"
+            )
         ) {
             context.logger.info(
                 logFields,

@@ -448,6 +448,38 @@ describe("skills auto-trigger CLI", () => {
         }
     });
 
+    test("leaves a file at a bundled skill path untouched when skills.bundled.auto_sync is false", async () => {
+        const sandbox = await createCliSandbox();
+        const skillsDirectoryPath = join(
+            resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal"),
+            "skills",
+        );
+        const filePath = join(skillsDirectoryPath, "oo-find-skills");
+
+        try {
+            expect((await sandbox.run([
+                "config",
+                "set",
+                "skills.bundled.auto_sync",
+                "false",
+            ])).exitCode).toBe(0);
+            await rm(skillsDirectoryPath, { force: true, recursive: true });
+            await mkdir(skillsDirectoryPath, { recursive: true });
+            await Bun.write(filePath, "user file\n");
+
+            const result = await sandbox.run(
+                ["skills", "auto-trigger", "off", "--all", "--json"],
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(JSON.parse(result.stdout).publications).toEqual([]);
+            expect(await Bun.file(filePath).text()).toBe("user file\n");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     // The documented escape hatch: startup synchronization deliberately ignores
     // a hand-edited policy, so `oo skills repair` has to be the thing that
     // applies it. If that stops working the setting silently never takes.
