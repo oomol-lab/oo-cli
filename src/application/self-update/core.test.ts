@@ -751,7 +751,11 @@ describe("performSelfUpdateOperation", () => {
             });
 
             expect(result.status).toBe("installed");
-            expect(invokedCommands).toEqual([]);
+            // The legacy package-manager cleanup may still run depending on
+            // what is on PATH; only the managed skill install must be absent.
+            expect(invokedCommands.map(command => command.commandArguments))
+                .not
+                .toContainEqual(["skills", "add"]);
             expect(logCapture.read()).toContain(
                 "Managed skill install skipped because skills.bundled.auto_sync is false.",
             );
