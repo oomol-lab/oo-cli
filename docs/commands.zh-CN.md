@@ -747,9 +747,6 @@ oo flow
   `1`、`0`、`True`、`yes` 等其他 boolean-like 写法会被拒绝。设置为 `false` 时，
   CLI 还会立即尝试清空待发送 telemetry 事件，并且本次 `config set` 调用自身不会被记录为
   telemetry。
-  它设置 `oo connector run`、`oo connector proxy`、`oo connector apps` 和
-  `oo connector search` / `oo search` 在未传 `--team`、且未
-  设置 `OO_TEAM_ID` / `OO_TEAM_NAME` 环境变量时使用的默认团队身份。
 - 取值规则：当 `<key>` 为 `skills.bundled.auto_sync` 时，仅支持小写 `true` 和
   `false`，默认 `true`。设为 `false` 后，`oo` 不再自行安装或刷新内置 skill：
   包括启动时、`oo install` 和 `oo update` 之后，以及 `oo skills auto-trigger off`/`on`
