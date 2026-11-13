@@ -5,16 +5,20 @@ import {
     addAutoTriggerDisabledSkills,
     addDismissedSkillRecommendations,
     getAutoTriggerDisabledSkills,
+    getConfiguredBundledSkillAutoSync,
     getDismissedSkillRecommendations,
     getLegacyIdentityTeam,
+    isBundledSkillAutoSyncEnabled,
     isSkillAutoTriggerDisabledForAll,
     isSkillRecommendationsMuted,
     removeAutoTriggerDisabledSkills,
     removeDismissedSkillRecommendations,
     renderSettingsFile,
+    setBundledSkillAutoSync,
     setSkillAutoTriggerDisabledForAll,
     setSkillRecommendationsMuted,
     settingsFileReadSchema,
+    unsetBundledSkillAutoSync,
     unsetLegacyIdentityTeam,
 } from "./settings.ts";
 
@@ -233,5 +237,60 @@ describe("legacy identity.team setting", () => {
         const settings = { lang: "en" } as const;
 
         expect(unsetLegacyIdentityTeam(settings)).toBe(settings);
+    });
+});
+
+describe("bundled skill auto-sync setting", () => {
+    test("defaults to enabled without persisting a value", () => {
+        expect(isBundledSkillAutoSyncEnabled({})).toBe(true);
+        expect(getConfiguredBundledSkillAutoSync({})).toBeUndefined();
+        expect(renderSettingsFile({})).not.toContain("\n[skills.bundled]");
+    });
+
+    test("renders and round-trips a disabled value", () => {
+        const rendered = renderSettingsFile(setBundledSkillAutoSync({}, false));
+
+        expect(rendered).toContain("[skills.bundled]");
+
+        const parsed = settingsFileReadSchema.parse(parseToml(rendered));
+
+        expect(getConfiguredBundledSkillAutoSync(parsed)).toBe(false);
+        expect(isBundledSkillAutoSyncEnabled(parsed)).toBe(false);
+    });
+
+    test("persists an explicit true value so it reads back as set", () => {
+        const parsed = settingsFileReadSchema.parse(
+            parseToml(renderSettingsFile(setBundledSkillAutoSync({}, true))),
+        );
+
+        expect(getConfiguredBundledSkillAutoSync(parsed)).toBe(true);
+    });
+
+    test("survives an unrelated settings write", () => {
+        const settings = setSkillRecommendationsMuted(
+            setBundledSkillAutoSync({ lang: "zh" }, false),
+            true,
+        );
+        const parsed = settingsFileReadSchema.parse(
+            parseToml(renderSettingsFile(settings)),
+        );
+
+        expect(getConfiguredBundledSkillAutoSync(parsed)).toBe(false);
+        expect(parsed.skills?.recommend?.muted).toBe(true);
+    });
+
+    test("unsetting prunes the empty skills section", () => {
+        const settings = unsetBundledSkillAutoSync(
+            setBundledSkillAutoSync({}, false),
+        );
+
+        expect(settings.skills).toBeUndefined();
+        expect(isBundledSkillAutoSyncEnabled(settings)).toBe(true);
+    });
+
+    test("unsetting an absent value returns the same settings", () => {
+        const settings = { lang: "en" } as const;
+
+        expect(unsetBundledSkillAutoSync(settings)).toBe(settings);
     });
 });

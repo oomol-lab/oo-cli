@@ -580,6 +580,8 @@ export const enMessages = {
         "Invalid file.download.out_dir value: {value}. Use a non-empty path.",
     "errors.config.invalidTelemetryEnabledValue":
         "Invalid telemetry.enabled value: {value}. Use true or false.",
+    "errors.config.invalidBundledSkillAutoSyncValue":
+        "Invalid skills.bundled.auto_sync value: {value}. Use true or false.",
     "errors.skills.invalidPath":
         "Skill name {name} resolves outside the local skill directories.",
     "errors.skills.init.invalidIcon":
@@ -2248,6 +2250,8 @@ export const zhMessages = {
         "无效的 file.download.out_dir 值：{value}。请使用非空路径。",
     "errors.config.invalidTelemetryEnabledValue":
         "无效的 telemetry.enabled 值：{value}。请使用 true 或 false。",
+    "errors.config.invalidBundledSkillAutoSyncValue":
+        "无效的 skills.bundled.auto_sync 值：{value}。请使用 true 或 false。",
     "errors.skills.invalidPath":
         "skill 名称 {name} 解析到了本地 skill 目录之外。",
     "errors.skills.init.invalidIcon":

@@ -3,6 +3,7 @@ import type { CliCommandDefinition } from "../contracts/cli.ts";
 import process from "node:process";
 import { z } from "zod";
 import { CliUserError } from "../contracts/cli.ts";
+import { resolveManagedSkillInstallEnabled } from "../self-update/bundled-skills.ts";
 import {
     performSelfUpdateOperation,
     renderSelfUpdateLockBusyMessage,
@@ -117,6 +118,7 @@ export const installCommand: CliCommandDefinition<
             const result = await performSelfUpdateOperation({
                 currentVersion: context.version,
                 forceReinstall: input.force,
+                installManagedSkills: await resolveManagedSkillInstallEnabled(context),
                 modifyPath: resolveSelfUpdateModifyPath({
                     env: context.env,
                     modifyPathFlag: input.modifyPath,

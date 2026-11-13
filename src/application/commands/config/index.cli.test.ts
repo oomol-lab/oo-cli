@@ -125,6 +125,71 @@ describe("config CLI", () => {
         }
     });
 
+    test("supports the bundled skill auto-sync config key", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const setResult = await sandbox.run([
+                "config",
+                "set",
+                "skills.bundled.auto_sync",
+                "false",
+            ]);
+            const getResult = await sandbox.run([
+                "config",
+                "get",
+                "skills.bundled.auto_sync",
+            ]);
+            const listResult = await sandbox.run(["config", "list"]);
+            const settingsContent = await readFile(
+                (await sandbox.run(["config", "path"])).stdout.trim(),
+                "utf8",
+            );
+            const unsetResult = await sandbox.run([
+                "config",
+                "unset",
+                "skills.bundled.auto_sync",
+            ]);
+            const getAfterUnsetResult = await sandbox.run([
+                "config",
+                "get",
+                "skills.bundled.auto_sync",
+            ]);
+
+            expect(setResult.exitCode).toBe(0);
+            expect(getResult.stdout).toBe("false\n");
+            expect(listResult.stdout).toContain("skills.bundled.auto_sync=false");
+            expect(settingsContent).toContain("[skills.bundled]\nauto_sync = false");
+            expect(unsetResult.exitCode).toBe(0);
+            expect(getAfterUnsetResult.exitCode).toBe(0);
+            expect(getAfterUnsetResult.stdout).toBe("");
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
+    test("rejects a non-boolean bundled skill auto-sync value", async () => {
+        const sandbox = await createCliSandbox();
+
+        try {
+            const result = await sandbox.run([
+                "config",
+                "set",
+                "skills.bundled.auto_sync",
+                "off",
+            ]);
+
+            expect(result.exitCode).toBe(2);
+            expect(result.stderr).toContain(
+                "Invalid skills.bundled.auto_sync value: off. Use true or false.",
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("no longer accepts the retired identity team config key", async () => {
         const sandbox = await createCliSandbox();
 

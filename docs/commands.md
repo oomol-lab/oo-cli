@@ -116,7 +116,8 @@ use. Truthy values are `1`, `true`, `yes`, or `on` (case-insensitive).
   last value, consistently across commands.
 - `OO_SKILLS_SYNC_DISABLED`: A truthy value disables the startup managed-skill
   synchronization, so the CLI writes no skill files into agent home directories
-  such as `~/.agents` or `~/.claude`.
+  such as `~/.agents` or `~/.claude`. To stop bundled skills from being
+  installed persistently, use `oo config set skills.bundled.auto_sync false`.
 - `OO_NO_SELF_UPDATE`: A truthy value disables `oo update`, `oo install`, and
   `oo check-update` and forces self-update PATH modification off.
 
@@ -871,7 +872,8 @@ List persisted configuration values that are currently set.
 Read one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `telemetry.enabled`.
+  `lang`, `file.download.out_dir`, `telemetry.enabled`,
+  `skills.bundled.auto_sync`.
 
 ### `oo config path`
 
@@ -882,7 +884,8 @@ Print the path to the persisted configuration file.
 Persist one configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `telemetry.enabled`.
+  `lang`, `file.download.out_dir`, `telemetry.enabled`,
+  `skills.bundled.auto_sync`.
 - Arguments: `<value>` is the value for the selected key.
 - Value rules: for `lang`, supported values are `en` and `zh`.
 - Value rules: for `file.download.out_dir`, use any non-empty path string. Relative
@@ -893,13 +896,25 @@ Persist one configuration value.
   are rejected. Setting `telemetry.enabled` to `false` also attempts to purge
   pending telemetry events immediately and the current `config set` invocation is
   not recorded as telemetry.
+- Value rules: for `skills.bundled.auto_sync`, supported values are lowercase
+  `true` and `false`. The default is `true`. Setting it to `false` stops `oo`
+  from installing or refreshing bundled skills on its own: at startup, after
+  `oo install` and `oo update`, and when `oo skills auto-trigger off`/`on`
+  republishes them (only bundled skills that are already installed are
+  rewritten). Bundled skills that are already installed are kept but no longer
+  refreshed. `oo skills install` and `oo skills repair` still install bundled
+  skills when run explicitly. Registry skill synchronization is not affected.
+  The `config set` invocation that turns it off still runs its own startup
+  synchronization first; prefix that one command with
+  `OO_SKILLS_SYNC_DISABLED=1` to keep it from writing any skill files.
 
 ### `oo config unset <key>`
 
 Remove one persisted configuration value.
 
 - Arguments: `<key>` is the configuration key. Supported values:
-  `lang`, `file.download.out_dir`, `telemetry.enabled`.
+  `lang`, `file.download.out_dir`, `telemetry.enabled`,
+  `skills.bundled.auto_sync`.
 
 ## Telemetry
 
@@ -1000,7 +1015,8 @@ Install one managed `oo` release into the local self-managed runtime.
   then decide whether to update the failed profiles manually.
 - Notes: after a successful install workflow, the CLI silently runs
   `oo skills add` with the managed executable so bundled skills refresh to the
-  installed CLI version.
+  installed CLI version. This step is skipped when `skills.bundled.auto_sync`
+  is `false`.
 - Notes: when the current version is `0.0.0-development`, the CLI prints the
   managed install/update unsupported message and exits successfully.
 
@@ -1052,7 +1068,8 @@ Update the managed `oo` install to the latest published release.
   then decide whether to update the failed profiles manually.
 - Notes: after a successful update workflow, the CLI silently runs
   `oo skills add` with the managed executable so bundled skills refresh to the
-  installed CLI version.
+  installed CLI version. This step is skipped when `skills.bundled.auto_sync`
+  is `false`.
 - Notes: when the current version is `0.0.0-development`, the CLI prints the
   managed install/update unsupported message and exits successfully.
 
@@ -1538,7 +1555,8 @@ missing), and for every other supported host directory that already exists.
   Existing oo-managed bundled skill targets are refreshed to the current `oo`
   version, except that `0.0.0-development` startup runs do not refresh
   existing bundled targets, and installed `0.0.0-development` bundled targets
-  are left untouched.
+  are left untouched. When `skills.bundled.auto_sync` is `false`, bundled skills
+  are neither installed nor refreshed at startup.
 - Registry skills: when a published skill already has a local canonical copy
   under `<config-dir>/skills/registry/<skill-id>`, `oo` publishes that copy to
   any newly detected supported host that is missing it.
@@ -2409,6 +2427,9 @@ Make bundled skills manual-only.
   untouched and reported as skipped. This differs from `oo skills install`,
   which fails the run on such a directory: changing a preference must still
   reach the other agents.
+- Not installed: when `skills.bundled.auto_sync` is `false`, a bundled skill
+  that is not installed for a host is not installed by this command and does
+  not appear in `publications`.
 - Exit code: `1` when the setting was saved but one or more skill targets could
   not be republished; the message names them and gives the `oo skills repair`
   command to finish applying it.

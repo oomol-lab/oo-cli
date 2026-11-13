@@ -371,6 +371,90 @@ describe("skills CLI", () => {
         }
     });
 
+    test("skips bundled skills but still publishes registry skills when skills.bundled.auto_sync is false", async () => {
+        const sandbox = await createCliSandbox();
+        const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");
+        const installedSkillDirectoryPath = join(universalHomeDirectory, "skills", "oo");
+        const installedMetadataFilePath = resolveBundledSkillMetadataFilePath(installedSkillDirectoryPath);
+        const findSkillsDirectoryPath = join(universalHomeDirectory, "skills", "oo-find-skills");
+        const claudeHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "claude");
+        const storePaths = resolveStorePaths({
+            appName: APP_NAME,
+            env: sandbox.env,
+            platform: process.platform,
+        });
+        const canonicalSkillDirectoryPath = resolveManagedSkillCanonicalDirectoryPath(
+            storePaths.settingsFilePath,
+            "chatgpt",
+        );
+
+        try {
+            await Bun.write(
+                storePaths.settingsFilePath,
+                "[skills.bundled]\nauto_sync = false\n",
+            );
+            await mkdir(installedSkillDirectoryPath, { recursive: true });
+            await Bun.write(
+                installedMetadataFilePath,
+                renderSkillMetadataJson(createBundledSkillMetadata("0.0.1")),
+            );
+            await Bun.write(join(installedSkillDirectoryPath, "SKILL.md"), "stale\n");
+            await mkdir(claudeHomeDirectory, { recursive: true });
+            await mkdir(canonicalSkillDirectoryPath, { recursive: true });
+            await Bun.write(
+                join(canonicalSkillDirectoryPath, "SKILL.md"),
+                "# ChatGPT\n",
+            );
+            await Bun.write(
+                resolveManagedSkillMetadataFilePath(canonicalSkillDirectoryPath),
+                renderSkillMetadataJson(createRegistrySkillMetadata({
+                    packageName: "openai",
+                    version: "0.0.3",
+                })),
+            );
+
+            const result = await sandbox.run(["--help"], {
+                fetcher: async () => {
+                    throw new Error("startup synchronization should not fetch");
+                },
+                version: "9.9.9",
+            });
+            const content = await readLatestLogContent(sandbox);
+
+            expect(result.exitCode).toBe(0);
+            expect(result.stderr).toBe("");
+            // The installed bundled skill is left as it was, not refreshed.
+            expect(await readFile(installedMetadataFilePath, "utf8")).toBe(
+                renderSkillMetadataJson(createBundledSkillMetadata("0.0.1")),
+            );
+            expect(await readFile(join(installedSkillDirectoryPath, "SKILL.md"), "utf8")).toBe(
+                "stale\n",
+            );
+            // A bundled skill that was never installed is not released.
+            await expect(stat(findSkillsDirectoryPath)).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            await expect(stat(join(claudeHomeDirectory, "skills", "oo"))).rejects.toMatchObject({
+                code: "ENOENT",
+            });
+            expect(await readFile(join(claudeHomeDirectory, "skills", "chatgpt", "SKILL.md"), "utf8")).toBe(
+                "# ChatGPT\n",
+            );
+            expect(content).toContain(
+                `"msg":"Bundled skill startup synchronization skipped because skills.bundled.auto_sync is false."`,
+            );
+            expect(content).not.toContain(
+                `"msg":"Bundled skill synchronized during CLI startup."`,
+            );
+            expect(content).toContain(
+                `"msg":"Registry skill synchronized during CLI startup."`,
+            );
+        }
+        finally {
+            await sandbox.cleanup();
+        }
+    });
+
     test("leaves synchronized registry symlink targets unchanged during cli startup", async () => {
         const sandbox = await createCliSandbox();
         const universalHomeDirectory = resolveManagedSkillAgentHomeDirectory(sandbox.env, "universal");

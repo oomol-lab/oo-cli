@@ -94,6 +94,7 @@ CLI 读取以下环境变量以支持内置和自动化场景。真值为 `1`、
   各命令统一使用最后一个值。
 - `OO_SKILLS_SYNC_DISABLED`：设为真值会禁用启动时的 managed skill 同步，
   使 CLI 不会向 `~/.agents`、`~/.claude` 等代理主目录写入任何 skill 文件。
+  如需持久地停止安装内置 skill，请使用 `oo config set skills.bundled.auto_sync false`。
 - `OO_NO_SELF_UPDATE`：设为真值会禁用 `oo update`、`oo install` 和
   `oo check-update`，并强制关闭 self-update 的 PATH 改写。
 
@@ -723,7 +724,8 @@ oo flow
 读取一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`file.download.out_dir`、`telemetry.enabled`。
+  `lang`、`file.download.out_dir`、`telemetry.enabled`、
+  `skills.bundled.auto_sync`。
 
 ### `oo config path`
 
@@ -734,7 +736,8 @@ oo flow
 写入一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`file.download.out_dir`、`telemetry.enabled`。
+  `lang`、`file.download.out_dir`、`telemetry.enabled`、
+  `skills.bundled.auto_sync`。
 - 参数：`<value>` 为对应配置值。
 - 取值规则：当 `<key>` 为 `lang` 时，支持的值为 `en` 和 `zh`。
 - 取值规则：当 `<key>` 为 `file.download.out_dir` 时，支持任意非空路径字符串。
@@ -744,16 +747,22 @@ oo flow
   `1`、`0`、`True`、`yes` 等其他 boolean-like 写法会被拒绝。设置为 `false` 时，
   CLI 还会立即尝试清空待发送 telemetry 事件，并且本次 `config set` 调用自身不会被记录为
   telemetry。
-  它设置 `oo connector run`、`oo connector proxy`、`oo connector apps` 和
-  `oo connector search` / `oo search` 在未传 `--team`、且未
-  设置 `OO_TEAM_ID` / `OO_TEAM_NAME` 环境变量时使用的默认团队身份。
+- 取值规则：当 `<key>` 为 `skills.bundled.auto_sync` 时，仅支持小写 `true` 和
+  `false`，默认 `true`。设为 `false` 后，`oo` 不再自行安装或刷新内置 skill：
+  包括启动时、`oo install` 和 `oo update` 之后，以及 `oo skills auto-trigger off`/`on`
+  重新发布时(只改写已安装的内置 skill)。已安装的内置 skill 会保留，但不再刷新。
+  显式执行 `oo skills install` 和 `oo skills repair` 仍会安装内置 skill。
+  registry skill 的同步不受影响。执行关闭操作的那次 `config set` 自身仍会先跑一遍
+  启动同步；如需这一次也不写入任何 skill 文件，请在该命令前加上
+  `OO_SKILLS_SYNC_DISABLED=1`。
 
 ### `oo config unset <key>`
 
 删除一个持久化配置值。
 
 - 参数：`<key>` 为配置键。目前支持
-  `lang`、`file.download.out_dir`、`telemetry.enabled`。
+  `lang`、`file.download.out_dir`、`telemetry.enabled`、
+  `skills.bundled.auto_sync`。
 
 ## Telemetry
 
@@ -835,7 +844,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   ——已配置的 profile 和未能配置的 profile，并附带重启 shell 的提示；用户可据此
   决定是否手动补全未配置的 profile。
 - 说明：install 成功后，CLI 会使用托管的可执行文件静默执行一次
-  `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。
+  `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。当
+  `skills.bundled.auto_sync` 为 `false` 时跳过这一步。
 - 说明：当当前版本为 `0.0.0-development` 时，CLI 会打印不支持托管 install /
   update 的提示，并以成功状态退出。
 
@@ -875,7 +885,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   ——已配置的 profile 和未能配置的 profile，并附带重启 shell 的提示；用户可据此
   决定是否手动补全未配置的 profile。
 - 说明：update 成功后，CLI 会使用托管的可执行文件静默执行一次
-  `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。
+  `oo skills add`，让 bundled skills 刷新到已安装的 CLI 版本。当
+  `skills.bundled.auto_sync` 为 `false` 时跳过这一步。
 - 说明：当当前版本为 `0.0.0-development` 时，CLI 会打印不支持托管 install /
   update 的提示，并以成功状态退出。
 
@@ -1277,6 +1288,7 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
   已经由 oo 管理的内置 skill 目标会刷新到当前 `oo` 版本；
   但当启动中的当前版本为 `0.0.0-development` 时，不会刷新已存在的内置 skill
   目标；已安装版本为 `0.0.0-development` 的内置 skill 目标也会保持不变。
+  当 `skills.bundled.auto_sync` 为 `false` 时，启动时既不安装也不刷新内置 skill。
 - Registry skill：如果某个已发布 skill 已经有本地 canonical 副本
   `<config-dir>/skills/registry/<skill-id>`，`oo` 会把该副本发布到任何新检测
   到且尚未安装它的受支持 Agent。
@@ -2001,6 +2013,8 @@ CLI 默认记录受隐私约束的命令使用 telemetry。事件不包含 free-
 - 安全性：非 `oo` 管理的同名 skill 目录不会被覆盖，会在输出中报告为已跳过。这与
   `oo skills install` 不同——后者遇到此类目录会让整次运行失败；而修改偏好设置必须
   仍然能对其他 agent 生效。
+- 未安装：当 `skills.bundled.auto_sync` 为 `false` 时，某个 host 上未安装的内置
+  skill 不会被本命令安装，也不会出现在 `publications` 中。
 - 退出码：设置已保存但有 skill 目标未能重新发布时退出 `1`，消息会点名这些目标，
   并给出用于完成应用的 `oo skills repair` 命令。
 
