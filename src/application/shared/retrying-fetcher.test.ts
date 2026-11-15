@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { createLogCapture } from "../../../__tests__/helpers.ts";
-import { createRetryingFetcher } from "./retrying-fetcher.ts";
+import { createRetryingFetcher, sendOnce } from "./retrying-fetcher.ts";
 
 describe("createRetryingFetcher", () => {
     test("retries network failures with exponential backoff", async () => {
@@ -154,6 +154,49 @@ describe("createRetryingFetcher", () => {
             });
             expect(abortFetchCount).toBe(1);
             expect(retryDelays).toEqual([]);
+        }
+        finally {
+            logCapture.close();
+        }
+    });
+
+    test("sends a request marked as single-attempt exactly once", async () => {
+        const logCapture = createLogCapture();
+        const retryDelays: number[] = [];
+        const answers: (() => Response)[] = [
+            () => new Response("busy", { status: 503 }),
+            () => {
+                throw new Error("temporary network failure");
+            },
+            () => new Response("busy", { status: 503 }),
+            () => new Response("ok", { status: 200 }),
+        ];
+        let fetchCount = 0;
+
+        try {
+            const fetcher = createRetryingFetcher({
+                fetcher: async () => {
+                    fetchCount += 1;
+
+                    return answers.shift()!();
+                },
+                logger: logCapture.logger,
+                sleep: async (delayMs) => {
+                    retryDelays.push(delayMs);
+                },
+            });
+            const controller = new AbortController();
+            const once = { signal: sendOnce(controller.signal) };
+
+            expect((await fetcher("https://example.com/items", once)).status).toBe(503);
+            await expect(fetcher("https://example.com/items", once)).rejects.toThrow("temporary network failure");
+            expect(fetchCount).toBe(2);
+            expect(retryDelays).toEqual([]);
+
+            // A request on any other signal is retried as usual.
+            expect((await fetcher("https://example.com/items", { signal: new AbortController().signal })).status).toBe(200);
+            expect(fetchCount).toBe(4);
+            expect(retryDelays).toEqual([1_000]);
         }
         finally {
             logCapture.close();

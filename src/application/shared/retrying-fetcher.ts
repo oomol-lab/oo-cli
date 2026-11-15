@@ -18,16 +18,33 @@ export interface CreateRetryingFetcherOptions {
     sleep?: (delayMs: number, signal?: AbortSignal) => Promise<void>;
 }
 
+// Requests that must reach their service at most once: a write the service
+// cannot deduplicate. They are told apart by their signal, which travels
+// through every fetcher wrapper unchanged.
+const singleAttemptSignals = new WeakSet<AbortSignal>();
+
+/** Marks the request that runs on this signal as one no retrying fetcher may repeat. */
+export function sendOnce(signal: AbortSignal): AbortSignal {
+    singleAttemptSignals.add(signal);
+
+    return signal;
+}
+
 export function createRetryingFetcher(
     options: CreateRetryingFetcherOptions,
 ): Fetcher {
-    const maxRetries = options.maxRetries ?? defaultRetryMaxRetries;
+    const configuredMaxRetries = options.maxRetries ?? defaultRetryMaxRetries;
     const retryableStatusCodes = new Set(
         options.retryableStatusCodes ?? defaultRetryableStatusCodes,
     );
     const sleep = options.sleep ?? abortableSleep;
 
     return async (input, init) => {
+        const signal = init?.signal ?? undefined;
+        const maxRetries = signal !== undefined && singleAttemptSignals.has(signal)
+            ? 0
+            : configuredMaxRetries;
+
         for (let attempt = 0; ; attempt += 1) {
             let response: Response | undefined;
             let error: unknown;
@@ -79,7 +96,7 @@ export function createRetryingFetcher(
                 );
             }
 
-            await sleep(retryDelayMs, init?.signal ?? undefined);
+            await sleep(retryDelayMs, signal);
         }
     };
 }

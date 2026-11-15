@@ -2494,7 +2494,7 @@ oo spaces resume --all --json
 oo spaces delete my-app --yes --json
 ```
 
-`<space>` 是 Space 的 ID 或 slug。这些命令沿用现有的 OO 账号与团队选择 (`--team`、`OO_TEAM_ID` / `OO_TEAM_NAME`、账号默认团队), 访问 `https://spaces.<账号 endpoint>` 上的 Spaces 服务 (例如 `spaces.oomol.com`)。每个写请求都带 `Idempotency-Key`; 网关的瞬时故障会用同一个 key 重试, 服务端仍在处理的写请求会等待其完成而不是重复提交。
+`<space>` 是 Space 的 ID 或 slug。这些命令沿用现有的 OO 账号与团队选择 (`--team`、`OO_TEAM_ID` / `OO_TEAM_NAME`、账号默认团队), 访问 `https://spaces.<账号 endpoint>` 上的 Spaces 服务 (例如 `spaces.oomol.com`)。写请求带 `Idempotency-Key`; 网关的瞬时故障会用同一个 key 重试, 服务端仍在处理的写请求会等待其完成而不是重复提交。`deploy` 的站点上传是例外, 见该命令的说明。
 
 `list` 以数组返回团队的全部 Space, `--status <status>` (`creating`、`live`、`suspended`、`failed`、`deleting`) 用于过滤。`create <slug>` 创建 Space 并开通它的 Convex 部署; slug 由小写字母、数字和连字符组成, 最多 32 个字符, `--name` 设置显示名称, `--visibility` 为 `team` (默认) 或 `public` (`public` 需要团队管理员)。`get` 返回一个 Space。Space 的字段有 `id`、`teamId`、`slug`、`name`、`status`、`visibility`、`url`、`building`、`convexDeploymentName`、`convexDeploymentUrl`、`nextChargeAt`、`suspendedAt`、`graceUntil`、`lastError`、`createdBy`、`createdAt`、`updatedAt`。时间为 Unix 秒。`list` 的文本输出是表格 (状态后的 `*` 表示正在构建), `create` 与 `get` 的文本输出是 slug 加各字段。
 
@@ -2506,6 +2506,8 @@ Space 按月从团队余额扣费: `create` 立即扣第一个周期, 团队无�
 
 `deploy <space> --dir <directory>` 或 `--zip <file>` 上传已经构建好的站点, 不改动后端; 两者不能同时使用, 也不能与 `--project`、`--build`、`--dist`、`--url-env`、`--no-install` 同时使用 (退出码 `2`)。站点根目录需要有 `index.html`, 最多 5000 个文件、打包后 50 MiB, 且不能包含符号链接。
 
+两种方式下, 打包后的站点都直接传到对象存储, 不经过 Spaces 服务, 所以宿主机除了 Spaces 服务之外还要能访问对象存储。发往对象存储的请求不带账号凭据也不带团队信息, 上传地址永不输出, 也不写入日志。向对象存储的传输中断时会重试。仍然失败时命令以 `spaces.uploadFailed` (对象存储返回了 HTTP 错误, 见 `error.details.httpStatus`) 或 `spaces.uploadError` (无法连接对象存储) 结束; 站点不会被部署, 当前版本保持在线, 而项目部署已经推送的后端不会回退。已开始但没有完成的上传会在一小时内计入该 Space 的额度; 这样的上传太多时, 部署会被 `deploy_uploads_pending` 拒绝。
+
 部署与回滚是服务端的作业。不带 `--wait` 时, 作业入队后命令立即返回 `{job}` (项目部署会多带 `backendDeployed` 与 `convexDeploymentUrl`)。带 `--wait` 时轮询作业直到结束, 返回作业并附带站点 `url`; 作业以 `failed` 或 `cancelled` 结束时命令以 `spaces.jobFailed` 失败。`--timeout <duration>` (例如 `90s` 或 `10m`, 默认 `5m`) 限制等待时长; 超时后命令以 `spaces.waitTimeout` 失败, 作业继续运行。同一个 Space 同时只能有一个部署或回滚, 第二个会被 `deploy_in_progress` 拒绝。
 
 `deployments` 以数组返回部署与回滚作业 (最新的在前), `deployment <space> <job-id>` 返回一个作业。作业的字段有 `id`、`kind`、`status` (`queued`、`running`、`succeeded`、`failed`、`cancelled`)、`version`、`error`、`attempt`、`createdAt`、`startedAt`、`finishedAt`。`artifacts` 以数组返回已上传的前端版本, 字段有 `id`、`version`、`status`、`rollbackable`、`active`、`sizeBytes`、`fileCount`、`sha256`、`createdAt`。`rollback <space> <version>` 启用一个 `rollbackable` 为 true 的较早版本 (`3` 与 `v3` 都接受); 只切换站点, 后端的代码与数据保持不变。
@@ -2516,7 +2518,7 @@ Space 按月从团队余额扣费: `create` 立即扣第一个周期, 团队无�
 
 `usage` 返回 Space 的 Convex 部署的每日用量快照 `{from, to, items}`, 每个 UTC 日一条, 含 `day`、`sampledAt`、`seedStatus`、`metrics` (每个指标名对应 `{unit, currentDay, currentMonth}`)。`--from <day>` 与 `--to <day>` 接受 `YYYY-MM-DD` 日期, 默认最近 30 天。文本输出展示函数调用、数据库 IO 和出网流量。
 
-文本模式下进度信息写到 stderr。服务端错误会显示服务返回的信息和错误码, 例如 `space_not_found`; `--json` 的错误输出在 `error.details.serviceCode` 中给出错误码。`space_suspended`、`deploy_in_progress`、`manager_required`、`balance_unavailable` 不显示服务端信息, 改为说明下一步该怎么做。`insufficient_balance` 按 CLI 统一的余额不足错误报告 (退出码 `3`, `billing.insufficientCredit`), 并在 details 中带上 `serviceCode`。`spaces.jobFailed` 的 details 带 `jobId`、`jobKind`、`jobStatus`, `spaces.waitTimeout` 的 details 带 `jobId`、`jobStatus`。
+文本模式下进度信息写到 stderr。服务端错误会显示服务返回的信息和错误码, 例如 `space_not_found`; `--json` 的错误输出在 `error.details.serviceCode` 中给出错误码。`space_suspended`、`deploy_in_progress`、`deploy_uploads_pending`、`deploy_upload_expired`、`deploy_upload_incomplete`、`manager_required`、`balance_unavailable` 不显示服务端信息, 改为说明下一步该怎么做。服务拒绝站点压缩包时返回的 `artifact_invalid` 与 `artifact_too_large` 报告为 `spaces.archiveInvalid` 与 `spaces.archiveTooLarge`, 并带上服务给出的原因。`insufficient_balance` 按 CLI 统一的余额不足错误报告 (退出码 `3`, `billing.insufficientCredit`), 并在 details 中带上 `serviceCode`。`spaces.jobFailed` 的 details 带 `jobId`、`jobKind`、`jobStatus`, `spaces.waitTimeout` 的 details 带 `jobId`、`jobStatus`。
 
 ## Variables
 
