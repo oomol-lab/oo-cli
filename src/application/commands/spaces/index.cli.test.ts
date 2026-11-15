@@ -213,6 +213,7 @@ describe("spaces commands", () => {
             expect(output).toContain("storage.example.test");
             expect(output).not.toContain(uploadSignature);
             expect(output).not.toContain("X-Amz-Expires");
+            expect(output).not.toContain("site.zip");
             // Nothing is committed for an archive that never arrived.
             expect(service.requests.filter(request => request.url.endsWith("/commit"))).toHaveLength(0);
         });

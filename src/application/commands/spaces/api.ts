@@ -475,10 +475,14 @@ export async function uploadSite(client: SpacesDeployClient, space: string, zip:
 // nor the team of the account leaves for the storage host.
 //
 // The zip goes up as one buffer, so an attempt that failed can be repeated
-// and overwrites the same object. The retries happen here rather than in the
-// CLI-wide fetcher, so that every failure is stripped of the upload URL
-// before it can reach a log line or an error message. One deadline covers all
-// attempts.
+// and overwrites the same object. One deadline covers all attempts.
+//
+// The upload URL is known to the innermost fetcher alone. Everything that
+// logs a request (the request helper and the retries, which therefore happen
+// here rather than in the CLI-wide fetcher) is handed the origin of the
+// storage host, and every failure is stripped of the URL before it leaves
+// that fetcher. A log line or an error message can thus name the storage
+// host, never the object path or the signature.
 export async function storeSiteArchive(
     context: SpacesRequestContext,
     upload: SiteUpload,
@@ -497,9 +501,9 @@ export async function storeSiteArchive(
     // retries to the fetcher below.
     const attemptSignal = sendOnce(AbortSignal.any([deadline]));
     const retryingFetcher = createRetryingFetcher({
-        fetcher: async (input, init) => {
+        fetcher: async (_storageOrigin, init) => {
             try {
-                return await context.fetcher(input, { ...init, signal: attemptSignal });
+                return await context.fetcher(upload.url, { ...init, signal: attemptSignal });
             }
             catch (error) {
                 throw withoutUploadUrl(error, upload.url);
@@ -520,7 +524,7 @@ export async function storeSiteArchive(
         },
         errors: { requestError: "errors.spaces.uploadError", requestFailed: "errors.spaces.uploadFailed" },
         headers: upload.headers,
-        host: { baseUrl: upload.url },
+        host: { baseUrl: new URL(upload.url).origin },
         label: "Spaces site upload",
         method: "PUT",
     });

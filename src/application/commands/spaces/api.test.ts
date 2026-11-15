@@ -343,7 +343,10 @@ describe("spaces site upload", () => {
         expect(error.params).toEqual({ status: 403 });
         expect(error.details).toEqual({ httpStatus: 403 });
         expect(site.calls).toHaveLength(1);
+        // The logs name the storage host and nothing else of the upload URL.
+        expect(site.logs()).toContain("\"endpoint\":\"storage.example.test\",\"path\":\"/\"");
         expect(site.logs()).not.toContain(signature);
+        expect(site.logs()).not.toContain("site.zip");
     });
 
     test("keeps the upload URL out of the error and the logs when storage cannot be reached", async () => {
@@ -362,8 +365,11 @@ describe("spaces site upload", () => {
         expect(site.calls).toHaveLength(4);
         expect(site.sleeps).toEqual([1_000, 2_000, 4_000]);
         expect(site.logs()).toContain("HTTP request retry scheduled after a network failure.");
+        expect(site.logs()).toContain("Spaces site upload request failed unexpectedly.");
         expect(site.logs()).not.toContain(signature);
         expect(site.logs()).not.toContain("X-Amz-Expires");
+        // Neither the retries nor the request helper log the object path.
+        expect(site.logs()).not.toContain("site.zip");
     });
 
     test("refuses an upload whose signed length is not the length of the archive", async () => {
