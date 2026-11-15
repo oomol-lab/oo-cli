@@ -5,9 +5,14 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import process from "node:process";
 import { describe, expect, test } from "bun:test";
-import { createCliSandbox, createInteractiveInput, toRequest, writeAuthFile } from "../../../../__tests__/helpers.ts";
+import { createCliSandbox, createInteractiveInput, readLatestLogContent, toRequest, writeAuthFile } from "../../../../__tests__/helpers.ts";
 
 const apiBase = "https://spaces.oomol.com";
+const storageBase = "https://storage.example.test";
+const uploadSignature = "sig-secret";
+const uploadUrl = `${storageBase}/bucket/site.zip?X-Amz-Expires=900&X-Amz-Signature=${uploadSignature}`;
+const uploadId = "0198a6f0-0000-7000-8000-00000000000a";
+const storageRoute = `PUT ${storageBase}/bucket/site.zip`;
 const space = {
     id: "0198a6f0-0000-7000-8000-000000000001",
     teamId: "team-a",
@@ -155,18 +160,93 @@ describe("spaces commands", () => {
         await withSandbox(async (sandbox) => {
             await writeFiles(sandbox.cwd, { "site/index.html": "<h1>hi</h1>", "site/app.js": "1" });
 
-            const service = createService({
-                "POST /v1/spaces/blog/deploys": () => Response.json({ job: { ...job, status: "queued", version: null } }, { status: 202 }),
-            });
+            const service = createService(siteUploadRoutes("blog", { ...job, status: "queued", version: null }));
             const result = await sandbox.run(["spaces", "deploy", "blog", "--dir", "site", "--json"], service);
-            const upload = service.requests[0]!;
+            const [declare, upload, commit] = service.requests as [Request, Request, Request];
+            const archive = new Uint8Array(await upload.arrayBuffer());
 
             expect(result.exitCode).toBe(0);
             expect(JSON.parse(result.stdout)).toEqual({ job: { ...job, status: "queued", version: null } });
             expect(result.stderr).toBe("");
+            expect(service.requests.map(request => `${request.method} ${new URL(request.url).pathname}`)).toEqual([
+                "POST /v1/spaces/blog/deploy-uploads",
+                "PUT /bucket/site.zip",
+                `POST /v1/spaces/blog/deploy-uploads/${uploadId}/commit`,
+            ]);
+
+            // The archive goes to storage on the signed URL, and nothing that
+            // identifies the account goes with it.
+            expect(upload.url).toBe(uploadUrl);
             expect(upload.headers.get("Content-Type")).toBe("application/zip");
-            expect(upload.headers.get("Idempotency-Key")).toBeTruthy();
-            expect(new Uint8Array(await upload.arrayBuffer()).subarray(0, 2)).toEqual(new Uint8Array([0x50, 0x4B]));
+            expect(upload.headers.get("Content-Length")).toBe(String(archive.byteLength));
+            expect(upload.headers.get("Authorization")).toBeNull();
+            expect(upload.headers.get("x-oo-team-id")).toBeNull();
+            expect(upload.headers.get("x-oo-team-name")).toBeNull();
+            expect(upload.headers.get("Idempotency-Key")).toBeNull();
+            expect(archive.subarray(0, 2)).toEqual(new Uint8Array([0x50, 0x4B]));
+
+            expect(await declare.json()).toEqual({ sizeBytes: archive.byteLength });
+            expect(declare.headers.get("Authorization")).toBe("secret-1");
+            expect(declare.headers.get("Idempotency-Key")).toBeNull();
+            expect(commit.headers.get("Authorization")).toBe("secret-1");
+            expect(commit.headers.get("Idempotency-Key")).toBeNull();
+            expect(await commit.text()).toBe("");
+        });
+    });
+
+    test("reports a refused storage upload without revealing the upload URL", async () => {
+        await withSandbox(async (sandbox) => {
+            await writeFiles(sandbox.cwd, { "site/index.html": "<h1>hi</h1>" });
+
+            const service = createService({
+                ...siteUploadRoutes("blog", job),
+                [storageRoute]: () => new Response(`<Error><Code>AccessDenied</Code><Url>${uploadUrl}</Url></Error>`, { status: 403 }),
+            });
+            const json = await sandbox.run(["spaces", "deploy", "blog", "--dir", "site", "--json"], service);
+            const text = await sandbox.run(["spaces", "deploy", "blog", "--dir", "site", "--debug"], service);
+            const output = [json.stdout, json.stderr, text.stdout, text.stderr, await readLatestLogContent(sandbox)].join("\n");
+
+            expect(json.exitCode).toBe(1);
+            expect(JSON.parse(json.stderr).error).toMatchObject({ code: "spaces.uploadFailed", details: { httpStatus: 403 } });
+            expect(text.exitCode).toBe(1);
+            expect(text.stderr).toContain("failed with HTTP 403");
+            expect(output).toContain("storage.example.test");
+            expect(output).not.toContain(uploadSignature);
+            expect(output).not.toContain("X-Amz-Expires");
+            // Nothing is committed for an archive that never arrived.
+            expect(service.requests.filter(request => request.url.endsWith("/commit"))).toHaveLength(0);
+        });
+    });
+
+    test("explains a service refusal of the upload or of the archive", async () => {
+        await withSandbox(async (sandbox) => {
+            await writeFiles(sandbox.cwd, { "site/index.html": "<h1>hi</h1>" });
+
+            const pending = createService({
+                "POST /v1/spaces/blog/deploy-uploads": () => Response.json(
+                    { code: "deploy_uploads_pending", message: "Too many uncommitted deploy uploads" },
+                    { status: 429 },
+                ),
+            });
+            const invalid = createService({
+                ...siteUploadRoutes("blog", job),
+                [`POST /v1/spaces/blog/deploy-uploads/${uploadId}/commit`]: () => Response.json(
+                    { code: "artifact_invalid", message: "index.html is missing at the site root" },
+                    { status: 422 },
+                ),
+            });
+            const refused = await sandbox.run(["spaces", "deploy", "blog", "--dir", "site", "--json"], pending);
+            const rejected = await sandbox.run(["spaces", "deploy", "blog", "--dir", "site"], invalid);
+
+            expect(refused.exitCode).toBe(1);
+            expect(JSON.parse(refused.stderr).error).toMatchObject({
+                code: "spaces.deployUploadsPending",
+                details: { httpStatus: 429, serviceCode: "deploy_uploads_pending" },
+            });
+            // The declaration is not repeated, so the refusal costs no wait.
+            expect(pending.requests).toHaveLength(1);
+            expect(rejected.exitCode).toBe(1);
+            expect(rejected.stderr).toContain("The Spaces service refused the site archive: index.html is missing at the site root");
         });
     });
 
@@ -176,7 +256,7 @@ describe("spaces commands", () => {
 
             const service = createService({
                 "GET /v1/spaces/blog": () => Response.json(space),
-                "POST /v1/spaces/blog/deploys": () => Response.json({ job }, { status: 202 }),
+                ...siteUploadRoutes("blog", job),
             });
             const json = await sandbox.run(["spaces", "deploy", "blog", "--dir", "site", "--wait", "--json"], service);
             const text = await sandbox.run(["spaces", "deploy", "blog", "--dir", "site", "--wait", "--timeout", "90s"], service);
@@ -198,7 +278,7 @@ describe("spaces commands", () => {
             await writeFiles(sandbox.cwd, { "site/index.html": "<h1>hi</h1>" });
 
             const failed = { ...job, error: "artifact_invalid", status: "failed", version: null };
-            const service = createService({ "POST /v1/spaces/blog/deploys": () => Response.json({ job: failed }, { status: 202 }) });
+            const service = createService(siteUploadRoutes("blog", failed));
             const result = await sandbox.run(["spaces", "deploy", "blog", "--dir", "site", "--wait", "--json"], service);
 
             expect(result.exitCode).toBe(1);
@@ -260,7 +340,7 @@ describe("spaces commands", () => {
                     deployKey: "deploy-key-1",
                     expiresAt: 1_700_003_600,
                 }),
-                [`POST /v1/spaces/${space.id}/deploys`]: () => Response.json({ job }, { status: 202 }),
+                ...siteUploadRoutes(space.id, job),
             });
             const result = await sandbox.run(
                 ["spaces", "deploy", "blog", "--no-install", "--url-env", "APP_URL", "--wait", "--json"],
@@ -287,7 +367,9 @@ describe("spaces commands", () => {
             expect(service.requests.map(request => `${request.method} ${new URL(request.url).pathname}`)).toEqual([
                 "GET /v1/spaces/blog",
                 `POST /v1/spaces/${space.id}/deploy-credentials`,
-                `POST /v1/spaces/${space.id}/deploys`,
+                `POST /v1/spaces/${space.id}/deploy-uploads`,
+                "PUT /bucket/site.zip",
+                `POST /v1/spaces/${space.id}/deploy-uploads/${uploadId}/commit`,
                 `GET /v1/spaces/${space.id}`,
             ]);
         });
@@ -521,8 +603,32 @@ async function withSandbox(run: (sandbox: CliSandbox) => Promise<void>): Promise
     }
 }
 
+// The three requests of a site upload: the declaration answers with a signed
+// storage URL, storage takes the archive, and the commit answers with the job.
+function siteUploadRoutes(spaceRef: string, queuedJob: object): Record<string, (request: Request) => Promise<Response> | Response> {
+    return {
+        [`POST /v1/spaces/${spaceRef}/deploy-uploads`]: async (request) => {
+            const { sizeBytes } = await request.json() as { sizeBytes: number };
+
+            return Response.json({
+                uploadId,
+                upload: {
+                    method: "PUT",
+                    url: uploadUrl,
+                    headers: { "Content-Type": "application/zip", "Content-Length": String(sizeBytes) },
+                },
+                uploadExpiresAt: 1_700_000_900,
+                commitBefore: 1_700_003_600,
+            }, { status: 201 });
+        },
+        [storageRoute]: () => new Response(null, { status: 200 }),
+        [`POST /v1/spaces/${spaceRef}/deploy-uploads/${uploadId}/commit`]: () => Response.json({ job: queuedJob }, { status: 202 }),
+    };
+}
+
 // A fake Spaces service: routes are keyed by "<METHOD> <path>", and a request
-// without a route fails the test.
+// without a route fails the test. A request to any other host, such as the
+// object storage a site is uploaded to, is keyed by "<METHOD> <origin><path>".
 function createService(routes: Record<string, (request: Request) => Promise<Response> | Response>): {
     fetcher: Fetcher;
     requests: Request[];
@@ -533,9 +639,10 @@ function createService(routes: Record<string, (request: Request) => Promise<Resp
         fetcher: async (input, init) => {
             const request = toRequest(input, init);
             const url = new URL(request.url);
-            const route = routes[`${request.method} ${url.pathname}`];
+            const target = url.origin === apiBase ? url.pathname : `${url.origin}${url.pathname}`;
+            const route = routes[`${request.method} ${target}`];
 
-            if (url.origin !== apiBase || route === undefined) {
+            if (route === undefined) {
                 throw new Error(`Unexpected request: ${request.method} ${request.url}`);
             }
 

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { requireIdentity } from "../../auth/identity.ts";
 import { CliUserError } from "../../contracts/cli.ts";
 import { abortableSleep } from "../../shared/abortable-sleep.ts";
+import { createRetryingFetcher, sendOnce } from "../../shared/retrying-fetcher.ts";
 import { createInsufficientCreditError } from "../shared/billing.ts";
 import { requestOoResponse } from "../shared/oo-request.ts";
 import { resolveAccountTeamIdentity, teamIdentityHeaders } from "../team/identity.ts";
@@ -82,6 +83,19 @@ const deployCredentialsSchema = z.looseObject({
 });
 type DeployCredentials = z.infer<typeof deployCredentialsSchema>;
 
+// Where the site archive of a deploy goes: a presigned object storage URL with
+// the headers that are signed into it. The URL is a credential. It only ever
+// travels in memory to the storage request and is never printed or logged.
+const deployUploadSchema = z.looseObject({
+    uploadId: z.string(),
+    upload: z.looseObject({
+        method: z.literal("PUT"),
+        url: z.string().refine(isStorageUrl),
+        headers: z.record(z.string(), z.string()),
+    }),
+});
+type SiteUpload = z.infer<typeof deployUploadSchema>["upload"];
+
 const usageRecordSchema = z.looseObject({
     spaceId: z.string(),
     day: z.string(),
@@ -119,8 +133,14 @@ const serviceErrorSchema = z.looseObject({
 
 const listPageLimit = "100";
 const defaultTimeoutMs = 60_000;
-// A 50 MB site still uploads within this budget on an 85 KB/s uplink.
+// A 50 MB site still uploads within this budget on an 85 KB/s uplink, and the
+// budget ends before the upload URL does (15 minutes after it was issued).
 const uploadTimeoutMs = 10 * 60_000;
+// The service inspects the uploaded archive before it answers, which takes up
+// to about a minute; the budget leaves room for the retries of the fetcher.
+const commitTimeoutMs = 5 * 60_000;
+const storageMaxRetries = 3;
+const storageRetryableStatuses = [429, 500, 502, 503, 504];
 const inFlightReplayDelayMs = 2_000;
 const inFlightMaxReplays = 15;
 
@@ -136,8 +156,13 @@ interface SpacesApiTarget {
 interface SpacesApiRequest<Value> {
     /** JSON body. */
     body?: unknown;
-    /** Raw body, sent with the given content type instead of a JSON body. */
-    bytes?: { body: Uint8Array; contentType: string };
+    /**
+     * How the service tells a repeated write from a new one. `key` (the
+     * default) sends an Idempotency-Key. `state` is a write the service
+     * deduplicates by its own state: no key, and still safe to retry. `none`
+     * is a write that would run again each time: no key, sent exactly once.
+     */
+    idempotency?: "key" | "none" | "state";
     /** Defaults to GET. */
     method?: "DELETE" | "POST" | "PUT";
     path: string;
@@ -150,26 +175,35 @@ export interface SpacesClient {
     request: <Value>(request: SpacesApiRequest<Value>) => Promise<Value>;
 }
 
+/** The client of a deploy, which also hands the site archive to object storage. */
+interface SpacesDeployClient extends SpacesClient {
+    store: (upload: SiteUpload, zip: Uint8Array) => Promise<void>;
+}
+
 // Resolves the account and team once per invocation; every call of the
 // command then acts for that same target.
 export async function createSpacesClient(
     input: { team?: string },
     context: CliExecutionContext,
-): Promise<SpacesClient> {
+): Promise<SpacesDeployClient> {
     const { account } = await requireIdentity(context);
     const identity = await resolveAccountTeamIdentity(input, account, context);
     const target = { account, headers: teamIdentityHeaders(identity) };
 
-    return { request: request => requestSpacesApi(target, context, request) };
+    return {
+        request: request => requestSpacesApi(target, context, request),
+        store: (upload, zip) => storeSiteArchive(context, upload, zip),
+    };
 }
 
-// Every write carries an Idempotency-Key. The CLI-wide fetcher retries 429,
-// 502, 503, 504 and transport failures with the same request, hence the same
-// key, so the service replays or reruns a write safely. While the first
-// attempt of a key is still running the service answers 409
-// `idempotency_in_flight`; the request is then replayed with that key until
-// the original finishes. One deadline covers the whole request: the retries of
-// the fetcher and the replays here all run against the same signal.
+// A write carries an Idempotency-Key unless the request says otherwise. The
+// CLI-wide fetcher retries 429, 502, 503, 504 and transport failures with the
+// same request, hence the same key, so the service replays or reruns a write
+// safely. While the first attempt of a key is still running the service
+// answers 409 `idempotency_in_flight`; the request is then replayed with that
+// key until the original finishes. One deadline covers the whole request: the
+// retries of the fetcher and the replays here all run against the same signal.
+// A write the service cannot deduplicate is kept away from those retries.
 export async function requestSpacesApi<Value>(
     target: SpacesApiTarget,
     context: SpacesRequestContext,
@@ -177,8 +211,10 @@ export async function requestSpacesApi<Value>(
     sleep: (delayMs: number, signal?: AbortSignal) => Promise<unknown> = abortableSleep,
 ): Promise<Value> {
     const method = request.method ?? "GET";
-    const signal = AbortSignal.timeout(request.timeoutMs ?? defaultTimeoutMs);
-    const headers = method === "GET"
+    const idempotency = request.idempotency ?? "key";
+    const deadline = AbortSignal.timeout(request.timeoutMs ?? defaultTimeoutMs);
+    const signal = idempotency === "none" ? sendOnce(deadline) : deadline;
+    const headers = method === "GET" || idempotency !== "key"
         ? target.headers
         : { ...target.headers, "Idempotency-Key": randomUUIDv7() };
     const query = Object.fromEntries(
@@ -191,16 +227,13 @@ export async function requestSpacesApi<Value>(
             // A 409 body decides between a replay and a failure, so it is read here.
             allowedStatuses: [409],
             authorization: target.account.apiKey,
-            body: request.bytes?.body,
             context: {
                 fetcher: async (input, init) => await context.fetcher(input, { ...init, signal }),
                 logger: context.logger,
                 translator: context.translator,
             },
             errors: { scope: "spaces" },
-            headers: request.bytes === undefined
-                ? headers
-                : { ...headers, "Content-Type": request.bytes.contentType },
+            headers,
             host: { endpoint: target.account.endpoint, service: "spaces" },
             jsonBody: request.body,
             label: "Spaces",
@@ -255,8 +288,18 @@ async function decodeSpacesResponse<Value>(response: Response, schema: z.ZodType
 const serviceErrorKeys: Record<string, string> = {
     balance_unavailable: "errors.spaces.balanceUnavailable",
     deploy_in_progress: "errors.spaces.deployInProgress",
+    deploy_upload_expired: "errors.spaces.deployUploadExpired",
+    deploy_upload_incomplete: "errors.spaces.deployUploadIncomplete",
+    deploy_uploads_pending: "errors.spaces.deployUploadsPending",
     manager_required: "errors.spaces.managerRequired",
     space_suspended: "errors.spaces.suspended",
+};
+
+// Service codes that refuse the site archive. The service message says what
+// is wrong with it, so it is shown along with what the refusal means.
+const archiveErrorKeys: Record<string, string> = {
+    artifact_invalid: "errors.spaces.archiveInvalid",
+    artifact_too_large: "errors.spaces.archiveTooLarge",
 };
 
 // The service reports a failure as `{ message, code }` and the gateway's team
@@ -282,6 +325,12 @@ function mapSpacesApiError(failure: OoRequestFailure): CliUserError | undefined 
     // billing link as every other balance failure of the CLI.
     if (parsed.code === "insufficient_balance") {
         return createInsufficientCreditError(details);
+    }
+
+    const archiveKey = archiveErrorKeys[parsed.code];
+
+    if (archiveKey !== undefined) {
+        return new CliUserError(archiveKey, 1, { message: parsed.message }, { details });
     }
 
     const key = serviceErrorKeys[parsed.code];
@@ -321,6 +370,10 @@ function parseServiceError(bodyText: string | undefined): { code: string; messag
             ? summary
             : `${summary} (${parameterDetails.map(detail => JSON.stringify(detail)).join(", ")})`,
     };
+}
+
+function isStorageUrl(value: string): boolean {
+    return URL.canParse(value) && ["http:", "https:"].includes(new URL(value).protocol);
 }
 
 function spacePath(space: string, suffix = ""): string {
@@ -387,18 +440,116 @@ export async function resumeSpaces(client: SpacesClient, spaceIds: string[] | un
     });
 }
 
-// The zip goes up as one buffer: a streamed body would be sent chunked,
-// which the service refuses for lacking a Content-Length.
-export async function uploadSite(client: SpacesClient, space: string, zip: Uint8Array): Promise<SpaceJob> {
-    const { job } = await client.request({
-        bytes: { body: zip, contentType: "application/zip" },
+// A site deploy takes three requests, and the archive never passes through
+// the control plane: the service declares an upload, the zip goes straight to
+// object storage, and the service then inspects it and queues the job.
+//
+// Each declaration holds one of the few unfinished uploads a space may have
+// until it is committed or an hour passes, so it is sent exactly once. A
+// commit returns the job of an upload that is already committed, so it is
+// retried like a read.
+export async function uploadSite(client: SpacesDeployClient, space: string, zip: Uint8Array): Promise<SpaceJob> {
+    const declared = await client.request({
+        body: { sizeBytes: zip.byteLength },
+        idempotency: "none",
         method: "POST",
-        path: spacePath(space, "/deploys"),
+        path: spacePath(space, "/deploy-uploads"),
+        schema: deployUploadSchema,
+    });
+
+    await client.store(declared.upload, zip);
+
+    const { job } = await client.request({
+        idempotency: "state",
+        method: "POST",
+        path: spacePath(space, `/deploy-uploads/${encodeURIComponent(declared.uploadId)}/commit`),
         schema: jobEnvelopeSchema,
-        timeoutMs: uploadTimeoutMs,
+        timeoutMs: commitTimeoutMs,
     });
 
     return job;
+}
+
+// Sends the archive to object storage. This request is not an OOMOL request:
+// it carries the signed headers and nothing else, so neither the credential
+// nor the team of the account leaves for the storage host.
+//
+// The zip goes up as one buffer, so an attempt that failed can be repeated
+// and overwrites the same object. The retries happen here rather than in the
+// CLI-wide fetcher, so that every failure is stripped of the upload URL
+// before it can reach a log line or an error message. One deadline covers all
+// attempts.
+export async function storeSiteArchive(
+    context: SpacesRequestContext,
+    upload: SiteUpload,
+    zip: Uint8Array,
+    sleep?: (delayMs: number, signal?: AbortSignal) => Promise<void>,
+): Promise<void> {
+    const signedLength = new Headers(upload.headers).get("Content-Length");
+
+    // The length is signed into the URL; storage would refuse any other body.
+    if (signedLength !== null && signedLength !== String(zip.byteLength)) {
+        throw new CliUserError("errors.spaces.invalidResponse", 1);
+    }
+
+    const deadline = AbortSignal.timeout(uploadTimeoutMs);
+    // Follows the deadline, and tells the CLI-wide fetcher to leave the
+    // retries to the fetcher below.
+    const attemptSignal = sendOnce(AbortSignal.any([deadline]));
+    const retryingFetcher = createRetryingFetcher({
+        fetcher: async (input, init) => {
+            try {
+                return await context.fetcher(input, { ...init, signal: attemptSignal });
+            }
+            catch (error) {
+                throw withoutUploadUrl(error, upload.url);
+            }
+        },
+        logger: context.logger,
+        maxRetries: storageMaxRetries,
+        retryableStatusCodes: storageRetryableStatuses,
+        sleep,
+    });
+
+    await requestOoResponse({
+        body: zip,
+        context: {
+            fetcher: async (input, init) => await retryingFetcher(input, { ...init, signal: deadline }),
+            logger: context.logger,
+            translator: context.translator,
+        },
+        errors: { requestError: "errors.spaces.uploadError", requestFailed: "errors.spaces.uploadFailed" },
+        headers: upload.headers,
+        host: { baseUrl: upload.url },
+        label: "Spaces site upload",
+        method: "PUT",
+    });
+}
+
+// A failed storage request as it may be logged and shown: the error keeps its
+// name, its code and its message, and loses everything else it carried (Bun
+// puts the request URL on `path`). Should the message quote the URL, the
+// quote is cut down to the origin.
+function withoutUploadUrl(error: unknown, uploadUrl: string): Error {
+    const source = error instanceof Error ? error : new Error(String(error));
+    const url = new URL(uploadUrl);
+    let message = source.message;
+
+    for (const quoted of [uploadUrl, url.href]) {
+        message = message.replaceAll(quoted, url.origin);
+    }
+
+    if (url.search !== "") {
+        message = message.replaceAll(url.search, "");
+    }
+
+    const safe = new Error(message);
+
+    safe.name = source.name;
+
+    return "code" in source && typeof source.code === "string"
+        ? Object.assign(safe, { code: source.code })
+        : safe;
 }
 
 export async function listJobs(client: SpacesClient, space: string): Promise<SpaceJob[]> {
