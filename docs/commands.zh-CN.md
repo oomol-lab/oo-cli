@@ -2506,7 +2506,7 @@ Space 按月从团队余额扣费: `create` 立即扣第一个周期, 团队无�
 
 `deploy <space> --dir <directory>` 或 `--zip <file>` 上传已经构建好的站点, 不改动后端; 两者不能同时使用, 也不能与 `--project`、`--build`、`--dist`、`--url-env`、`--no-install` 同时使用 (退出码 `2`)。站点根目录需要有 `index.html`, 最多 5000 个文件、打包后 50 MiB, 且不能包含符号链接。
 
-两种方式下, 打包后的站点都分三步上传: Spaces 服务签发一个短期有效的上传地址, 压缩包按这个地址直接传到对象存储, 然后服务检查压缩包并把部署作业入队。压缩包不经过 Spaces 服务, 发往对象存储的请求不带账号凭据也不带团队信息; 上传地址永不输出, 也不写入日志。向对象存储的传输中断时会重试。仍然失败时命令以 `spaces.uploadFailed` (对象存储返回了 HTTP 错误, 见 `error.details.httpStatus`) 或 `spaces.uploadError` (无法连接对象存储) 结束, 不会部署任何内容, 当前版本保持在线。已开始但没有完成的上传会在一小时内计入该 Space 的额度; 这样的上传太多时, 部署会被 `deploy_uploads_pending` 拒绝。
+两种方式下, 打包后的站点都直接传到对象存储, 不经过 Spaces 服务, 所以宿主机除了 Spaces 服务之外还要能访问对象存储。发往对象存储的请求不带账号凭据也不带团队信息, 上传地址永不输出, 也不写入日志。向对象存储的传输中断时会重试。仍然失败时命令以 `spaces.uploadFailed` (对象存储返回了 HTTP 错误, 见 `error.details.httpStatus`) 或 `spaces.uploadError` (无法连接对象存储) 结束, 不会部署任何内容, 当前版本保持在线。已开始但没有完成的上传会在一小时内计入该 Space 的额度; 这样的上传太多时, 部署会被 `deploy_uploads_pending` 拒绝。
 
 部署与回滚是服务端的作业。不带 `--wait` 时, 作业入队后命令立即返回 `{job}` (项目部署会多带 `backendDeployed` 与 `convexDeploymentUrl`)。带 `--wait` 时轮询作业直到结束, 返回作业并附带站点 `url`; 作业以 `failed` 或 `cancelled` 结束时命令以 `spaces.jobFailed` 失败。`--timeout <duration>` (例如 `90s` 或 `10m`, 默认 `5m`) 限制等待时长; 超时后命令以 `spaces.waitTimeout` 失败, 作业继续运行。同一个 Space 同时只能有一个部署或回滚, 第二个会被 `deploy_in_progress` 拒绝。
 
