@@ -495,6 +495,30 @@ describe("spaces commands", () => {
         });
     });
 
+    test("leaves the backend alone when the built site cannot be packed", async () => {
+        await withSandbox(async (sandbox) => {
+            for (const name of ["ComSpec", "PATHEXT", "SystemRoot", "TEMP", "TMP"]) {
+                sandbox.env[name] = process.env[name];
+            }
+
+            // The build succeeds, but what it writes is not a site: there is no index.html.
+            await writeFiles(sandbox.cwd, {
+                ...backendFiles,
+                "build.js": "const fs = require('node:fs');\nfs.mkdirSync('dist', { recursive: true });\nfs.writeFileSync('dist/app.js', '1');\n",
+                "package.json": JSON.stringify({ scripts: { build: "node build.js" } }),
+            });
+
+            const service = createService({ "GET /v1/spaces/blog": () => Response.json(hostedSpace) });
+            const result = await sandbox.run(["spaces", "deploy", "blog", "--no-install", "--json"], service);
+
+            expect(result.exitCode).toBe(1);
+            expect(readJsonError(result.stderr).code).toBe("spaces.indexHtmlMissing");
+            expect(service.requests.map(request => `${request.method} ${new URL(request.url).pathname}`)).toEqual([
+                "GET /v1/spaces/blog",
+            ]);
+        });
+    });
+
     test("stops before any upload when the schema change needs a confirmation", async () => {
         await withSandbox(async (sandbox) => {
             for (const name of ["ComSpec", "PATHEXT", "SystemRoot", "TEMP", "TMP"]) {

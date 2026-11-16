@@ -198,26 +198,37 @@ async function deployProject(
         throw new CliUserError("errors.spaces.backendNeedsConvex", 1, { slug: space.slug });
     }
 
+    const packSite = async (): Promise<Awaited<ReturnType<typeof packDirectory>>> => {
+        const site = await packDirectory(project.distDir);
+
+        note(t("spaces.deploy.packed", { count: site.fileCount, size: formatFileSize(site.zip.byteLength) }));
+
+        return site;
+    };
+    let packed: Awaited<ReturnType<typeof packSite>>;
+
     if (hosted) {
+        // The site is packed before the backend is uploaded: a site that
+        // cannot be packed must not leave a new backend behind the old site.
         const deployed = await deploySpaceProjectLocally({
             client,
             confirm: options.confirm,
             install: input.install !== false,
             note,
+            packSite,
             project,
             space,
             timeoutMs,
         }, context);
 
-        backendDeployId = deployed?.id ?? null;
+        backendDeployId = deployed.backend?.id ?? null;
+        packed = deployed.site;
     }
     else {
         await deployProjectLocally({ client, install: input.install !== false, note, project, space, urlEnv: input.urlEnv }, context);
+        packed = await packSite();
     }
 
-    const packed = await packDirectory(project.distDir);
-
-    note(t("spaces.deploy.packed", { count: packed.fileCount, size: formatFileSize(packed.zip.byteLength) }));
     note(t("spaces.deploy.uploading", { size: formatFileSize(packed.zip.byteLength), space: space.slug }));
 
     const job = await uploadSite(client, space.id, packed.zip);

@@ -205,23 +205,26 @@ export async function deployProjectLocally(
 
 // The local half of a project deploy to a space with a platform-hosted
 // backend. Everything that can fail on this machine comes first (install,
-// bundle the backend and read its schema, build the front end), so a broken
-// project never touches the space. The backend then goes live before the site
-// is uploaded, and the deploy is waited for: a backend that was refused must
-// not leave a new front end talking to the old backend.
-export async function deploySpaceProjectLocally(
+// bundle the backend and read its schema, build the front end, pack the built
+// site), so a broken project never touches the space. The backend then goes
+// live before the site is uploaded, and the deploy is waited for: a backend
+// that was refused must not leave a new front end talking to the old backend.
+// The packed site is handed back for the caller to upload.
+export async function deploySpaceProjectLocally<Site>(
     options: {
         client: Parameters<typeof deployBackendBundle>[0];
         /** Schema changes that break deployed code and are intended. */
         confirm: readonly string[];
         install: boolean;
         note: (message: string) => void;
+        /** Packs the built site. Runs after the build and before anything is uploaded. */
+        packSite: () => Promise<Site>;
         project: ProjectInfo;
         space: Space;
         timeoutMs: number;
     },
     context: ProjectDeployContext,
-): Promise<BackendDeploy | null> {
+): Promise<{ backend: BackendDeploy | null; site: Site }> {
     const { client, note, project, space } = options;
     const t = context.translator.t.bind(context.translator);
     const runtime = await createEmbeddedRuntime(context.execPath);
@@ -266,8 +269,10 @@ export async function deploySpaceProjectLocally(
             }
         }
 
+        const site = await options.packSite();
+
         if (bundle === undefined) {
-            return null;
+            return { backend: null, site };
         }
 
         note(t("spaces.deploy.uploadingBackend", {
@@ -293,7 +298,7 @@ export async function deploySpaceProjectLocally(
             }, { details: { backendDeployId: finished.id, backendDeployStatus: finished.status } });
         }
 
-        return finished;
+        return { backend: finished, site };
     }
     finally {
         await runtime.dispose();
