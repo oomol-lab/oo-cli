@@ -7,7 +7,7 @@ import { join, resolve } from "node:path";
 import { CliUserError } from "../../contracts/cli.ts";
 import { isPathMissingError } from "../../shared/fs-errors.ts";
 import { formatFileSize } from "../shared/file-size.ts";
-import { deployBackendBundle, isLiveBackendDeploy, issueDeployCredentials } from "./api.ts";
+import { deployBackendBundle, isLiveBackendDeploy, issueDeployCredentials, isSupersededBackendDeploy } from "./api.ts";
 import { buildBackendBundle, findSpaceBackend } from "./backend-bundle.ts";
 import { createEmbeddedRuntime, createRuntimeEnv, describeExit, runProcess } from "./embedded-runtime.ts";
 import { waitForBackendDeploy } from "./wait.ts";
@@ -289,6 +289,14 @@ export async function deploySpaceProjectLocally<Site>(
             onUpdate: update => note(t("spaces.deploy.backendStatus", { id: update.id, status: update.status })),
             timeoutMs: options.timeoutMs,
         });
+
+        // Another deploy of the same space went live after this one. The site
+        // built here belongs to a backend that is no longer the live one.
+        if (isSupersededBackendDeploy(finished)) {
+            throw new CliUserError("errors.spaces.backendSuperseded", 1, { id: finished.id }, {
+                details: { backendDeployId: finished.id, backendDeployStatus: finished.status },
+            });
+        }
 
         if (!isLiveBackendDeploy(finished)) {
             throw new CliUserError("errors.spaces.backendDeployEnded", 1, {

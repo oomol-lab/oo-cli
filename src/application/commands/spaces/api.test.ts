@@ -5,7 +5,7 @@ import { z } from "zod";
 import { createLogCapture, expectCliUserError, toRequest } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
 import { createRetryingFetcher } from "../../shared/retrying-fetcher.ts";
-import { deployBackendBundle, getBackendDeploy, isLiveBackendDeploy, isPendingBackendDeploy, listSpaces, requestSpacesApi, storeSiteArchive, uploadSite } from "./api.ts";
+import { deployBackendBundle, getBackendDeploy, isLiveBackendDeploy, isPendingBackendDeploy, isSupersededBackendDeploy, listSpaces, requestSpacesApi, storeSiteArchive, uploadSite } from "./api.ts";
 
 const target = { account: { apiKey: "secret-1", endpoint: "oomol.com" }, headers: { "x-oo-team-name": "team-a" } };
 const schema = z.object({ ok: z.boolean() });
@@ -153,7 +153,7 @@ describe("spaces api requests", () => {
             body: { code: "backend_upload_expired", message: "Backend deploy expired, start a new deploy" },
             details: { httpStatus: 409, serviceCode: "backend_upload_expired" },
             exitCode: 1,
-            key: "errors.spaces.deployUploadExpired",
+            key: "errors.spaces.backendUploadExpired",
             status: 409,
             title: "an expired backend upload",
         },
@@ -161,7 +161,7 @@ describe("spaces api requests", () => {
             body: { code: "backend_upload_incomplete", message: "Backend bundle is not uploaded yet" },
             details: { httpStatus: 409, serviceCode: "backend_upload_incomplete" },
             exitCode: 1,
-            key: "errors.spaces.deployUploadIncomplete",
+            key: "errors.spaces.backendUploadIncomplete",
             status: 409,
             title: "a backend upload the service has not received",
         },
@@ -546,9 +546,12 @@ describe("spaces backend deploy", () => {
         expect(["uploading", "queued", "running"].map(status => isPendingBackendDeploy(statusOf(status)))).toEqual([true, true, true]);
         expect(["active", "superseded", "failed", "cancelled", "expired"].map(status => isPendingBackendDeploy(statusOf(status))))
             .toEqual([false, false, false, false, false]);
-        expect(["active", "superseded"].map(status => isLiveBackendDeploy(statusOf(status)))).toEqual([true, true]);
-        expect(["failed", "cancelled", "expired", "queued"].map(status => isLiveBackendDeploy(statusOf(status))))
-            .toEqual([false, false, false, false]);
+        // Only the deploy that is live now counts; one that a later deploy replaced does not.
+        expect(isLiveBackendDeploy(statusOf("active"))).toBe(true);
+        expect(["superseded", "failed", "cancelled", "expired", "queued"].map(status => isLiveBackendDeploy(statusOf(status))))
+            .toEqual([false, false, false, false, false]);
+        expect(isSupersededBackendDeploy(statusOf("superseded"))).toBe(true);
+        expect(isSupersededBackendDeploy(statusOf("active"))).toBe(false);
     });
 });
 

@@ -116,7 +116,6 @@ const backendDeployDeclaredSchema = z.looseObject({
 });
 const backendDeployEnvelopeSchema = z.looseObject({ deploy: backendDeploySchema });
 const pendingBackendDeployStatuses: readonly string[] = ["uploading", "queued", "running"];
-const liveBackendDeployStatuses: readonly string[] = ["active", "superseded"];
 
 const quotaAmountSchema = z.looseObject({ used: z.number(), limit: z.number() });
 const quotaSchema = z.looseObject({
@@ -328,8 +327,8 @@ async function decodeSpacesResponse<Value>(response: Response, schema: z.ZodType
 
 // Service codes whose remedy is not obvious from the service message alone.
 const serviceErrorKeys: Record<string, string> = {
-    backend_upload_expired: "errors.spaces.deployUploadExpired",
-    backend_upload_incomplete: "errors.spaces.deployUploadIncomplete",
+    backend_upload_expired: "errors.spaces.backendUploadExpired",
+    backend_upload_incomplete: "errors.spaces.backendUploadIncomplete",
     backend_uploads_pending: "errors.spaces.backendUploadsPending",
     balance_unavailable: "errors.spaces.balanceUnavailable",
     deploy_in_progress: "errors.spaces.deployInProgress",
@@ -570,9 +569,14 @@ export function isPendingBackendDeploy(deploy: BackendDeploy): boolean {
     return pendingBackendDeployStatuses.includes(deploy.status);
 }
 
-/** The deploy took effect: it is live, or was until a later deploy replaced it. */
+/** The deploy is the backend that is live now. */
 export function isLiveBackendDeploy(deploy: BackendDeploy): boolean {
-    return liveBackendDeployStatuses.includes(deploy.status);
+    return deploy.status === "active";
+}
+
+/** The deploy went live, and a later deploy has replaced it since. */
+export function isSupersededBackendDeploy(deploy: BackendDeploy): boolean {
+    return deploy.status === "superseded";
 }
 
 // Sends the archive to object storage. This request is not an OOMOL request:

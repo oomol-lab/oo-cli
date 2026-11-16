@@ -495,6 +495,32 @@ describe("spaces commands", () => {
         });
     });
 
+    test("does not upload the site when another deploy has replaced the backend", async () => {
+        await withSandbox(async (sandbox) => {
+            for (const name of ["ComSpec", "PATHEXT", "SystemRoot", "TEMP", "TMP"]) {
+                sandbox.env[name] = process.env[name];
+            }
+
+            await writeFiles(sandbox.cwd, { ...backendFiles, "dist/index.html": "<h1>hi</h1>", "package.json": "{}" });
+
+            const service = createService({
+                "GET /v1/spaces/blog": () => Response.json(hostedSpace),
+                ...backendDeployRoutes(space.id, () => Response.json(
+                    { deploy: { id: backendDeployId, status: "superseded", error: null } },
+                    { status: 202 },
+                )),
+            });
+            const result = await sandbox.run(["spaces", "deploy", "blog", "--no-install", "--json"], service);
+
+            expect(result.exitCode).toBe(1);
+            expect(readJsonError(result.stderr)).toMatchObject({
+                code: "spaces.backendSuperseded",
+                details: { backendDeployId, backendDeployStatus: "superseded" },
+            });
+            expect(service.requests.some(request => request.url.includes("deploy-uploads"))).toBe(false);
+        });
+    });
+
     test("leaves the backend alone when the built site cannot be packed", async () => {
         await withSandbox(async (sandbox) => {
             for (const name of ["ComSpec", "PATHEXT", "SystemRoot", "TEMP", "TMP"]) {
