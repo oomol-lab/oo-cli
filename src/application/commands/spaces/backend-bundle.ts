@@ -144,6 +144,11 @@ export interface BackendBundle {
 // `worker` export conditions of packages preferred. A build that emits
 // anything besides the one module (a `.wasm` file, an asset) is refused,
 // since the service only takes JavaScript modules.
+//
+// The bundler replaces `process.env.NODE_ENV` and nothing else from the
+// environment, so no value of the host ends up in the uploaded module. The
+// replacement is pinned to `production`: a deployed backend must not depend
+// on what the host happens to have set.
 export async function buildBackendBundle(options: {
     env: Record<string, string>;
     /** Receives the output of the bundler and of the schema module. */
@@ -168,7 +173,7 @@ export async function buildBackendBundle(options: {
             `--entry-naming=${moduleName}`,
             "--outdir",
             outDir,
-        ], run);
+        ], { ...run, env: { ...options.env, NODE_ENV: "production" } });
 
         if (built.exitCode !== 0) {
             throw new CliUserError("errors.spaces.backendBundleFailed", 1, { exit: describeExit(built) });

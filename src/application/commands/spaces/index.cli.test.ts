@@ -791,12 +791,16 @@ describe("spaces commands", () => {
                 "GET /v1/spaces/blog/usage": () => Response.json({ from: "2026-09-01", to: "2026-09-02", items: [], quota }),
             });
             const text = await sandbox.run(["spaces", "usage", "blog"], service);
-            const lines = text.stdout.split("\n").map(line => line.trim().split(/\s{2,}/u));
 
             expect(text.exitCode).toBe(0);
-            expect(lines).toContainEqual(["requests", "50000 / 50000", "1200 / 1000000", "day"]);
-            expect(lines).toContainEqual(["db_calls", "10 / 25000", "10 / 500000", "-"]);
-            expect(lines.find(line => line[0] === "file_storage")).toEqual(["file_storage", "-", "1.00 MiB / 1.00 GiB", "-"]);
+            expect(text.stdout).toBe([
+                "No usage samples between 2026-09-01 and 2026-09-02.",
+                "Quota         Today          Billing period       Used up",
+                "requests      50000 / 50000  1200 / 1000000       day",
+                "db_calls      10 / 25000     10 / 500000          -",
+                "file_storage  -              1.00 MiB / 1.00 GiB  -",
+                "",
+            ].join("\n"));
 
             const json = await sandbox.run(["spaces", "usage", "blog", "--json"], service);
 

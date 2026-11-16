@@ -86,6 +86,31 @@ describe("spaces backend bundling", () => {
         expect(JSON.parse(entries["schema.json"]!)).toEqual({ tables: {} });
     });
 
+    test("keeps the environment of the host out of the module, apart from a fixed NODE_ENV", async () => {
+        const root = await createProject({
+            ".env": "FROM_ENV_FILE=value-of-the-env-file\n",
+            "backend/index.ts": [
+                "export default {",
+                "    fetch: () => new Response([process.env.API_TOKEN, process.env.FROM_ENV_FILE, process.env.NODE_ENV].join('|')),",
+                "};",
+            ].join("\n"),
+        });
+        const bundle = await buildBackendBundle({
+            env: { ...createEnv(root), API_TOKEN: "value-of-the-host", NODE_ENV: "development" },
+            output: createOutput().output,
+            projectRoot: root,
+            runtimeExecPath: process.execPath,
+            source: (await findSpaceBackend(root))!,
+        });
+        const module = (await readZipEntries(bundle.zip))["index.js"]!;
+
+        expect(module).not.toContain("value-of-the-host");
+        expect(module).not.toContain("value-of-the-env-file");
+        expect(module).toContain("process.env.API_TOKEN");
+        expect(module).toContain("\"production\"");
+        expect(module).not.toContain("development");
+    });
+
     test("reports a backend that does not bundle, with the bundler output", async () => {
         const root = await createProject({ "backend/index.ts": "import { missing } from './nowhere.ts';\nexport default missing;\n" });
         const { output, written } = createOutput();
