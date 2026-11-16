@@ -1,8 +1,8 @@
-import type { SpaceJob, SpacesClient } from "./api.ts";
+import type { BackendDeploy, SpaceJob, SpacesClient } from "./api.ts";
 
 import { describe, expect, test } from "bun:test";
 import { expectCliUserError } from "../../../../__tests__/helpers.ts";
-import { waitForJob } from "./wait.ts";
+import { waitForBackendDeploy, waitForJob } from "./wait.ts";
 
 describe("spaces job waiting", () => {
     test("polls until the job is terminal and reports each status change once", async () => {
@@ -126,6 +126,83 @@ describe("spaces job waiting", () => {
         )).rejects.toThrow("boom");
     });
 });
+
+describe("spaces backend deploy waiting", () => {
+    test("polls until the deploy is live and reports each status change once", async () => {
+        const updates: string[] = [];
+        const paths: string[] = [];
+        let clock = 0;
+        const sequence = [createDeploy("queued"), createDeploy("running"), createDeploy("running"), createDeploy("active")];
+        const finished = await waitForBackendDeploy(
+            {
+                request: async (request) => {
+                    paths.push(request.path);
+
+                    return request.schema.parse(sequence.shift());
+                },
+            },
+            "blog",
+            createDeploy("queued"),
+            {
+                now: () => clock,
+                onUpdate: update => updates.push(update.status),
+                sleep: async (delayMs) => {
+                    clock += delayMs;
+                },
+                timeoutMs: 300_000,
+            },
+        );
+
+        expect(finished.status).toBe("active");
+        expect(updates).toEqual(["running", "active"]);
+        expect(new Set(paths)).toEqual(new Set(["/v1/spaces/blog/backend-deploys/deploy-1"]));
+    });
+
+    test("stops at a deploy that ended without taking effect", async () => {
+        const failed = await waitForBackendDeploy(
+            { request: async request => request.schema.parse(createDeploy("failed", "schema_rejected")) },
+            "blog",
+            createDeploy("queued"),
+            { sleep: async () => {}, timeoutMs: 300_000 },
+        );
+
+        expect(failed).toMatchObject({ error: "schema_rejected", status: "failed" });
+    });
+
+    test("returns a deploy that is already settled without polling", async () => {
+        const client: SpacesClient = {
+            request: async () => {
+                throw new Error("must not poll");
+            },
+        };
+
+        expect((await waitForBackendDeploy(client, "blog", createDeploy("superseded"), { timeoutMs: 1_000 })).status).toBe("superseded");
+    });
+
+    test("gives up after the timeout with the deploy id in the details", async () => {
+        let clock = 0;
+        const error = await expectCliUserError(waitForBackendDeploy(
+            { request: async request => request.schema.parse(createDeploy("running")) },
+            "blog",
+            createDeploy("queued"),
+            {
+                now: () => clock,
+                sleep: async (delayMs) => {
+                    clock += delayMs;
+                },
+                timeoutMs: 4_000,
+            },
+        ));
+
+        expect(error.key).toBe("errors.spaces.backendWaitTimeout");
+        expect(error.params).toEqual({ id: "deploy-1", seconds: 4, status: "running" });
+        expect(error.details).toEqual({ backendDeployId: "deploy-1", backendDeployStatus: "running" });
+    });
+});
+
+function createDeploy(status: string, error: string | null = null): BackendDeploy {
+    return { error, id: "deploy-1", status };
+}
 
 function createJob(status: SpaceJob["status"], version: number | null = null): SpaceJob {
     return {

@@ -34,6 +34,10 @@ const spaceSchema = z.looseObject({
     building: z.boolean(),
     convexDeploymentName: z.string().nullable(),
     convexDeploymentUrl: z.string().nullable(),
+    // Where the backend of the space runs: `convex`, or `cloudflare` for a
+    // backend the platform hosts itself. A service that predates the field
+    // only has Convex spaces.
+    dataPlane: z.string().optional(),
     nextChargeAt: z.number().nullable(),
     suspendedAt: z.number().nullable(),
     graceUntil: z.number().nullable(),
@@ -96,6 +100,41 @@ const deployUploadSchema = z.looseObject({
 });
 type SiteUpload = z.infer<typeof deployUploadSchema>["upload"];
 
+// A deploy of a platform-hosted backend. `uploading` and `expired` belong to a
+// deploy that was declared but not committed; `active` is the version that is
+// live and `superseded` one that was live until a later deploy replaced it.
+const backendDeploySchema = z.looseObject({
+    id: z.string(),
+    status: z.string(),
+    error: z.string().nullish(),
+});
+export type BackendDeploy = z.infer<typeof backendDeploySchema>;
+
+const backendDeployDeclaredSchema = z.looseObject({
+    deploy: backendDeploySchema,
+    upload: deployUploadSchema.shape.upload,
+});
+const backendDeployEnvelopeSchema = z.looseObject({ deploy: backendDeploySchema });
+const pendingBackendDeployStatuses: readonly string[] = ["uploading", "queued", "running"];
+
+const quotaAmountSchema = z.looseObject({ used: z.number(), limit: z.number() });
+const quotaSchema = z.looseObject({
+    counters: z.array(z.looseObject({
+        name: z.string(),
+        unit: z.string(),
+        period: quotaAmountSchema,
+        day: quotaAmountSchema,
+        exhausted: z.string().nullable(),
+    })),
+    capacities: z.array(z.looseObject({
+        name: z.string(),
+        used: z.number(),
+        limit: z.number(),
+        exhausted: z.boolean(),
+    })),
+});
+export type SpaceQuota = z.infer<typeof quotaSchema>;
+
 const usageRecordSchema = z.looseObject({
     spaceId: z.string(),
     day: z.string(),
@@ -113,6 +152,8 @@ const usagePageSchema = z.looseObject({
     from: z.string(),
     to: z.string(),
     items: z.array(usageRecordSchema),
+    // Only a space with a platform-hosted backend has quotas.
+    quota: quotaSchema.nullish(),
 });
 type SpaceUsagePage = z.infer<typeof usagePageSchema>;
 
@@ -286,6 +327,9 @@ async function decodeSpacesResponse<Value>(response: Response, schema: z.ZodType
 
 // Service codes whose remedy is not obvious from the service message alone.
 const serviceErrorKeys: Record<string, string> = {
+    backend_upload_expired: "errors.spaces.backendUploadExpired",
+    backend_upload_incomplete: "errors.spaces.backendUploadIncomplete",
+    backend_uploads_pending: "errors.spaces.backendUploadsPending",
     balance_unavailable: "errors.spaces.balanceUnavailable",
     deploy_in_progress: "errors.spaces.deployInProgress",
     deploy_upload_expired: "errors.spaces.deployUploadExpired",
@@ -295,11 +339,15 @@ const serviceErrorKeys: Record<string, string> = {
     space_suspended: "errors.spaces.suspended",
 };
 
-// Service codes that refuse the site archive. The service message says what
-// is wrong with it, so it is shown along with what the refusal means.
+// Service codes that refuse what was uploaded: the site archive, the backend
+// bundle or its schema. The service message says what is wrong with it, so it
+// is shown along with what the refusal means.
 const archiveErrorKeys: Record<string, string> = {
     artifact_invalid: "errors.spaces.archiveInvalid",
     artifact_too_large: "errors.spaces.archiveTooLarge",
+    backend_bundle_invalid: "errors.spaces.backendBundleInvalid",
+    schema_confirmation_required: "errors.spaces.schemaConfirmationRequired",
+    schema_rejected: "errors.spaces.schemaRejected",
 };
 
 // The service reports a failure as `{ message, code }` and the gateway's team
@@ -468,6 +516,67 @@ export async function uploadSite(client: SpacesDeployClient, space: string, zip:
     });
 
     return job;
+}
+
+// A backend deploy follows the same three requests with the backend bundle:
+// declare, send the zip straight to object storage, commit. The commit has the
+// service unpack the bundle and compare its schema with the live one before it
+// queues the deploy; `confirm` names the schema changes that break deployed
+// code and are intended. A commit of a deploy that is already committed
+// returns that deploy, so it is retried like a read.
+export async function deployBackendBundle(
+    client: SpacesDeployClient,
+    space: string,
+    zip: Uint8Array,
+    confirm: readonly string[],
+): Promise<BackendDeploy> {
+    const declared = await client.request({
+        body: { sizeBytes: zip.byteLength },
+        idempotency: "none",
+        method: "POST",
+        path: spacePath(space, "/backend-deploys"),
+        schema: backendDeployDeclaredSchema,
+    });
+
+    await client.store(declared.upload, zip);
+
+    const { deploy } = await client.request({
+        body: confirm.length === 0 ? {} : { confirm },
+        idempotency: "state",
+        method: "POST",
+        path: spacePath(space, `/backend-deploys/${encodeURIComponent(declared.deploy.id)}/commit`),
+        schema: backendDeployEnvelopeSchema,
+        timeoutMs: commitTimeoutMs,
+    });
+
+    return deploy;
+}
+
+export async function getBackendDeploy(
+    client: SpacesClient,
+    space: string,
+    deployId: string,
+    timeoutMs?: number,
+): Promise<BackendDeploy> {
+    return await client.request({
+        path: spacePath(space, `/backend-deploys/${encodeURIComponent(deployId)}`),
+        schema: backendDeploySchema,
+        timeoutMs,
+    });
+}
+
+export function isPendingBackendDeploy(deploy: BackendDeploy): boolean {
+    return pendingBackendDeployStatuses.includes(deploy.status);
+}
+
+/** The deploy is the backend that is live now. */
+export function isLiveBackendDeploy(deploy: BackendDeploy): boolean {
+    return deploy.status === "active";
+}
+
+/** The deploy went live, and a later deploy has replaced it since. */
+export function isSupersededBackendDeploy(deploy: BackendDeploy): boolean {
+    return deploy.status === "superseded";
 }
 
 // Sends the archive to object storage. This request is not an OOMOL request:

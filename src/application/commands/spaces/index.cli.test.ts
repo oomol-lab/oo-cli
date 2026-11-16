@@ -44,6 +44,15 @@ const job = {
     startedAt: 1_700_000_201,
     finishedAt: 1_700_000_205,
 };
+// A space whose backend the platform hosts: it has no Convex deployment.
+const hostedSpace = { ...space, dataPlane: "cloudflare", convexDeploymentName: null, convexDeploymentUrl: null };
+const backendDeployId = "0198a6f0-0000-7000-8000-00000000000b";
+const backendStorageRoute = `PUT ${storageBase}/bucket/backend.zip`;
+const backendFiles = {
+    "backend/index.ts": "import { greeting } from './lib.ts';\nexport default { fetch: () => new Response(greeting) };\n",
+    "backend/lib.ts": "export const greeting = 'hello';\n",
+    "backend/schema.ts": "export default { tables: { notes: { columns: { title: { type: 'text' } } } } };\n",
+};
 const artifact = {
     id: "0198a6f0-0000-7000-8000-000000000003",
     version: 3,
@@ -392,6 +401,237 @@ describe("spaces commands", () => {
         });
     });
 
+    test("deploys a project with a platform-hosted backend: bundle, build, backend, then the site", async () => {
+        await withSandbox(async (sandbox) => {
+            for (const name of ["ComSpec", "PATHEXT", "SystemRoot", "TEMP", "TMP"]) {
+                sandbox.env[name] = process.env[name];
+            }
+
+            await writeFiles(sandbox.cwd, {
+                ...backendFiles,
+                "build.js": [
+                    "const fs = require('node:fs');",
+                    "fs.mkdirSync('dist', { recursive: true });",
+                    "fs.writeFileSync('dist/index.html', [process.env.VITE_CONVEX_URL ?? 'no-convex', process.env.CONVEX_DEPLOY_KEY ?? 'no-key'].join('|'));",
+                ].join("\n"),
+                "package.json": JSON.stringify({ scripts: { build: "node build.js" } }),
+            });
+
+            let confirmed: unknown;
+            const service = createService({
+                "GET /v1/spaces/blog": () => Response.json(hostedSpace),
+                [`GET /v1/spaces/${space.id}`]: () => Response.json(hostedSpace),
+                ...backendDeployRoutes(space.id, async (request) => {
+                    confirmed = await request.json();
+
+                    return Response.json({ deploy: { id: backendDeployId, status: "active", error: null } }, { status: 202 });
+                }),
+                ...siteUploadRoutes(space.id, job),
+            });
+            const result = await sandbox.run(
+                ["spaces", "deploy", "blog", "--no-install", "--confirm-schema", "unique_index, column_rename", "--wait", "--json"],
+                service,
+            );
+
+            expect(result.exitCode).toBe(0);
+            expect(JSON.parse(result.stdout)).toEqual({
+                ...job,
+                backendDeployed: true,
+                backendDeployId,
+                convexDeploymentUrl: null,
+                url: space.url,
+            });
+            expect(confirmed).toEqual({ confirm: ["unique_index", "column_rename"] });
+            // The build got nothing that belongs to a Convex deploy.
+            expect(await readFile(join(sandbox.cwd, "dist", "index.html"), "utf8")).toBe("no-convex|no-key");
+            expect(service.requests.map(request => `${request.method} ${new URL(request.url).pathname}`)).toEqual([
+                "GET /v1/spaces/blog",
+                `POST /v1/spaces/${space.id}/backend-deploys`,
+                "PUT /bucket/backend.zip",
+                `POST /v1/spaces/${space.id}/backend-deploys/${backendDeployId}/commit`,
+                `POST /v1/spaces/${space.id}/deploy-uploads`,
+                "PUT /bucket/site.zip",
+                `POST /v1/spaces/${space.id}/deploy-uploads/${uploadId}/commit`,
+                `GET /v1/spaces/${space.id}`,
+            ]);
+
+            const [, declare, upload] = service.requests as [Request, Request, Request];
+            const bundle = new Uint8Array(await upload.arrayBuffer());
+
+            expect(await declare.json()).toEqual({ sizeBytes: bundle.byteLength });
+            expect(declare.headers.get("Idempotency-Key")).toBeNull();
+            expect(bundle.subarray(0, 2)).toEqual(new Uint8Array([0x50, 0x4B]));
+            expect(upload.headers.get("Authorization")).toBeNull();
+            expect(upload.headers.get("x-oo-team-name")).toBeNull();
+        });
+    });
+
+    test("does not upload the site when the backend deploy ends without taking effect", async () => {
+        await withSandbox(async (sandbox) => {
+            for (const name of ["ComSpec", "PATHEXT", "SystemRoot", "TEMP", "TMP"]) {
+                sandbox.env[name] = process.env[name];
+            }
+
+            await writeFiles(sandbox.cwd, { ...backendFiles, "dist/index.html": "<h1>hi</h1>", "package.json": "{}" });
+
+            const service = createService({
+                "GET /v1/spaces/blog": () => Response.json(hostedSpace),
+                ...backendDeployRoutes(space.id, () => Response.json(
+                    { deploy: { id: backendDeployId, status: "failed", error: "schema_rejected: duplicate rows" } },
+                    { status: 202 },
+                )),
+            });
+            const result = await sandbox.run(["spaces", "deploy", "blog", "--no-install", "--json"], service);
+
+            expect(result.exitCode).toBe(1);
+            expect(readJsonError(result.stderr)).toMatchObject({ code: "spaces.backendDeployEnded" });
+            expect(readJsonError(result.stderr).message).toContain("schema_rejected: duplicate rows");
+            expect(service.requests.map(request => `${request.method} ${new URL(request.url).pathname}`)).toEqual([
+                "GET /v1/spaces/blog",
+                `POST /v1/spaces/${space.id}/backend-deploys`,
+                "PUT /bucket/backend.zip",
+                `POST /v1/spaces/${space.id}/backend-deploys/${backendDeployId}/commit`,
+            ]);
+        });
+    });
+
+    test("does not upload the site when another deploy has replaced the backend", async () => {
+        await withSandbox(async (sandbox) => {
+            for (const name of ["ComSpec", "PATHEXT", "SystemRoot", "TEMP", "TMP"]) {
+                sandbox.env[name] = process.env[name];
+            }
+
+            await writeFiles(sandbox.cwd, { ...backendFiles, "dist/index.html": "<h1>hi</h1>", "package.json": "{}" });
+
+            const service = createService({
+                "GET /v1/spaces/blog": () => Response.json(hostedSpace),
+                ...backendDeployRoutes(space.id, () => Response.json(
+                    { deploy: { id: backendDeployId, status: "superseded", error: null } },
+                    { status: 202 },
+                )),
+            });
+            const result = await sandbox.run(["spaces", "deploy", "blog", "--no-install", "--json"], service);
+
+            expect(result.exitCode).toBe(1);
+            expect(readJsonError(result.stderr)).toMatchObject({
+                code: "spaces.backendSuperseded",
+                details: { backendDeployId, backendDeployStatus: "superseded" },
+            });
+            expect(service.requests.some(request => request.url.includes("deploy-uploads"))).toBe(false);
+        });
+    });
+
+    test("leaves the backend alone when the built site cannot be packed", async () => {
+        await withSandbox(async (sandbox) => {
+            for (const name of ["ComSpec", "PATHEXT", "SystemRoot", "TEMP", "TMP"]) {
+                sandbox.env[name] = process.env[name];
+            }
+
+            // The build succeeds, but what it writes is not a site: there is no index.html.
+            await writeFiles(sandbox.cwd, {
+                ...backendFiles,
+                "build.js": "const fs = require('node:fs');\nfs.mkdirSync('dist', { recursive: true });\nfs.writeFileSync('dist/app.js', '1');\n",
+                "package.json": JSON.stringify({ scripts: { build: "node build.js" } }),
+            });
+
+            const service = createService({ "GET /v1/spaces/blog": () => Response.json(hostedSpace) });
+            const result = await sandbox.run(["spaces", "deploy", "blog", "--no-install", "--json"], service);
+
+            expect(result.exitCode).toBe(1);
+            expect(readJsonError(result.stderr).code).toBe("spaces.indexHtmlMissing");
+            expect(service.requests.map(request => `${request.method} ${new URL(request.url).pathname}`)).toEqual([
+                "GET /v1/spaces/blog",
+            ]);
+        });
+    });
+
+    test("stops before any upload when the schema change needs a confirmation", async () => {
+        await withSandbox(async (sandbox) => {
+            for (const name of ["ComSpec", "PATHEXT", "SystemRoot", "TEMP", "TMP"]) {
+                sandbox.env[name] = process.env[name];
+            }
+
+            await writeFiles(sandbox.cwd, { ...backendFiles, "dist/index.html": "<h1>hi</h1>", "package.json": "{}" });
+
+            const service = createService({
+                "GET /v1/spaces/blog": () => Response.json(hostedSpace),
+                ...backendDeployRoutes(space.id, () => Response.json(
+                    { code: "schema_confirmation_required", message: "Schema changes need confirmation: confirm=unique_index" },
+                    { status: 409 },
+                )),
+            });
+            const result = await sandbox.run(["spaces", "deploy", "blog", "--no-install", "--json"], service);
+            const error = readJsonError(result.stderr);
+
+            expect(result.exitCode).toBe(1);
+            expect(error).toMatchObject({
+                code: "spaces.schemaConfirmationRequired",
+                details: { httpStatus: 409, serviceCode: "schema_confirmation_required" },
+            });
+            expect(error.message).toContain("confirm=unique_index");
+            expect(error.message).toContain("--confirm-schema");
+            expect(service.requests.some(request => request.url.includes("deploy-uploads"))).toBe(false);
+        });
+    });
+
+    test("deploys only the site of a project without a backend to a platform-hosted space", async () => {
+        await withSandbox(async (sandbox) => {
+            await writeFiles(sandbox.cwd, { "dist/index.html": "<h1>hi</h1>", "package.json": "{}" });
+
+            const service = createService({
+                "GET /v1/spaces/blog": () => Response.json(hostedSpace),
+                ...siteUploadRoutes(space.id, { ...job, status: "queued", version: null }),
+            });
+            const result = await sandbox.run(["spaces", "deploy", "blog", "--no-install", "--json"], service);
+
+            expect(result.exitCode).toBe(0);
+            expect(JSON.parse(result.stdout)).toMatchObject({ backendDeployed: false, backendDeployId: null, convexDeploymentUrl: null });
+            expect(service.requests.some(request => request.url.includes("backend-deploys"))).toBe(false);
+        });
+    });
+
+    test("refuses a backend written for the other kind of space before building", async () => {
+        await withSandbox(async (sandbox) => {
+            await writeFiles(sandbox.cwd, {
+                "convex/schema.ts": "",
+                "package.json": JSON.stringify({ scripts: { build: "exit 1" } }),
+            });
+
+            const hosted = createService({ "GET /v1/spaces/blog": () => Response.json(hostedSpace) });
+            const onHosted = await sandbox.run(["spaces", "deploy", "blog", "--no-install", "--json"], hosted);
+
+            expect(onHosted.exitCode).toBe(1);
+            expect(JSON.parse(onHosted.stderr).error.code).toBe("spaces.backendNeedsMigration");
+            expect(hosted.requests).toHaveLength(1);
+        });
+
+        await withSandbox(async (sandbox) => {
+            await writeFiles(sandbox.cwd, {
+                ...backendFiles,
+                "package.json": JSON.stringify({ scripts: { build: "exit 1" } }),
+            });
+
+            const convex = createService({ "GET /v1/spaces/blog": () => Response.json(space) });
+            const onConvex = await sandbox.run(["spaces", "deploy", "blog", "--no-install", "--json"], convex);
+
+            expect(onConvex.exitCode).toBe(1);
+            expect(JSON.parse(onConvex.stderr).error.code).toBe("spaces.backendNeedsConvex");
+            expect(convex.requests).toHaveLength(1);
+        });
+    });
+
+    test("rejects an unknown schema confirmation, and one given with a prebuilt site, before any request", async () => {
+        await withSandbox(async (sandbox) => {
+            const service = createService({});
+            const unknown = await sandbox.run(["spaces", "deploy", "blog", "--confirm-schema", "column_rename,drop_table", "--json"], service);
+
+            expect(unknown.exitCode).toBe(2);
+            expect(JSON.parse(unknown.stderr).error.message).toContain("drop_table");
+            expect((await sandbox.run(["spaces", "deploy", "blog", "--dir", "site", "--confirm-schema", "unique_index"], service)).exitCode).toBe(2);
+            expect(service.requests).toHaveLength(0);
+        });
+    });
+
     test("reads jobs and versions", async () => {
         await withSandbox(async (sandbox) => {
             const service = createService({
@@ -574,6 +814,50 @@ describe("spaces commands", () => {
         });
     });
 
+    test("lists the quotas of a platform-hosted space below the daily usage", async () => {
+        await withSandbox(async (sandbox) => {
+            const quota = {
+                counters: [
+                    {
+                        name: "requests",
+                        unit: "count",
+                        period: { used: 1_200, limit: 1_000_000 },
+                        day: { used: 50_000, limit: 50_000 },
+                        exhausted: "day",
+                        resetAt: 1_700_086_400_000,
+                    },
+                    {
+                        name: "db_calls",
+                        unit: "count",
+                        period: { used: 10, limit: 500_000 },
+                        day: { used: 10, limit: 25_000 },
+                        exhausted: null,
+                        resetAt: null,
+                    },
+                ],
+                capacities: [{ name: "file_storage", used: 1_048_576, limit: 1_073_741_824, exhausted: false }],
+            };
+            const service = createService({
+                "GET /v1/spaces/blog/usage": () => Response.json({ from: "2026-09-01", to: "2026-09-02", items: [], quota }),
+            });
+            const text = await sandbox.run(["spaces", "usage", "blog"], service);
+
+            expect(text.exitCode).toBe(0);
+            expect(text.stdout).toBe([
+                "No usage samples between 2026-09-01 and 2026-09-02.",
+                "Quota         Today          Billing period       Used up",
+                "requests      50000 / 50000  1200 / 1000000       day",
+                "db_calls      10 / 25000     10 / 500000          -",
+                "file_storage  -              1.00 MiB / 1.00 GiB  -",
+                "",
+            ].join("\n"));
+
+            const json = await sandbox.run(["spaces", "usage", "blog", "--json"], service);
+
+            expect(JSON.parse(json.stdout).quota).toEqual(quota);
+        });
+    });
+
     test("reports a service failure with its code in the details", async () => {
         await withSandbox(async (sandbox) => {
             const service = createService({
@@ -627,6 +911,30 @@ function siteUploadRoutes(spaceRef: string, queuedJob: object): Record<string, (
     };
 }
 
+// The three requests of a backend deploy: the declaration answers with a
+// signed storage URL, storage takes the bundle, and the commit is the caller's.
+function backendDeployRoutes(
+    spaceRef: string,
+    commit: (request: Request) => Promise<Response> | Response,
+): Record<string, (request: Request) => Promise<Response> | Response> {
+    return {
+        [`POST /v1/spaces/${spaceRef}/backend-deploys`]: async (request) => {
+            const { sizeBytes } = await request.json() as { sizeBytes: number };
+
+            return Response.json({
+                deploy: { id: backendDeployId, status: "uploading", error: null },
+                upload: {
+                    method: "PUT",
+                    url: `${storageBase}/bucket/backend.zip?X-Amz-Expires=900&X-Amz-Signature=${uploadSignature}`,
+                    headers: { "Content-Type": "application/zip", "Content-Length": String(sizeBytes) },
+                },
+            }, { status: 201 });
+        },
+        [backendStorageRoute]: () => new Response(null, { status: 200 }),
+        [`POST /v1/spaces/${spaceRef}/backend-deploys/${backendDeployId}/commit`]: commit,
+    };
+}
+
 // A fake Spaces service: routes are keyed by "<METHOD> <path>", and a request
 // without a route fails the test. A request to any other host, such as the
 // object storage a site is uploaded to, is keyed by "<METHOD> <origin><path>".
@@ -654,6 +962,12 @@ function createService(routes: Record<string, (request: Request) => Promise<Resp
         },
         requests,
     };
+}
+
+// The error of a `--json` run. The output of the bundler and of the build
+// goes to stderr as well, ahead of the error, which is the last line.
+function readJsonError(stderr: string): { code: string; details?: unknown; message: string } {
+    return JSON.parse(stderr.trimEnd().split("\n").at(-1)!).error;
 }
 
 function createPipedInput(content: string): ReturnType<typeof createInteractiveInput> {

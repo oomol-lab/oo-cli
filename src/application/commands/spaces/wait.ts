@@ -1,39 +1,40 @@
-import type { SpaceJob, SpacesClient } from "./api.ts";
+import type { BackendDeploy, SpaceJob, SpacesClient } from "./api.ts";
 
 import { CliUserError } from "../../contracts/cli.ts";
-import { getJob, isTerminalJob } from "./api.ts";
+import { getBackendDeploy, getJob, isPendingBackendDeploy, isTerminalJob } from "./api.ts";
 
 const jobPollIntervalMs = 2_000;
 // The budget of a poll and the clock read here can disagree by a timer tick.
 const deadlineSlackMs = 50;
 export const defaultWaitTimeoutMs = 5 * 60_000;
 
-interface WaitOptions {
+interface WaitOptions<Item = SpaceJob> {
     now?: () => number;
-    onUpdate?: (job: SpaceJob) => void;
+    onUpdate?: (item: Item) => void;
     sleep?: (delayMs: number) => Promise<unknown>;
     timeoutMs: number;
 }
 
-// Polls a deploy or rollback job until it reaches a terminal status. A job
-// that outlasts the timeout keeps running on the service; the error carries
-// its id so the caller can keep polling. The timeout bounds the whole wait:
-// the pause before a poll and the poll itself only get what is left of it.
-export async function waitForJob(
-    client: SpacesClient,
-    space: string,
-    initial: SpaceJob,
-    options: WaitOptions,
-): Promise<SpaceJob> {
+// The polling loop shared by jobs and backend deploys. The timeout bounds the
+// whole wait: the pause before a poll and the poll itself only get what is
+// left of it.
+async function pollUntilSettled<Item extends { status: string }>(
+    initial: Item,
+    options: WaitOptions<Item> & {
+        isSettled: (item: Item) => boolean;
+        poll: (item: Item, budgetMs: number) => Promise<Item>;
+        timeoutError: (item: Item) => CliUserError;
+    },
+): Promise<Item> {
     const sleep = options.sleep ?? Bun.sleep;
     const now = options.now ?? Date.now;
     const startedAt = now();
     const remainingMs = (): number => options.timeoutMs - (now() - startedAt);
-    let job = initial;
+    let item = initial;
 
-    while (!isTerminalJob(job)) {
+    while (!options.isSettled(item)) {
         if (remainingMs() <= 0) {
-            throw createWaitTimeoutError(job, space, options.timeoutMs);
+            throw options.timeoutError(item);
         }
 
         await sleep(Math.min(jobPollIntervalMs, remainingMs()));
@@ -44,27 +45,64 @@ export async function waitForJob(
             continue;
         }
 
-        const previous = job;
+        const previous = item;
 
         try {
-            job = await getJob(client, space, job.id, budgetMs);
+            item = await options.poll(item, budgetMs);
         }
         catch (error) {
             // A poll cut short by the deadline is the wait running out, not a
             // failed request.
             if (remainingMs() <= deadlineSlackMs) {
-                throw createWaitTimeoutError(previous, space, options.timeoutMs);
+                throw options.timeoutError(previous);
             }
 
             throw error;
         }
 
-        if (job.status !== previous.status) {
-            options.onUpdate?.(job);
+        if (item.status !== previous.status) {
+            options.onUpdate?.(item);
         }
     }
 
-    return job;
+    return item;
+}
+
+// Polls a deploy or rollback job until it reaches a terminal status. A job
+// that outlasts the timeout keeps running on the service; the error carries
+// its id so the caller can keep polling.
+export async function waitForJob(
+    client: SpacesClient,
+    space: string,
+    initial: SpaceJob,
+    options: WaitOptions,
+): Promise<SpaceJob> {
+    return await pollUntilSettled(initial, {
+        ...options,
+        isSettled: isTerminalJob,
+        poll: async (job, budgetMs) => await getJob(client, space, job.id, budgetMs),
+        timeoutError: job => createWaitTimeoutError(job, space, options.timeoutMs),
+    });
+}
+
+// Polls a backend deploy until it is live or has ended without taking effect.
+// One that outlasts the timeout keeps running on the service.
+export async function waitForBackendDeploy(
+    client: SpacesClient,
+    space: string,
+    initial: BackendDeploy,
+    options: WaitOptions<BackendDeploy>,
+): Promise<BackendDeploy> {
+    return await pollUntilSettled(initial, {
+        ...options,
+        isSettled: deploy => !isPendingBackendDeploy(deploy),
+        poll: async (deploy, budgetMs) => await getBackendDeploy(client, space, deploy.id, budgetMs),
+        timeoutError: deploy => new CliUserError("errors.spaces.backendWaitTimeout", 1, {
+            id: deploy.id,
+            seconds: Math.round(options.timeoutMs / 1_000),
+            status: deploy.status,
+        }, { details: { backendDeployId: deploy.id, backendDeployStatus: deploy.status } }),
+    });
 }
 
 function createWaitTimeoutError(job: SpaceJob, space: string, timeoutMs: number): CliUserError {

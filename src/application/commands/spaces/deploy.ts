@@ -10,14 +10,33 @@ import { formatTextTable } from "../shared/text-table.ts";
 import { createSpacesClient, getJob, getSpace, listArtifacts, listJobs, rollbackSpace, uploadSite } from "./api.ts";
 import { formatDuration, isDigits, parseDuration } from "./duration.ts";
 import { packDirectory, readZipFile } from "./pack.ts";
-import { deployProjectLocally, inspectProject } from "./project.ts";
+import { deployProjectLocally, deploySpaceProjectLocally, inspectProject } from "./project.ts";
 import { formatTime, orDash, spaceArgument, spaceInput, teamOptions, writeFields } from "./shared.ts";
 import { defaultWaitTimeoutMs, waitForJob } from "./wait.ts";
 
 // `deploy` has two inputs. By default it takes a project directory: it
-// installs the dependencies, pushes the Convex backend, builds the front end
-// and uploads the built site. With `--dir` or `--zip` it only uploads a site
-// that is already built and leaves the backend alone.
+// installs the dependencies, deploys the backend, builds the front end and
+// uploads the built site. With `--dir` or `--zip` it only uploads a site that
+// is already built and leaves the backend alone.
+//
+// The space decides which backend a project deploy handles: `convex/` goes to
+// a space on Convex, `backend/` to a space whose backend the platform hosts.
+
+const schemaConfirmations = ["column_rename", "unique_index"] as const;
+
+function parseSchemaConfirmations(value: string | undefined): string[] {
+    const items = (value ?? "").split(",").map(item => item.trim()).filter(item => item !== "");
+    const unknown = items.find(item => !(schemaConfirmations as readonly string[]).includes(item));
+
+    if (unknown !== undefined) {
+        throw new CliUserError("errors.spaces.invalidSchemaConfirmation", 2, {
+            allowed: schemaConfirmations.join(", "),
+            value: unknown,
+        });
+    }
+
+    return [...new Set(items)];
+}
 
 const waitInputShape = { timeout: z.string().optional(), wait: z.boolean().optional() };
 const waitOptions = [
@@ -106,6 +125,7 @@ async function finishJob(
 const deployInput = spaceInput.extend({
     ...waitInputShape,
     build: z.string().optional(),
+    confirmSchema: z.string().optional(),
     dir: z.string().optional(),
     dist: z.string().optional(),
     install: z.boolean().optional(),
@@ -140,7 +160,12 @@ async function deployPrebuilt(input: DeployInput, timeoutMs: number, context: Cl
     await finishJob({ client, job, kind: "deploy", note, space: input.space, timeoutMs, wait: input.wait === true }, context);
 }
 
-async function deployProject(input: DeployInput, timeoutMs: number, context: CliCommandContext): Promise<void> {
+async function deployProject(
+    input: DeployInput,
+    options: { confirm: readonly string[]; timeoutMs: number },
+    context: CliCommandContext,
+): Promise<void> {
+    const { timeoutMs } = options;
     const t = context.translator.t.bind(context.translator);
     const note = createProgressWriter(context);
     const project = await inspectProject(resolve(context.cwd, input.project ?? "."), {
@@ -160,18 +185,59 @@ async function deployProject(input: DeployInput, timeoutMs: number, context: Cli
         throw new CliUserError("errors.spaces.notReady", 1, { slug: space.slug, status: space.status });
     }
 
-    await deployProjectLocally({ client, install: input.install !== false, note, project, space, urlEnv: input.urlEnv }, context);
+    const hosted = space.dataPlane === "cloudflare";
+    let backendDeployId: string | null = null;
 
-    const packed = await packDirectory(project.distDir);
+    // A backend written for the other kind of space would silently stay
+    // undeployed, so the mismatch is reported instead.
+    if (hosted && project.hasBackend && project.spaceBackend === null) {
+        throw new CliUserError("errors.spaces.backendNeedsMigration", 1, { slug: space.slug });
+    }
 
-    note(t("spaces.deploy.packed", { count: packed.fileCount, size: formatFileSize(packed.zip.byteLength) }));
+    if (!hosted && !project.hasBackend && project.spaceBackend !== null) {
+        throw new CliUserError("errors.spaces.backendNeedsConvex", 1, { slug: space.slug });
+    }
+
+    const packSite = async (): Promise<Awaited<ReturnType<typeof packDirectory>>> => {
+        const site = await packDirectory(project.distDir);
+
+        note(t("spaces.deploy.packed", { count: site.fileCount, size: formatFileSize(site.zip.byteLength) }));
+
+        return site;
+    };
+    let packed: Awaited<ReturnType<typeof packSite>>;
+
+    if (hosted) {
+        // The site is packed before the backend is uploaded: a site that
+        // cannot be packed must not leave a new backend behind the old site.
+        const deployed = await deploySpaceProjectLocally({
+            client,
+            confirm: options.confirm,
+            install: input.install !== false,
+            note,
+            packSite,
+            project,
+            space,
+            timeoutMs,
+        }, context);
+
+        backendDeployId = deployed.backend?.id ?? null;
+        packed = deployed.site;
+    }
+    else {
+        await deployProjectLocally({ client, install: input.install !== false, note, project, space, urlEnv: input.urlEnv }, context);
+        packed = await packSite();
+    }
+
     note(t("spaces.deploy.uploading", { size: formatFileSize(packed.zip.byteLength), space: space.slug }));
 
     const job = await uploadSite(client, space.id, packed.zip);
 
     await finishJob({
         client,
-        extra: { backendDeployed: project.hasBackend, convexDeploymentUrl: space.convexDeploymentUrl },
+        extra: hosted
+            ? { backendDeployed: backendDeployId !== null, backendDeployId, convexDeploymentUrl: null }
+            : { backendDeployed: project.hasBackend, convexDeploymentUrl: space.convexDeploymentUrl },
         job,
         kind: "deploy",
         note,
@@ -195,6 +261,12 @@ const deploy: CliCommandDefinition<DeployInput> = {
         { name: "dist", longFlag: "--dist", valueName: "directory", descriptionKey: "options.spaces.dist" },
         { name: "urlEnv", longFlag: "--url-env", valueName: "name", descriptionKey: "options.spaces.urlEnv" },
         { name: "install", longFlag: "--no-install", descriptionKey: "options.spaces.noInstall" },
+        {
+            name: "confirmSchema",
+            longFlag: "--confirm-schema",
+            valueName: "changes",
+            descriptionKey: "options.spaces.confirmSchema",
+        },
         { name: "zip", longFlag: "--zip", valueName: "file", descriptionKey: "options.spaces.zip" },
         { name: "dir", longFlag: "--dir", valueName: "directory", descriptionKey: "options.spaces.dir" },
         ...waitOptions,
@@ -205,6 +277,7 @@ const deploy: CliCommandDefinition<DeployInput> = {
             || input.build !== undefined
             || input.dist !== undefined
             || input.urlEnv !== undefined
+            || input.confirmSchema !== undefined
             || input.install === false;
 
         if ((input.zip !== undefined && input.dir !== undefined) || (prebuilt && projectOptionUsed)) {
@@ -212,8 +285,11 @@ const deploy: CliCommandDefinition<DeployInput> = {
         }
 
         const timeoutMs = resolveWaitTimeout(input.timeout);
+        const confirm = parseSchemaConfirmations(input.confirmSchema);
 
-        await (prebuilt ? deployPrebuilt : deployProject)(input, timeoutMs, context);
+        await (prebuilt
+            ? deployPrebuilt(input, timeoutMs, context)
+            : deployProject(input, { confirm, timeoutMs }, context));
     },
 };
 
