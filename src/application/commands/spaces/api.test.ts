@@ -5,7 +5,7 @@ import { z } from "zod";
 import { createLogCapture, expectCliUserError, toRequest } from "../../../../__tests__/helpers.ts";
 import { createTranslator } from "../../../i18n/translator.ts";
 import { createRetryingFetcher } from "../../shared/retrying-fetcher.ts";
-import { listSpaces, requestSpacesApi, storeSiteArchive, uploadSite } from "./api.ts";
+import { deployBackendBundle, getBackendDeploy, isLiveBackendDeploy, isPendingBackendDeploy, listSpaces, requestSpacesApi, storeSiteArchive, uploadSite } from "./api.ts";
 
 const target = { account: { apiKey: "secret-1", endpoint: "oomol.com" }, headers: { "x-oo-team-name": "team-a" } };
 const schema = z.object({ ok: z.boolean() });
@@ -37,6 +37,13 @@ const job = {
 const declarePath = "POST /v1/spaces/blog/deploy-uploads";
 const commitPath = `POST /v1/spaces/blog/deploy-uploads/${uploadId}/commit`;
 const storagePath = "PUT /bucket/site.zip";
+const backendDeployId = "0198a6f0-0000-7000-8000-00000000000b";
+const backendDeclared = {
+    deploy: { id: backendDeployId, status: "uploading", error: null },
+    upload: declared.upload,
+};
+const backendDeclarePath = "POST /v1/spaces/blog/backend-deploys";
+const backendCommitPath = `POST /v1/spaces/blog/backend-deploys/${backendDeployId}/commit`;
 
 describe("spaces api requests", () => {
     test("sends a read without an idempotency key and drops unset query values", async () => {
@@ -133,6 +140,57 @@ describe("spaces api requests", () => {
             key: "errors.spaces.deployUploadIncomplete",
             status: 409,
             title: "an upload the service has not received",
+        },
+        {
+            body: { code: "backend_uploads_pending", message: "Too many uncommitted backend deploys" },
+            details: { httpStatus: 429, serviceCode: "backend_uploads_pending" },
+            exitCode: 1,
+            key: "errors.spaces.backendUploadsPending",
+            status: 429,
+            title: "too many unfinished backend uploads",
+        },
+        {
+            body: { code: "backend_upload_expired", message: "Backend deploy expired, start a new deploy" },
+            details: { httpStatus: 409, serviceCode: "backend_upload_expired" },
+            exitCode: 1,
+            key: "errors.spaces.deployUploadExpired",
+            status: 409,
+            title: "an expired backend upload",
+        },
+        {
+            body: { code: "backend_upload_incomplete", message: "Backend bundle is not uploaded yet" },
+            details: { httpStatus: 409, serviceCode: "backend_upload_incomplete" },
+            exitCode: 1,
+            key: "errors.spaces.deployUploadIncomplete",
+            status: 409,
+            title: "a backend upload the service has not received",
+        },
+        {
+            body: { code: "backend_bundle_invalid", message: "index.js is missing" },
+            details: { httpStatus: 422, serviceCode: "backend_bundle_invalid" },
+            exitCode: 1,
+            key: "errors.spaces.backendBundleInvalid",
+            params: { message: "index.js is missing" },
+            status: 422,
+            title: "a refused backend bundle with the reason of the service",
+        },
+        {
+            body: { code: "schema_confirmation_required", message: "Schema changes need confirmation: confirm=unique_index" },
+            details: { httpStatus: 409, serviceCode: "schema_confirmation_required" },
+            exitCode: 1,
+            key: "errors.spaces.schemaConfirmationRequired",
+            params: { message: "Schema changes need confirmation: confirm=unique_index" },
+            status: 409,
+            title: "schema changes that need a confirmation, ahead of the generic conflict",
+        },
+        {
+            body: { code: "schema_rejected", message: "Dropping column notes.title is not supported" },
+            details: { httpStatus: 422, serviceCode: "schema_rejected" },
+            exitCode: 1,
+            key: "errors.spaces.schemaRejected",
+            params: { message: "Dropping column notes.title is not supported" },
+            status: 422,
+            title: "a schema change the service does not take",
         },
         {
             body: { code: "artifact_invalid", message: "zip cannot be read: end of central directory record not found" },
@@ -392,6 +450,105 @@ describe("spaces site upload", () => {
         expect(JSON.stringify(error)).not.toContain(signature);
         expect(site.calls.map(call => call.route)).toEqual([declarePath]);
         expect(site.logs()).not.toContain(signature);
+    });
+});
+
+describe("spaces backend deploy", () => {
+    test("declares the deploy, sends the bundle to storage and commits, in that order", async () => {
+        const committed = { id: backendDeployId, status: "queued", error: null };
+        const site = createSite({
+            [backendDeclarePath]: () => Response.json(backendDeclared, { status: 201 }),
+            [storagePath]: () => new Response(null, { status: 200 }),
+            [backendCommitPath]: () => Response.json({ deploy: committed }, { status: 202 }),
+        });
+
+        expect(await deployBackendBundle(site.client, "blog", zip, [])).toEqual(committed);
+        expect(site.calls.map(call => call.route)).toEqual([backendDeclarePath, storagePath, backendCommitPath]);
+
+        const [declare, storage, commit] = site.calls as [SiteCall, SiteCall, SiteCall];
+
+        expect(JSON.parse(declare.body as string)).toEqual({ sizeBytes: zip.byteLength });
+        expect(declare.headers["idempotency-key"]).toBeUndefined();
+
+        // Storage gets the signed headers and nothing that identifies the account.
+        expect(storage.url).toBe(uploadUrl);
+        expect(storage.headers).toEqual({ "content-length": String(zip.byteLength), "content-type": "application/zip" });
+        expect(storage.body).toEqual(zip);
+
+        expect(JSON.parse(commit.body as string)).toEqual({});
+        expect(commit.headers["idempotency-key"]).toBeUndefined();
+    });
+
+    test("names the confirmed schema changes in the commit", async () => {
+        const site = createSite({
+            [backendDeclarePath]: () => Response.json(backendDeclared, { status: 201 }),
+            [storagePath]: () => new Response(null, { status: 200 }),
+            [backendCommitPath]: () => Response.json({ deploy: { id: backendDeployId, status: "queued" } }, { status: 202 }),
+        });
+
+        await deployBackendBundle(site.client, "blog", zip, ["column_rename", "unique_index"]);
+
+        expect(JSON.parse(site.calls[2]!.body as string)).toEqual({ confirm: ["column_rename", "unique_index"] });
+    });
+
+    test("sends the declaration exactly once and never uploads after a refusal", async () => {
+        const site = createSite({ [backendDeclarePath]: () => new Response("upstream down", { status: 503 }) });
+
+        expect((await expectCliUserError(deployBackendBundle(site.client, "blog", zip, []))).key).toBe("errors.spaces.requestFailed");
+        expect(site.calls.map(call => call.route)).toEqual([backendDeclarePath]);
+        expect(site.sleeps).toEqual([]);
+    });
+
+    test("retries a commit, which returns the deploy that is already committed", async () => {
+        const answers = [
+            () => new Response("upstream down", { status: 503 }),
+            () => Response.json({ deploy: { id: backendDeployId, status: "running", error: null } }, { status: 202 }),
+        ];
+        const site = createSite({
+            [backendDeclarePath]: () => Response.json(backendDeclared, { status: 201 }),
+            [storagePath]: () => new Response(null, { status: 200 }),
+            [backendCommitPath]: () => answers.shift()!(),
+        });
+
+        expect((await deployBackendBundle(site.client, "blog", zip, [])).status).toBe("running");
+        expect(site.calls.map(call => call.route)).toEqual([
+            backendDeclarePath,
+            storagePath,
+            backendCommitPath,
+            backendCommitPath,
+        ]);
+    });
+
+    test("does not retry a commit the service refused", async () => {
+        const site = createSite({
+            [backendDeclarePath]: () => Response.json(backendDeclared, { status: 201 }),
+            [storagePath]: () => new Response(null, { status: 200 }),
+            [backendCommitPath]: () => Response.json(
+                { code: "schema_confirmation_required", message: "confirm=column_rename" },
+                { status: 409 },
+            ),
+        });
+        const error = await expectCliUserError(deployBackendBundle(site.client, "blog", zip, []));
+
+        expect(error.key).toBe("errors.spaces.schemaConfirmationRequired");
+        expect(site.calls.filter(call => call.route === backendCommitPath)).toHaveLength(1);
+    });
+
+    test("reads a deploy and tells the pending, the live and the ended apart", async () => {
+        const site = createSite({
+            [`GET /v1/spaces/blog/backend-deploys/${backendDeployId}`]: () =>
+                Response.json({ id: backendDeployId, status: "failed", error: "schema_rejected", activatedAt: null }),
+        });
+        const deploy = await getBackendDeploy(site.client, "blog", backendDeployId);
+        const statusOf = (status: string) => ({ ...deploy, status });
+
+        expect(deploy).toMatchObject({ error: "schema_rejected", id: backendDeployId, status: "failed" });
+        expect(["uploading", "queued", "running"].map(status => isPendingBackendDeploy(statusOf(status)))).toEqual([true, true, true]);
+        expect(["active", "superseded", "failed", "cancelled", "expired"].map(status => isPendingBackendDeploy(statusOf(status))))
+            .toEqual([false, false, false, false, false]);
+        expect(["active", "superseded"].map(status => isLiveBackendDeploy(statusOf(status)))).toEqual([true, true]);
+        expect(["failed", "cancelled", "expired", "queued"].map(status => isLiveBackendDeploy(statusOf(status))))
+            .toEqual([false, false, false, false]);
     });
 });
 

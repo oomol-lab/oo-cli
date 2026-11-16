@@ -18,6 +18,24 @@ describe("spaces project inspection", () => {
             distDir: join(root, "dist"),
             hasBackend: true,
             root,
+            spaceBackend: null,
+        });
+    });
+
+    test("detects a platform-hosted backend next to, or instead of, a convex one", async () => {
+        const root = await createProject({
+            "backend/index.ts": "export default {};",
+            "backend/schema.ts": "export default { tables: {} };",
+            "package.json": JSON.stringify({ scripts: { build: "vite build" } }),
+        });
+
+        expect(await inspectProject(root, {})).toMatchObject({
+            hasBackend: false,
+            spaceBackend: {
+                entry: join(root, "backend", "index.ts"),
+                manifest: null,
+                schema: join(root, "backend", "schema.ts"),
+            },
         });
     });
 

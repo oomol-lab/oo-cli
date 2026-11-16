@@ -1,15 +1,21 @@
 import type { CliExecutionContext } from "../../contracts/cli.ts";
-import type { Space, SpacesClient } from "./api.ts";
+import type { BackendDeploy, Space, SpacesClient } from "./api.ts";
+import type { SpaceBackendSource } from "./backend-bundle.ts";
 
 import { readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { CliUserError } from "../../contracts/cli.ts";
 import { isPathMissingError } from "../../shared/fs-errors.ts";
-import { issueDeployCredentials } from "./api.ts";
+import { formatFileSize } from "../shared/file-size.ts";
+import { deployBackendBundle, isLiveBackendDeploy, issueDeployCredentials } from "./api.ts";
+import { buildBackendBundle, findSpaceBackend } from "./backend-bundle.ts";
 import { createEmbeddedRuntime, createRuntimeEnv, describeExit, runProcess } from "./embedded-runtime.ts";
+import { waitForBackendDeploy } from "./wait.ts";
 
 // A deployable project: a package.json project whose build writes a static
-// site, optionally with a Convex backend in `convex/`.
+// site, optionally with a backend. Where the backend lives follows the space:
+// `convex/` for a space on Convex, `backend/` for a space whose backend the
+// platform hosts itself.
 
 const defaultDistDir = "dist";
 const defaultBuildCommand = "bun run build";
@@ -21,9 +27,11 @@ export interface ProjectInfo {
     /** `null` skips the build; the site must then already be in `distDir`. */
     buildCommand: string | null;
     distDir: string;
-    /** The project has a `convex/` directory, which is deployed before the build. */
+    /** The project has a `convex/` directory, which a Convex space deploys before the build. */
     hasBackend: boolean;
     root: string;
+    /** The backend in `backend/`, which a space with a platform-hosted backend deploys. */
+    spaceBackend: SpaceBackendSource | null;
 }
 
 async function pathIs(path: string, kind: "directory" | "file"): Promise<boolean> {
@@ -97,6 +105,7 @@ export async function inspectProject(
         distDir,
         hasBackend: await pathIs(join(root, "convex"), "directory"),
         root,
+        spaceBackend: await findSpaceBackend(root),
     };
 }
 
@@ -188,6 +197,103 @@ export async function deployProjectLocally(
                 throw new CliUserError("errors.spaces.buildFailed", 1, { exit: describeExit(built) });
             }
         }
+    }
+    finally {
+        await runtime.dispose();
+    }
+}
+
+// The local half of a project deploy to a space with a platform-hosted
+// backend. Everything that can fail on this machine comes first (install,
+// bundle the backend and read its schema, build the front end), so a broken
+// project never touches the space. The backend then goes live before the site
+// is uploaded, and the deploy is waited for: a backend that was refused must
+// not leave a new front end talking to the old backend.
+export async function deploySpaceProjectLocally(
+    options: {
+        client: Parameters<typeof deployBackendBundle>[0];
+        /** Schema changes that break deployed code and are intended. */
+        confirm: readonly string[];
+        install: boolean;
+        note: (message: string) => void;
+        project: ProjectInfo;
+        space: Space;
+        timeoutMs: number;
+    },
+    context: ProjectDeployContext,
+): Promise<BackendDeploy | null> {
+    const { client, note, project, space } = options;
+    const t = context.translator.t.bind(context.translator);
+    const runtime = await createEmbeddedRuntime(context.execPath);
+
+    try {
+        const run = { cwd: project.root, output: context.stderr };
+        const env = createRuntimeEnv({ base: context.env, projectRoot: project.root, shimDir: runtime.shimDir });
+
+        if (options.install) {
+            note(t("spaces.deploy.installing", { path: project.root }));
+
+            const installed = await runProcess(runtime.execPath, ["install"], { ...run, env });
+
+            if (installed.exitCode !== 0) {
+                throw new CliUserError("errors.spaces.installFailed", 1, { exit: describeExit(installed) });
+            }
+        }
+
+        let bundle: Awaited<ReturnType<typeof buildBackendBundle>> | undefined;
+
+        if (project.spaceBackend === null) {
+            note(t("spaces.deploy.noSpaceBackend"));
+        }
+        else {
+            note(t("spaces.deploy.bundlingBackend"));
+            bundle = await buildBackendBundle({
+                env,
+                output: context.stderr,
+                projectRoot: project.root,
+                runtimeExecPath: runtime.execPath,
+                source: project.spaceBackend,
+            });
+        }
+
+        if (project.buildCommand !== null) {
+            note(t("spaces.deploy.building", { command: project.buildCommand }));
+
+            const built = await runProcess(project.buildCommand, [], { ...run, env, shell: true });
+
+            if (built.exitCode !== 0) {
+                throw new CliUserError("errors.spaces.buildFailed", 1, { exit: describeExit(built) });
+            }
+        }
+
+        if (bundle === undefined) {
+            return null;
+        }
+
+        note(t("spaces.deploy.uploadingBackend", {
+            module: formatFileSize(bundle.moduleBytes),
+            size: formatFileSize(bundle.zip.byteLength),
+            space: space.slug,
+        }));
+
+        const queued = await deployBackendBundle(client, space.id, bundle.zip, options.confirm);
+
+        note(t("spaces.deploy.backendStatus", { id: queued.id, status: queued.status }));
+
+        const finished = await waitForBackendDeploy(client, space.id, queued, {
+            onUpdate: update => note(t("spaces.deploy.backendStatus", { id: update.id, status: update.status })),
+            timeoutMs: options.timeoutMs,
+        });
+
+        if (!isLiveBackendDeploy(finished)) {
+            throw new CliUserError("errors.spaces.backendDeployEnded", 1, {
+                id: finished.id,
+                message: finished.error ?? "-",
+                status: finished.status,
+            }, { details: { backendDeployId: finished.id, backendDeployStatus: finished.status } });
+        }
+
+        return finished;
     }
     finally {
         await runtime.dispose();
