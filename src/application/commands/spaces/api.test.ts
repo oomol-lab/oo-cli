@@ -354,6 +354,34 @@ describe("spaces site upload", () => {
         expect(unavailable.sleeps).toEqual([]);
     });
 
+    test("shows the limit of the space when the service refuses the declared size", async () => {
+        const message = "Artifact exceeds the size limit of 104857600 bytes";
+        const site = createSite({
+            [declarePath]: () => Response.json({ code: "artifact_too_large", message }, { status: 413 }),
+        });
+        const error = await expectCliUserError(uploadSite(site.client, "blog", zip));
+
+        expect(error.key).toBe("errors.spaces.archiveTooLarge");
+        expect(error.params).toEqual({ message });
+        expect(error.exitCode).toBe(1);
+        // Nothing is uploaded once the declaration is refused.
+        expect(site.calls.map(call => call.route)).toEqual([declarePath]);
+    });
+
+    test("shows the reason of the service when the inspection refuses the archive", async () => {
+        const message = "The site has 6001 files, the limit is 6000";
+        const site = createSite({
+            [declarePath]: () => Response.json(declared, { status: 201 }),
+            [storagePath]: () => new Response(null, { status: 200 }),
+            [commitPath]: () => Response.json({ code: "artifact_invalid", message }, { status: 422 }),
+        });
+        const error = await expectCliUserError(uploadSite(site.client, "blog", zip));
+
+        expect(error.key).toBe("errors.spaces.archiveInvalid");
+        expect(error.params).toEqual({ message });
+        expect(site.calls.filter(call => call.route === commitPath)).toHaveLength(1);
+    });
+
     test("retries a commit, which returns the job of an upload that is already committed", async () => {
         const answers = [
             () => new Response("upstream down", { status: 502 }),
@@ -497,6 +525,19 @@ describe("spaces backend deploy", () => {
         expect((await expectCliUserError(deployBackendBundle(site.client, "blog", zip, []))).key).toBe("errors.spaces.requestFailed");
         expect(site.calls.map(call => call.route)).toEqual([backendDeclarePath]);
         expect(site.sleeps).toEqual([]);
+    });
+
+    test("shows the limit of the space when the service refuses the declared size", async () => {
+        const message = "The backend bundle is 9437184 bytes, the limit is 8388608 bytes";
+        const site = createSite({
+            [backendDeclarePath]: () => Response.json({ code: "backend_bundle_invalid", message }, { status: 422 }),
+        });
+        const error = await expectCliUserError(deployBackendBundle(site.client, "blog", zip, []));
+
+        expect(error.key).toBe("errors.spaces.backendBundleInvalid");
+        expect(error.params).toEqual({ message });
+        expect(error.exitCode).toBe(1);
+        expect(site.calls.map(call => call.route)).toEqual([backendDeclarePath]);
     });
 
     test("retries a commit, which returns the deploy that is already committed", async () => {

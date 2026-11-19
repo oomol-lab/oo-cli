@@ -6,10 +6,14 @@ import { CliUserError } from "../../contracts/cli.ts";
 import { isPathMissingError } from "../../shared/fs-errors.ts";
 import { formatFileSize } from "../shared/file-size.ts";
 
-// Packs a built static site for upload. The limits match the service's own,
-// so an oversized site is refused before anything is uploaded.
-const maxZipBytes = 52_428_800;
-const maxFiles = 5_000;
+// Packs a built static site for upload. These are the platform's ceilings,
+// not the limit of a space: the size and the file count a space accepts are
+// set by the service and can differ between spaces, so the service decides
+// (it refuses with `artifact_too_large` or `artifact_invalid` and names the
+// limit that applies). The ceilings only stop a site no space could take
+// before it is packed and held in memory.
+const maxZipBytes = 536_870_912;
+const maxFiles = 20_000;
 const ignoredFileNames = new Set([".DS_Store", "Thumbs.db", "desktop.ini"]);
 const ignoredDirectoryNames = new Set([".git"]);
 
@@ -102,7 +106,13 @@ export async function packDirectory(
         archive.outputStream.on("end", () => {
             try {
                 assertZipSize(byteLength, maxBytes);
-                resolve(new Uint8Array(Buffer.concat(chunks)));
+
+                // A view of the joined bytes, not a second copy: at the
+                // ceiling the archive is hundreds of megabytes.
+                const joined = Buffer.concat(chunks);
+
+                chunks = [];
+                resolve(new Uint8Array(joined.buffer, joined.byteOffset, joined.byteLength));
             }
             catch (error) {
                 reject(error);

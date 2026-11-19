@@ -1,4 +1,5 @@
 import { Buffer } from "node:buffer";
+import { randomBytes } from "node:crypto";
 import { mkdir, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
@@ -68,6 +69,24 @@ describe("spaces site packing", () => {
 
         expect(missing.key).toBe("errors.spaces.zipNotFound");
         expect(missing.exitCode).toBe(2);
+    });
+
+    test("accepts a site above the default limit of a space, which the service judges", async () => {
+        const dir = await createSite();
+
+        // Incompressible, so the zip stays above 50 MiB: the size the CLI
+        // used to refuse on its own.
+        await writeFile(join(dir, "assets", "large.bin"), randomBytes(53 * 1024 * 1024));
+
+        const { fileCount, zip } = await packDirectory(dir);
+        const zipPath = join(dir, "site.zip");
+
+        expect(fileCount).toBe(4);
+        expect(zip.byteLength).toBeGreaterThan(52_428_800);
+
+        await writeFile(zipPath, zip);
+
+        expect((await readZipFile(zipPath)).byteLength).toBe(zip.byteLength);
     });
 
     test("refuses a site or a zip above the size limit", async () => {

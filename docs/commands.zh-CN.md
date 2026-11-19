@@ -2511,7 +2511,7 @@ Space 按月从团队余额扣费: `create` 立即扣第一个周期, 团队无�
 
 为另一种 Space 写的后端会在安装任何东西之前报告: 只有 `convex/` 的项目部署到后端由平台托管的 Space 时以 `spaces.backendNeedsMigration` 失败, 只有 `backend/` 的项目部署到使用 Convex 的 Space 时以 `spaces.backendNeedsConvex` 失败。
 
-`deploy <space> --dir <directory>` 或 `--zip <file>` 上传已经构建好的站点, 不改动后端; 两者不能同时使用, 也不能与 `--project`、`--build`、`--dist`、`--url-env`、`--confirm-schema`、`--no-install` 同时使用 (退出码 `2`)。站点根目录需要有 `index.html`, 最多 5000 个文件、打包后 50 MiB, 且不能包含符号链接。
+`deploy <space> --dir <directory>` 或 `--zip <file>` 上传已经构建好的站点, 不改动后端; 两者不能同时使用, 也不能与 `--project`、`--build`、`--dist`、`--url-env`、`--confirm-schema`、`--no-install` 同时使用 (退出码 `2`)。站点根目录需要有 `index.html`, 且不能包含符号链接。一个 space 接受多少个文件、打包后多大由 Spaces 服务决定, 超出时服务会拒绝并给出适用的上限; CLI 自身只拒绝超过 20000 个文件或打包后超过 512 MiB 的站点 (任何 space 都不接受)。
 
 两种方式下, 打包后的站点都直接传到对象存储, 不经过 Spaces 服务, 所以宿主机除了 Spaces 服务之外还要能访问对象存储。发往对象存储的请求不带账号凭据也不带团队信息, 上传地址永不输出, 也不写入日志。向对象存储的传输中断时会重试。仍然失败时命令以 `spaces.uploadFailed` (对象存储返回了 HTTP 错误, 见 `error.details.httpStatus`) 或 `spaces.uploadError` (无法连接对象存储) 结束; 站点不会被部署, 当前版本保持在线, 而项目部署已经推送的后端不会回退。已开始但没有完成的上传会在一小时内计入该 Space 的额度; 这样的上传太多时, 部署会被 `deploy_uploads_pending` 拒绝。平台托管的后端走同一条路, 规则相同; 没有完成的后端上传太多时以 `backend_uploads_pending` 拒绝。
 
