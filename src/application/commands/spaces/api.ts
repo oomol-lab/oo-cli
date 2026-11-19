@@ -174,8 +174,10 @@ const serviceErrorSchema = z.looseObject({
 
 const listPageLimit = "100";
 const defaultTimeoutMs = 60_000;
-// A 50 MB site still uploads within this budget on an 85 KB/s uplink, and the
-// budget ends before the upload URL does (15 minutes after it was issued).
+// A 50 MiB site still uploads within this budget on an 85 KB/s uplink, and the
+// budget ends before the upload URL does (15 minutes after it was issued). A
+// space whose limit was raised takes larger sites, which need a faster uplink
+// to fit: the budget cannot outlast the URL.
 const uploadTimeoutMs = 10 * 60_000;
 // The service inspects the uploaded archive before it answers, which takes up
 // to about a minute; the budget leaves room for the retries of the fetcher.
