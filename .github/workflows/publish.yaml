@@ -202,6 +202,17 @@ jobs:
       tag: ${{ needs.compute-version.outputs.tag_name }}
     secrets: inherit
 
+  sync-bundled-skills-repo:
+    needs:
+      - compute-version
+      - publish
+    permissions:
+      contents: read
+    uses: ./.github/workflows/sync-bundled-skills-repo.yaml
+    with:
+      tag: ${{ needs.compute-version.outputs.tag_name }}
+    secrets: inherit
+
   refresh-cdn-cache:
     needs:
       - upload-release-binaries-to-oss
