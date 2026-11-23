@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Git tag in oo-cli to sync (for example v1.12.1). Leave empty to sync from the current branch.
+        description: Release tag in oo-cli to sync (must include contrib/ci/sync-bundled-skills-repo.ts). Leave empty to sync from the current branch.
         required: false
         type: string
         default: ""
@@ -26,6 +26,7 @@ permissions:
 concurrency:
   group: sync-bundled-skills-repo
   cancel-in-progress: false
+  queue: max
 
 jobs:
   sync:
