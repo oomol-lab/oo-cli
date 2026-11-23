@@ -1,0 +1,103 @@
+name: Sync Bundled Skills Repo
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Git tag in oo-cli whose bundled skills should be synced.
+        required: false
+        type: string
+    secrets:
+      OOMOL_LAB_GITHUB_APP_CLIENT_ID:
+        required: true
+      OOMOL_LAB_GITHUB_APP_PRIVATE_KEY:
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag in oo-cli to sync (must include contrib/ci/sync-bundled-skills-repo.ts). Leave empty to sync from the current branch.
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-bundled-skills-repo
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  sync:
+    name: Sync to oomol-lab/oo-cli-skills
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout oo-cli
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.tag != '' && format('refs/tags/{0}', inputs.tag) || github.sha }}
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version-file: .bun-version
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Mint target repository token
+        id: app_token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.OOMOL_LAB_GITHUB_APP_CLIENT_ID }}
+          private-key: ${{ secrets.OOMOL_LAB_GITHUB_APP_PRIVATE_KEY }}
+          owner: oomol-lab
+          repositories: oo-cli-skills
+          permission-contents: write
+
+      - name: Checkout oomol-lab/oo-cli-skills
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: oomol-lab/oo-cli-skills
+          ref: main
+          path: .sync-target
+          token: ${{ steps.app_token.outputs.token }}
+          fetch-depth: 0
+
+      - name: Export universal bundled skills
+        id: export_skills
+        env:
+          SYNC_TAG: ${{ inputs.tag }}
+        run: bun run contrib/ci/sync-bundled-skills-repo.ts --out-dir .sync-target/skills --tag "${SYNC_TAG}"
+
+      - name: Commit and push synced skills
+        working-directory: .sync-target
+        env:
+          COMMIT_MESSAGE: ${{ steps.export_skills.outputs.commit_message }}
+          RELEASE_TAG: ${{ steps.export_skills.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "oomol-lab-app[bot]"
+          git config user.email "292663255+oomol-lab-app[bot]@users.noreply.github.com"
+
+          git add -A skills
+
+          if ! git diff --cached --quiet; then
+            git commit -m "${COMMIT_MESSAGE}"
+            git push origin HEAD:main
+          else
+            echo "No bundled skill changes to commit."
+          fi
+
+          if [ -n "${RELEASE_TAG}" ]; then
+            if git rev-parse -q --verify "refs/tags/${RELEASE_TAG}" >/dev/null; then
+              echo "Tag ${RELEASE_TAG} already exists; skipping tag creation."
+            else
+              git tag -a "${RELEASE_TAG}" -m "${COMMIT_MESSAGE}"
+              git push origin "refs/tags/${RELEASE_TAG}"
+            fi
+          fi
