@@ -5,7 +5,7 @@
     "": {
       "name": "oo",
       "dependencies": {
-        "@oomol-lab/open-flow": "0.1.4",
+        "@oomol-lab/open-flow": "0.2.0",
         "@vercel/detect-agent": "^1.2.7",
         "@wopjs/cast": "^0.1.16",
         "agentic-markdown": "^0.0.5",
@@ -122,7 +122,7 @@
 
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.2.6", "", { "dependencies": { "@tybys/wasm-util": "^0.10.3" }, "peerDependencies": { "@emnapi/core": "^1.7.1 || 2.0.0-beta.2", "@emnapi/runtime": "^1.7.1 || 2.0.0-beta.2" } }, "sha512-mRyDmEw9/fCDXCGfL1sbgIw/GUK0PVxRW4YwgPN61F3LQ+fSyoBFarJVzgGyhF6kRzEQZ0FejDqm4WLXSeqQmw=="],
 
-    "@oomol-lab/open-flow": ["@oomol-lab/open-flow@0.1.4", "", { "peerDependencies": { "effect": "4.0.0-rc.112", "playwright-core": "^1.64.1", "react": "^18.3.1 || ^19.0.0", "react-dom": "^18.3.1 || ^19.0.0", "zod": "^4.6.5" }, "optionalPeers": ["playwright-core"] }, "sha512-OLfAgW+/FG+8jBpq1o8MIwnZ5hTFt6LVcKCjBmywj7m0csDJCGC7qO8SAPn0fEeD7X362d8w2564GOr4qb8Gag=="],
+    "@oomol-lab/open-flow": ["@oomol-lab/open-flow@0.2.0", "", { "peerDependencies": { "effect": "4.0.0-rc.112", "playwright-core": "^1.64.1", "react": "^18.3.1 || ^19.0.0", "react-dom": "^18.3.1 || ^19.0.0", "zod": "^4.6.5" }, "optionalPeers": ["playwright-core"] }, "sha512-S7BDJGYaX6WXAlXtFA4wSwIsUxPbtyaca4sbtuUYsyhzIqVu8+EVPx3nCuPI/BxM5tCemZdRo86+0s3bpnr8cA=="],
 
     "@ota-meshi/ast-token-store": ["@ota-meshi/ast-token-store@0.3.0", "", {}, "sha512-XRO0zi2NIUKq2lUk3T1ecFSld1fMWRKE6naRFGkgkdeosx7IslyUKNv5Dcb5PJTja9tHJoFu0v/7yEpAkrkrTg=="],
 
